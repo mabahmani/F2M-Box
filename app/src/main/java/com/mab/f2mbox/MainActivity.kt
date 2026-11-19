@@ -5,27 +5,32 @@ package com.mab.f2mbox
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
-import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.NonInteractiveSurfaceDefaults
+import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
-import androidx.tv.material3.Text
+import com.mab.f2mbox.data.F2MRepository
+import com.mab.f2mbox.ui.connect.ConnectState
+import com.mab.f2mbox.ui.connect.SplashScreen
+import com.mab.f2mbox.ui.connect.describe
 import com.mab.f2mbox.ui.theme.F2MBoxTheme
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val repository = F2MRepository()
         setContent {
             F2MBoxTheme {
                 Surface(
@@ -35,38 +40,44 @@ class MainActivity : ComponentActivity() {
                         containerColor = MaterialTheme.colorScheme.background
                     )
                 ) {
-                    BrandSplash()
+                    ConnectGate(repository = repository)
                 }
             }
         }
     }
 }
 
+/**
+ * Gates the app on the health check, surfaced through the splash screen:
+ * auto-retries a few times (free-tier servers can be asleep), then shows
+ * a retry action if the server never comes up.
+ */
 @Composable
-fun BrandSplash() {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = stringResource(R.string.app_name),
-            style = MaterialTheme.typography.displayLarge,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(
-            text = stringResource(R.string.tagline),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp)
-        )
+private fun ConnectGate(repository: F2MRepository) {
+    var state by remember { mutableStateOf<ConnectState>(ConnectState.Connecting) }
+    var attempt by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(attempt) {
+        state = ConnectState.Connecting
+        var lastError: Throwable? = null
+        for (i in 0 until MAX_AUTO_RETRIES) {
+            if (i > 0) delay(RETRY_DELAY_MS)
+            repository.health().fold(
+                onSuccess = {
+                    state = ConnectState.Ready
+                    return@LaunchedEffect
+                },
+                onFailure = { lastError = it }
+            )
+        }
+        state = ConnectState.Failed(describe(lastError))
     }
+
+    SplashScreen(
+        state = state,
+        onRetry = { attempt++ }
+    )
 }
 
-@Preview(showBackground = true, widthDp = 960, heightDp = 540)
-@Composable
-fun BrandSplashPreview() {
-    F2MBoxTheme {
-        BrandSplash()
-    }
-}
+private const val MAX_AUTO_RETRIES = 3
+private const val RETRY_DELAY_MS = 2_500L
