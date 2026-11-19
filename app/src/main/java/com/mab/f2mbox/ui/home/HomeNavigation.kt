@@ -60,6 +60,7 @@ fun NavigationBlock(
     onSearchQueryChange: (String) -> Unit,
     onOpenUrl: (String) -> Unit,
     onSearch: (String) -> Unit,
+    onClearCacheAndRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (navigation.sections.isEmpty()) return
@@ -100,6 +101,7 @@ fun NavigationBlock(
             query = searchQuery,
             onQueryChange = onSearchQueryChange,
             onSubmit = onSearch,
+            onClearCacheAndRefresh = onClearCacheAndRefresh,
             modifier = Modifier
                 .padding(top = 16.dp)
                 .padding(horizontal = ContentMargin)

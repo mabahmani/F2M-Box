@@ -79,7 +79,13 @@ object Api {
  * for the lifetime of the application process (until a new process launch).
  */
 private class InMemoryCacheInterceptor : okhttp3.Interceptor {
-    private val cache = ConcurrentHashMap<String, CachedResponse>()
+    companion object {
+        private val cache = ConcurrentHashMap<String, CachedResponse>()
+
+        fun clear() {
+            cache.clear()
+        }
+    }
 
     private class CachedResponse(
         val code: Int,
@@ -127,4 +133,9 @@ private class InMemoryCacheInterceptor : okhttp3.Interceptor {
         }
         return response
     }
+}
+
+/** Clears the in-memory Retrofit/OkHttp response cache. */
+fun clearNetworkCache() {
+    InMemoryCacheInterceptor.clear()
 }

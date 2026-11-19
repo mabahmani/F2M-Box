@@ -56,6 +56,7 @@ fun SearchField(
     query: String,
     onQueryChange: (String) -> Unit,
     onSubmit: (String) -> Unit,
+    onClearCacheAndRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var isEditing by remember { mutableStateOf(false) }
@@ -81,6 +82,12 @@ fun SearchField(
                     text = stringResource(R.string.search),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
+                )
+            }
+            Button(onClick = onClearCacheAndRefresh) {
+                Text(
+                    text = stringResource(R.string.clear_cache_refresh),
+                    textAlign = TextAlign.Center
                 )
             }
             OutlinedTextField(

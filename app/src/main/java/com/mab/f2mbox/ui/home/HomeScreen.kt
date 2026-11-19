@@ -32,6 +32,7 @@ import androidx.tv.material3.Text
 import com.mab.f2mbox.R
 import com.mab.f2mbox.data.F2MRepository
 import com.mab.f2mbox.data.remote.HomeData
+import com.mab.f2mbox.data.remote.clearNetworkCache
 import com.mab.f2mbox.ui.connect.LoadingDots
 import com.mab.f2mbox.ui.connect.describe
 import kotlinx.coroutines.delay
@@ -101,6 +102,7 @@ fun HomeScreen(
             onSearchQueryChange = onSearchQueryChange,
             onOpenUrl = onOpenUrl,
             onSearch = onSearch,
+            onRefresh = { attempt++ },
             modifier = modifier
         )
     }
@@ -118,6 +120,7 @@ private fun HomeContent(
     onSearchQueryChange: (String) -> Unit,
     onOpenUrl: (String) -> Unit,
     onSearch: (String) -> Unit,
+    onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
@@ -155,7 +158,11 @@ private fun HomeContent(
                         searchQuery = searchQuery,
                         onSearchQueryChange = onSearchQueryChange,
                         onOpenUrl = onOpenUrl,
-                        onSearch = onSearch
+                        onSearch = onSearch,
+                        onClearCacheAndRefresh = {
+                            clearNetworkCache()
+                            onRefresh()
+                        }
                     )
                 }
             }

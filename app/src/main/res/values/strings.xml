@@ -17,6 +17,7 @@
 
     <!-- Search -->
     <string name="search">Search</string>
+    <string name="clear_cache_refresh">Clear cache &amp; refresh&#x200E;</string>
     <string name="search_hint">Movie or series name…&#x200E;</string>
     <string name="search_hint_detail">Press OK on the field to open the keyboard, then submit with the Search button.&#x200E;</string>
     <string name="no_results">No results found</string>
