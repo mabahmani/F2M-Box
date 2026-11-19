@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Gradle files
 .gradle/
 build/
@@ -44,3 +45,15 @@ google-services.json
 
 # Android Profiling
 *.hprof
+=======
+*.iml
+.gradle
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+.kotlin
+local.properties
+>>>>>>> ed12c1c (Ignore the whole .idea directory)
