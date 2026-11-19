@@ -1,10 +1,12 @@
 package com.mab.f2mbox.data.remote
 
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.ResponseBody.Companion.toResponseBody
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 
@@ -59,6 +61,7 @@ object Api {
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(150, TimeUnit.SECONDS)
         .callTimeout(180, TimeUnit.SECONDS)
+        .addInterceptor(InMemoryCacheInterceptor())
         .build()
 
     val client: F2MApi by lazy {
@@ -68,5 +71,60 @@ object Api {
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
             .create(F2MApi::class.java)
+    }
+}
+
+/**
+ * An OkHttp interceptor that caches successful GET responses in-memory
+ * for the lifetime of the application process (until a new process launch).
+ */
+private class InMemoryCacheInterceptor : okhttp3.Interceptor {
+    private val cache = ConcurrentHashMap<String, CachedResponse>()
+
+    private class CachedResponse(
+        val code: Int,
+        val message: String,
+        val bodyBytes: ByteArray,
+        val headers: okhttp3.Headers
+    )
+
+    override fun intercept(chain: okhttp3.Interceptor.Chain): okhttp3.Response {
+        val request = chain.request()
+        val key = request.url.toString()
+
+        if (request.method == "GET") {
+            cache[key]?.let { cached ->
+                val body = cached.bodyBytes.toResponseBody(
+                    cached.headers.get("Content-Type")?.toMediaType()
+                )
+                return okhttp3.Response.Builder()
+                    .request(request)
+                    .protocol(okhttp3.Protocol.HTTP_1_1)
+                    .code(cached.code)
+                    .message(cached.message)
+                    .headers(cached.headers)
+                    .body(body)
+                    .build()
+            }
+        }
+
+        val response = chain.proceed(request)
+        if (request.method == "GET" && response.isSuccessful) {
+            val bodyBytes = response.body?.bytes() ?: byteArrayOf()
+            val contentType = response.body?.contentType()
+            val newBody = bodyBytes.toResponseBody(contentType)
+
+            cache[key] = CachedResponse(
+                code = response.code,
+                message = response.message,
+                bodyBytes = bodyBytes,
+                headers = response.headers
+            )
+
+            return response.newBuilder()
+                .body(newBody)
+                .build()
+        }
+        return response
     }
 }
