@@ -54,7 +54,36 @@ sealed interface ScrapeResult {
      * downloads carry seasons of episodes instead of per-file variants).
      */
     data class Movie(val data: MovieData) : ScrapeResult
+
+    /** `type: "person"` — an actor's or director's archive of titles. */
+    data class Person(val data: PersonData) : ScrapeResult
 }
+
+/**
+ * Payload of a `type: "person"` scrape: the person's profile plus every
+ * title they worked on, one page at a time. Items reuse [SectionItem], the
+ * same shape listing pages carry.
+ */
+@Serializable
+data class PersonData(
+    val title: String? = null,
+    val description: String? = null,
+    val url: String? = null,
+    @SerialName("canonical_url") val canonicalUrl: String? = null,
+    val person: PersonProfile? = null,
+    val items: List<SectionItem> = emptyList(),
+    val pagination: Pagination = Pagination(),
+)
+
+/** The person a [PersonData] archive page is about. */
+@Serializable
+data class PersonProfile(
+    /** Role kind, e.g. "actor" or "director". */
+    val kind: String? = null,
+    val name: String? = null,
+    val photo: ImageRef? = null,
+    val slug: String? = null,
+)
 
 /**
  * Payload of a `type: "movie"` scrape: the intro block (poster, synopsis,

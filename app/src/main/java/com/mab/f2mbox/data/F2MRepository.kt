@@ -31,8 +31,9 @@ class F2MRepository(private val api: F2MApi = com.mab.f2mbox.data.remote.Api.cli
     /**
      * Scrapes any url and decodes the payload by the envelope's type:
      * "list" → [ScrapeResult.Listing], "movie"/"series" → [ScrapeResult.Movie]
-     * (series pages share the movie payload shape). Other types are reported
-     * as a failure until they are modeled.
+     * (series pages share the movie payload shape), "person" →
+     * [ScrapeResult.Person]. Other types are reported as a failure until
+     * they are modeled.
      */
     suspend fun scrape(url: String): Result<ScrapeResult> = runCatching {
         val envelope = api.scrape(url)
@@ -41,6 +42,7 @@ class F2MRepository(private val api: F2MApi = com.mab.f2mbox.data.remote.Api.cli
         when (envelope.type) {
             "list" -> ScrapeResult.Listing(Api.json.decodeFromJsonElement(data))
             "movie", "series" -> ScrapeResult.Movie(Api.json.decodeFromJsonElement(data))
+            "person" -> ScrapeResult.Person(Api.json.decodeFromJsonElement(data))
             else -> error("Unsupported scrape response type: ${envelope.type}")
         }
     }

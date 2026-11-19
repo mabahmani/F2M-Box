@@ -45,6 +45,7 @@ import com.mab.f2mbox.data.remote.ScrapeResult
 import com.mab.f2mbox.ui.connect.describe
 import com.mab.f2mbox.ui.detail.MovieDetail
 import com.mab.f2mbox.ui.home.PosterCard
+import com.mab.f2mbox.ui.person.PersonScreen
 import kotlinx.coroutines.delay
 
 private val ContentMargin = 48.dp
@@ -153,6 +154,16 @@ fun ListScreen(
                 fetchPage = fetchPage,
                 onOpenUrl = onOpenUrl,
                 onNavigateBack = onNavigateBack,
+                modifier = modifier
+            )
+            is ScrapeResult.Person -> PersonScreen(
+                data = result.data,
+                onNavigateBack = onNavigateBack,
+                onOpenUrl = onOpenUrl,
+                hasPrevious = pages.size > 1,
+                onPrevious = { pages = pages.dropLast(1) },
+                hasNext = result.data.pagination.next != null,
+                onNext = { result.data.pagination.next?.let { pages = pages + it } },
                 modifier = modifier
             )
         }
@@ -281,7 +292,7 @@ private fun ListHeader(
 
 /** Centered previous/next buttons; each is disabled when unavailable. */
 @Composable
-private fun PagerControls(
+internal fun PagerControls(
     hasPrevious: Boolean,
     hasNext: Boolean,
     onPrevious: () -> Unit,

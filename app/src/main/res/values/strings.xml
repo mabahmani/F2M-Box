@@ -51,6 +51,12 @@
     <string name="voice_actors">Voice actors</string>
     <string name="downloads">Download &amp; play</string>
 
+    <!-- Person -->
+    <string name="person_kind_actor">Actor</string>
+    <string name="person_kind_director">Director</string>
+    <string name="person_kind_writer">Writer</string>
+    <string name="person_kind_creator">Creator</string>
+
     <!-- Errors -->
     <string name="error_no_internet">No internet connection. Check your network and try again.&#x200E;</string>
     <string name="error_timeout">The server took too long to respond. It may be waking up — try again.&#x200E;</string>
