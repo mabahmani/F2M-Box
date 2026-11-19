@@ -31,7 +31,9 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.mab.f2mbox.R
 import com.mab.f2mbox.data.F2MRepository
+import com.mab.f2mbox.data.WatchedManager
 import com.mab.f2mbox.data.remote.HomeData
+import com.mab.f2mbox.data.remote.HomeSection
 import com.mab.f2mbox.data.remote.clearNetworkCache
 import com.mab.f2mbox.ui.connect.LoadingDots
 import com.mab.f2mbox.ui.connect.describe
@@ -55,6 +57,17 @@ fun HomeScreen(
 ) {
     var state by remember { mutableStateOf<HomeUiState>(HomeUiState.Loading) }
     var attempt by remember { mutableIntStateOf(0) }
+    val context = LocalContext.current
+    val watchedItems = remember(attempt) { WatchedManager.getWatchedItems(context) }
+    val watchedSection = if (watchedItems.isNotEmpty()) {
+        HomeSection(
+            id = "continue-watching",
+            title = "ادامه تماشا",
+            items = watchedItems.map { it.toSectionItem() }
+        )
+    } else {
+        null
+    }
 
     LaunchedEffect(attempt) {
         state = HomeUiState.Loading
@@ -76,7 +89,7 @@ fun HomeScreen(
             modifier = modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            val context = LocalContext.current
+            val contextError = LocalContext.current
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = stringResource(current.messageRes),
@@ -86,7 +99,7 @@ fun HomeScreen(
                 )
                 Spacer(Modifier.height(20.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Button(onClick = { (context as? android.app.Activity)?.finish() }) {
+                    Button(onClick = { (contextError as? android.app.Activity)?.finish() }) {
                         Text(stringResource(R.string.back))
                     }
                     Button(onClick = { attempt++ }) {
@@ -98,6 +111,7 @@ fun HomeScreen(
 
         is HomeUiState.Ready -> HomeContent(
             home = current.home,
+            watchedSection = watchedSection,
             searchQuery = searchQuery,
             onSearchQueryChange = onSearchQueryChange,
             onOpenUrl = onOpenUrl,
@@ -116,6 +130,7 @@ fun HomeScreen(
 @Composable
 private fun HomeContent(
     home: HomeData,
+    watchedSection: HomeSection?,
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     onOpenUrl: (String) -> Unit,
@@ -164,6 +179,11 @@ private fun HomeContent(
                             onRefresh()
                         }
                     )
+                }
+            }
+            watchedSection?.let { section ->
+                item(key = section.id) {
+                    SectionRow(section = section, onOpenUrl = onOpenUrl)
                 }
             }
             home.sections.forEach { section ->

@@ -60,6 +60,9 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import androidx.compose.ui.platform.LocalContext
+import com.mab.f2mbox.data.WatchedItem
+import com.mab.f2mbox.data.WatchedManager
 import com.mab.f2mbox.R
 import com.mab.f2mbox.data.remote.Comments
 import com.mab.f2mbox.data.remote.Comment
@@ -121,6 +124,18 @@ fun MovieDetail(
     modifier: Modifier = Modifier
 ) {
     val intro = data.intro ?: return
+    val context = LocalContext.current
+    val handlePlay: (String, String) -> Unit = { playUrl, playTitle ->
+        WatchedManager.save(
+            context = context,
+            item = WatchedItem(
+                title = intro.title ?: data.title ?: playTitle,
+                url = data.url ?: data.canonicalUrl.orEmpty().ifEmpty { playUrl },
+                posterUrl = intro.poster?.url
+            )
+        )
+        onPlay(playUrl, playTitle)
+    }
 
     // Grabs focus for the back button once the header attaches, the same
     // way the hero does on home.
@@ -252,7 +267,7 @@ fun MovieDetail(
                         TrailerCard(
                             trailer = trailer,
                             title = intro.title.orEmpty(),
-                            onPlay = onPlay
+                            onPlay = handlePlay
                         )
                     }
                 } else {
@@ -418,7 +433,7 @@ fun MovieDetail(
                             QualityCard(
                                 quality = variant.qualities[index],
                                 title = intro.title.orEmpty(),
-                                onPlay = onPlay
+                                onPlay = handlePlay
                             )
                         }
                     }
@@ -496,7 +511,7 @@ fun MovieDetail(
                                         EpisodeCard(
                                             episode = quality.episodes[index],
                                             title = intro.title.orEmpty(),
-                                            onPlay = onPlay
+                                            onPlay = handlePlay
                                         )
                                     }
                                 }
