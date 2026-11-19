@@ -7,11 +7,11 @@ val BgNavy = Color(0xFF0B0D14)
 val SurfaceNavy = Color(0xFF141726)
 val SurfaceNavyVariant = Color(0xFF1D2133)
 
-// Brand accents — cinematic purple and blue
-val BrandPurple = Color(0xFF8B5CF6)
-val BrandPurpleDeep = Color(0xFF5B21B6)
-val BrandBlue = Color(0xFF3B82F6)
-val BrandBlueDeep = Color(0xFF1E40AF)
+// Brand accents — emerald green and teal
+val BrandPurple = Color(0xFF10B981) // Emerald Green
+val BrandPurpleDeep = Color(0xFF065F46) // Deep Emerald
+val BrandBlue = Color(0xFF14B8A6) // Teal
+val BrandBlueDeep = Color(0xFF115E59) // Deep Teal
 
 // Borders / overlays
 val BorderNavy = Color(0xFF2A2F45)
