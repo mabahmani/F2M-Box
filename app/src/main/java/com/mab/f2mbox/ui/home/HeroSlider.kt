@@ -6,7 +6,7 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,12 +54,14 @@ private const val AUTO_ADVANCE_MS = 6_000L
  * Full-bleed hero slider. Each slide shows the landscape backdrop covering
  * the whole screen with a small vertical poster, the title, rating and year
  * overlaid at the bottom. Auto-advances every few seconds; D-pad left/right
- * moves between slides and resets the timer.
+ * moves between slides and resets the timer; OK opens the slide's url via
+ * [onSlideClick].
  */
 @Composable
 fun HeroSlider(
     items: List<HeroSlide>,
     focusRequester: FocusRequester,
+    onSlideClick: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     if (items.isEmpty()) return
@@ -79,7 +81,9 @@ fun HeroSlider(
         modifier = modifier
             .fillMaxSize()
             .focusRequester(focusRequester)
-            .focusable()
+            // Must sit OUTSIDE focusable/clickable: key events route through
+            // a node's ancestors only, so an interceptor nested deeper than
+            // the focused node never sees them.
             .onPreviewKeyEvent { event ->
                 if (event.type == KeyEventType.KeyDown) {
                     when (event.key) {
@@ -105,6 +109,10 @@ fun HeroSlider(
                     false
                 }
             }
+            // Single focus target: clickable is focusable itself, so OK
+            // opens on the first press (focusable + clickable stacked would
+            // put focus on the outer, click-less node).
+            .clickable { onSlideClick(items[page].url) }
     ) {
         Crossfade(
             targetState = page,

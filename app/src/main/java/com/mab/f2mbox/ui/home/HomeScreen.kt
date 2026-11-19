@@ -35,8 +35,9 @@ import kotlinx.coroutines.delay
 /**
  * Home screen. Loads the homepage payload once and renders the hero slider,
  * the navigation block and the carousels. Tapping any navigation target
- * (section chip, genre chip, see-more card) hands its url to [onOpenUrl];
- * submitting the inline search field calls [onSearch] with the query.
+ * (hero slide, poster card, section chip, genre chip, see-more card) hands
+ * its url to [onOpenUrl]; submitting the inline search field calls
+ * [onSearch] with the query.
  */
 @Composable
 fun HomeScreen(
@@ -134,6 +135,7 @@ private fun HomeContent(
                     HeroSlider(
                         items = home.heroSlider,
                         focusRequester = heroFocus,
+                        onSlideClick = onOpenUrl,
                         modifier = Modifier
                             .fillParentMaxWidth()
                             .height(heroHeight)

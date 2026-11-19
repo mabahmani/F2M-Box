@@ -25,7 +25,24 @@
     <string name="page_format">Page %1$d&#x200E;</string>
     <string name="previous">Previous</string>
     <string name="next">Next</string>
-    <string name="back_to_home">Back to home</string>
+
+    <!-- Detail -->
+    <string name="back">Back</string>
+    <string name="info_release">Release</string>
+    <string name="info_published">Published</string>
+    <string name="info_duration">Duration</string>
+    <string name="info_duration_value">%1$d min&#x200E;</string>
+    <string name="info_countries">Countries</string>
+    <string name="info_language">Language</string>
+    <string name="directors">Directors</string>
+    <string name="cast">Cast</string>
+    <string name="cast_and_crew">Cast &amp; crew</string>
+    <string name="suggested">Suggested</string>
+    <string name="comments">Comments (%1$d)&#x200E;</string>
+    <string name="more_comments">More comments</string>
+    <string name="comments_error">Couldn\'t load comments.&#x200E;</string>
+    <string name="like_count">👍 %1$d</string>
+    <string name="dislike_count">👎 %1$d</string>
 
     <!-- Errors -->
     <string name="error_no_internet">No internet connection. Check your network and try again.&#x200E;</string>

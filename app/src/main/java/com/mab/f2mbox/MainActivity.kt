@@ -11,6 +11,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -23,6 +24,7 @@ import androidx.tv.material3.NonInteractiveSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import com.mab.f2mbox.data.F2MRepository
+import com.mab.f2mbox.data.remote.ScrapeResult
 import com.mab.f2mbox.ui.connect.ConnectState
 import com.mab.f2mbox.ui.connect.SplashScreen
 import com.mab.f2mbox.ui.connect.describe
@@ -60,8 +62,8 @@ class MainActivity : ComponentActivity() {
 private sealed interface Route {
     data object Home : Route
 
-    /** A listing opened from home; the url is its first page. */
-    data class List(val url: String) : Route
+    /** Any scraped page: listing grid or movie detail, decided by the response type. */
+    data class Scrape(val url: String) : Route
 
     /** Results of one search query, rendered like any listing. */
     data class Results(val query: String) : Route
@@ -77,8 +79,19 @@ private fun ConnectGate(repository: F2MRepository) {
     var state by remember { mutableStateOf<ConnectState>(ConnectState.Connecting) }
     var attempt by remember { mutableIntStateOf(0) }
     var route by remember { mutableStateOf<Route>(Route.Home) }
+    // Screens visited before the current one, for the Back key. Home is the
+    // root and never sits on the stack.
+    val backStack = remember { mutableStateListOf<Route>() }
     // Hoisted so returning from results keeps the typed query.
     var searchQuery by remember { mutableStateOf("") }
+
+    val navigate: (Route) -> Unit = { target ->
+        backStack.add(route)
+        route = target
+    }
+    val goBack: () -> Unit = {
+        route = backStack.removeLastOrNull() ?: Route.Home
+    }
 
     LaunchedEffect(attempt) {
         state = ConnectState.Connecting
@@ -102,20 +115,23 @@ private fun ConnectGate(repository: F2MRepository) {
                 repository = repository,
                 searchQuery = searchQuery,
                 onSearchQueryChange = { searchQuery = it },
-                onOpenUrl = { route = Route.List(it) },
-                onSearch = { route = Route.Results(it) }
+                onOpenUrl = { navigate(Route.Scrape(it)) },
+                onSearch = { navigate(Route.Results(it)) }
             )
-            is Route.List -> ListScreen(
+            is Route.Scrape -> ListScreen(
                 routeKey = current.url,
                 fetchPage = { pageUrl -> repository.scrape(pageUrl ?: current.url) },
-                onNavigateBack = { route = Route.Home }
+                onNavigateBack = goBack,
+                onOpenUrl = { navigate(Route.Scrape(it)) }
             )
             is Route.Results -> ListScreen(
                 routeKey = "search:${current.query}",
                 fetchPage = { pageUrl ->
                     pageUrl?.let { repository.scrape(it) } ?: repository.search(current.query)
+                        .map { ScrapeResult.Listing(it) }
                 },
-                onNavigateBack = { route = Route.Home }
+                onNavigateBack = goBack,
+                onOpenUrl = { navigate(Route.Scrape(it)) }
             )
         }
         else -> SplashScreen(

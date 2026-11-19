@@ -2,6 +2,7 @@ package com.mab.f2mbox.data.remote
 
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
@@ -18,12 +19,13 @@ interface F2MApi {
     suspend fun home(): Envelope<HomeData>
 
     /**
-     * Scrapes any listing url. The envelope's [Envelope.type] selects the
-     * payload shape ("list" for listing pages, others to come); the caller
-     * checks it before using [Envelope.data].
+     * Scrapes any url. The envelope's [Envelope.type] selects the payload
+     * shape ("list" for listing pages, "movie" for detail pages, …); the
+     * data field stays a raw [JsonElement] here and the repository decodes
+     * it into the matching model.
      */
     @retrofit2.http.GET("scrape")
-    suspend fun scrape(@retrofit2.http.Query("url") url: String): Envelope<ListData>
+    suspend fun scrape(@retrofit2.http.Query("url") url: String): Envelope<JsonElement>
 
     /**
      * Searches titles by scraping the site's results page (source=html),
@@ -43,7 +45,7 @@ object Api {
 
     const val BASE_URL = "https://f2m-scrapper.onrender.com/api/v1/"
 
-    private val json = Json {
+    internal val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
     }

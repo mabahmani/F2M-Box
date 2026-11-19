@@ -90,6 +90,7 @@ fun SectionRow(
             items(section.items.size) { index ->
                 PosterCard(
                     item = section.items[index],
+                    onClick = { onOpenUrl(section.items[index].url) },
                     modifier = Modifier.width(PosterCardWidth)
                 )
             }
@@ -190,10 +191,14 @@ private fun SeeMoreCard(
  * title and status/year below. Scales up and gets a border when focused.
  * Width comes from [modifier]; the poster keeps a 2:3 aspect ratio, so
  * callers pass e.g. `Modifier.width(PosterCardWidth)` in rows or
- * `Modifier.fillMaxWidth()` in grid cells.
+ * `Modifier.fillMaxWidth()` in grid cells. Pressing OK fires [onClick].
  */
 @Composable
-internal fun PosterCard(item: SectionItem, modifier: Modifier = Modifier) {
+internal fun PosterCard(
+    item: SectionItem,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         targetValue = if (isFocused) 1.08f else 1f,
@@ -208,7 +213,7 @@ internal fun PosterCard(item: SectionItem, modifier: Modifier = Modifier) {
                 scaleY = scale
             }
             .onFocusChanged { isFocused = it.isFocused }
-            .clickable { /* Detail screen comes later. */ },
+            .clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box {

@@ -1,9 +1,12 @@
 package com.mab.f2mbox.data
 
+import com.mab.f2mbox.data.remote.Api
 import com.mab.f2mbox.data.remote.F2MApi
 import com.mab.f2mbox.data.remote.HealthData
 import com.mab.f2mbox.data.remote.HomeData
 import com.mab.f2mbox.data.remote.ListData
+import com.mab.f2mbox.data.remote.ScrapeResult
+import kotlinx.serialization.json.decodeFromJsonElement
 
 /**
  * Single entry point for F2M Scrapper data. Each call returns [Result] so
@@ -26,14 +29,19 @@ class F2MRepository(private val api: F2MApi = com.mab.f2mbox.data.remote.Api.cli
     }
 
     /**
-     * Scrapes a listing url. Only the "list" scrape type is supported for
-     * now; anything else is reported as a failure.
+     * Scrapes any url and decodes the payload by the envelope's type:
+     * "list" → [ScrapeResult.Listing], "movie" → [ScrapeResult.Movie].
+     * Other types are reported as a failure until they are modeled.
      */
-    suspend fun scrape(url: String): Result<ListData> = runCatching {
+    suspend fun scrape(url: String): Result<ScrapeResult> = runCatching {
         val envelope = api.scrape(url)
         check(envelope.ok) { envelope.error?.message ?: "Server reported an error" }
-        check(envelope.type == "list") { "Unsupported scrape response type: ${envelope.type}" }
-        checkNotNull(envelope.data) { "Empty scrape response" }
+        val data = checkNotNull(envelope.data) { "Empty scrape response" }
+        when (envelope.type) {
+            "list" -> ScrapeResult.Listing(Api.json.decodeFromJsonElement(data))
+            "movie" -> ScrapeResult.Movie(Api.json.decodeFromJsonElement(data))
+            else -> error("Unsupported scrape response type: ${envelope.type}")
+        }
     }
 
     /**

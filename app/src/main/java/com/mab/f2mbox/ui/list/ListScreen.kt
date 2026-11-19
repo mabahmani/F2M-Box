@@ -41,7 +41,9 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.mab.f2mbox.R
 import com.mab.f2mbox.data.remote.ListData
+import com.mab.f2mbox.data.remote.ScrapeResult
 import com.mab.f2mbox.ui.connect.describe
+import com.mab.f2mbox.ui.detail.MovieDetail
 import com.mab.f2mbox.ui.home.PosterCard
 import kotlinx.coroutines.delay
 
@@ -54,29 +56,33 @@ private val GridTopPadding = 28.dp
 // gutter: column gap is 2x this, row gap 2x + the 4dp between rows.
 private val GridItemPadding = 8.dp
 
-/** UI state of the listing screen. */
+/** UI state of the scrape screen. */
 sealed interface ListUiState {
     data object Loading : ListUiState
     data class Error(@StringRes val messageRes: Int) : ListUiState
-    data class Ready(val data: ListData) : ListUiState
+    data class Ready(val result: ScrapeResult) : ListUiState
 }
 
 /**
- * Listing screen: a grid of posters for one page of a listing, with
- * previous/next pagination.
+ * Scrape screen: renders whatever one url scrapes into. A "list" result
+ * shows the poster grid with previous/next pagination; a "movie" result
+ * shows the detail page with its download links.
  *
  * The first page comes from [fetchPage] with a null url (a scrape for a
- * listing, a search for a query); every later page is fetched by passing
- * its pagination url. Backward navigation is handled by the screen's own
- * visited-url stack (the payload's page list is partial), so the remote's
- * Back key pops one page before leaving via [onNavigateBack]. [routeKey]
- * identifies the origin — it keys the page stack and retry state.
+ * listing url, a search for a query); every later page is fetched by
+ * passing its pagination url. Backward navigation is handled by the
+ * screen's own visited-url stack (the payload's page list is partial), so
+ * the remote's Back key pops one page before leaving via [onNavigateBack].
+ * Clicking any poster or genre hands its url to [onOpenUrl], which opens
+ * another scrape screen. [routeKey] identifies the origin — it keys the
+ * page stack and retry state.
  */
 @Composable
 fun ListScreen(
     routeKey: String,
-    fetchPage: suspend (pageUrl: String?) -> Result<ListData>,
+    fetchPage: suspend (pageUrl: String?) -> Result<ScrapeResult>,
     onNavigateBack: () -> Unit,
+    onOpenUrl: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     // Visited page urls, newest last; the origin page is a null marker.
@@ -128,15 +134,25 @@ fun ListScreen(
             }
         }
 
-        is ListUiState.Ready -> ListContent(
-            data = current.data,
-            onNavigateBack = onNavigateBack,
-            hasPrevious = pages.size > 1,
-            onPrevious = { pages = pages.dropLast(1) },
-            hasNext = current.data.pagination.next != null,
-            onNext = { current.data.pagination.next?.let { pages = pages + it } },
-            modifier = modifier
-        )
+        is ListUiState.Ready -> when (val result = current.result) {
+            is ScrapeResult.Listing -> ListContent(
+                data = result.data,
+                onNavigateBack = onNavigateBack,
+                onOpenUrl = onOpenUrl,
+                hasPrevious = pages.size > 1,
+                onPrevious = { pages = pages.dropLast(1) },
+                hasNext = result.data.pagination.next != null,
+                onNext = { result.data.pagination.next?.let { pages = pages + it } },
+                modifier = modifier
+            )
+            is ScrapeResult.Movie -> MovieDetail(
+                data = result.data,
+                fetchPage = fetchPage,
+                onOpenUrl = onOpenUrl,
+                onNavigateBack = onNavigateBack,
+                modifier = modifier
+            )
+        }
     }
 }
 
@@ -149,6 +165,7 @@ fun ListScreen(
 private fun ListContent(
     data: ListData,
     onNavigateBack: () -> Unit,
+    onOpenUrl: (String) -> Unit,
     hasPrevious: Boolean,
     onPrevious: () -> Unit,
     hasNext: Boolean,
@@ -197,6 +214,7 @@ private fun ListContent(
             items(data.items.size, key = { data.items[it].url }) { index ->
                 PosterCard(
                     item = data.items[index],
+                    onClick = { onOpenUrl(data.items[index].url) },
                     modifier = (if (index == 0) {
                         Modifier.focusRequester(firstPosterFocus)
                     } else {
@@ -234,7 +252,7 @@ private fun ListHeader(
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Button(onClick = onNavigateBack) {
-            Text(stringResource(R.string.back_to_home))
+            Text(stringResource(R.string.back))
         }
         Text(
             text = data.pageTitle ?: data.title.orEmpty(),
