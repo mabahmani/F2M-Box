@@ -13,12 +13,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
@@ -46,9 +50,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button
+import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.Glow
+import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
@@ -59,7 +67,9 @@ import com.mab.f2mbox.data.remote.DownloadQuality
 import com.mab.f2mbox.data.remote.Dubbing
 import com.mab.f2mbox.data.remote.Dub
 import com.mab.f2mbox.data.remote.EpisodeLink
+import com.mab.f2mbox.data.remote.GenreRef
 import com.mab.f2mbox.data.remote.MovieData
+import com.mab.f2mbox.data.remote.MovieInfo
 import com.mab.f2mbox.data.remote.MovieIntro
 import com.mab.f2mbox.data.remote.PersonRef
 import com.mab.f2mbox.data.remote.Reactions
@@ -67,13 +77,16 @@ import com.mab.f2mbox.data.remote.ScrapeResult
 import com.mab.f2mbox.data.remote.Trailer
 import com.mab.f2mbox.data.remote.VoiceActor
 import com.mab.f2mbox.ui.home.PosterCard
+import com.mab.f2mbox.ui.theme.F2MBoxTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val ContentMargin = 48.dp
 private val PosterWidth = 200.dp
 private val QualityCardWidth = 280.dp
+private val QualityCardHeight = 150.dp
 private val EpisodeCardWidth = 220.dp
+private val EpisodeCardHeight = 110.dp
 private val SuggestedCardWidth = 140.dp
 private val PersonCardWidth = 120.dp
 private val VoiceActorCardWidth = 200.dp
@@ -222,14 +235,30 @@ fun MovieDetail(
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             item(key = "intro") {
-                IntroBlock(intro = intro, reactions = data.reactions, onOpenUrl = onOpenUrl)
-            }
-            data.trailer?.takeIf { it.url != null }?.let { trailer ->
-                item(key = "trailer") {
-                    TrailerCard(
-                        trailer = trailer,
-                        title = intro.title.orEmpty(),
-                        onPlay = onPlay
+                val trailer = data.trailer?.takeIf { it.url != null }
+                if (trailer != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(24.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        IntroBlock(
+                            intro = intro,
+                            reactions = data.reactions,
+                            onOpenUrl = onOpenUrl,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TrailerCard(
+                            trailer = trailer,
+                            title = intro.title.orEmpty(),
+                            onPlay = onPlay
+                        )
+                    }
+                } else {
+                    IntroBlock(
+                        intro = intro,
+                        reactions = data.reactions,
+                        onOpenUrl = onOpenUrl
                     )
                 }
             }
@@ -854,9 +883,52 @@ private fun CommentsPager(
 }
 
 /**
- * One quality of a download variant: the quality name, its encoder/notes
- * and a single play button that opens the in-app player with the first
- * usable link url (download url, falling back to the online-play url).
+ * The play button on a quality/episode card: a rounded play bar with a
+ * glyph, styled for a TV screen. At rest it is a quiet tint of the brand
+ * color so a row of cards stays calm; when the D-pad lands on it, it fills
+ * with the brand color, lifts slightly and casts a glow.
+ */
+@Composable
+private fun PlayButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val scheme = MaterialTheme.colorScheme
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(46.dp),
+        scale = ButtonDefaults.scale(focusedScale = 1.04f),
+        shape = ButtonDefaults.shape(shape = RoundedCornerShape(12.dp)),
+        colors = ButtonDefaults.colors(
+            containerColor = scheme.primary.copy(alpha = 0.22f),
+            contentColor = scheme.primary,
+            focusedContainerColor = scheme.primary,
+            focusedContentColor = scheme.onPrimary,
+            pressedContainerColor = scheme.primary,
+            pressedContentColor = scheme.onPrimary
+        ),
+        glow = ButtonDefaults.glow(
+            focusedGlow = Glow(elevationColor = scheme.primary, elevation = 8.dp)
+        )
+    ) {
+        // The label fills the button and centers itself in it.
+        Text(
+            text = stringResource(R.string.player_play),
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+/**
+ * One quality of a download variant: the quality name, a single line that
+ * merges its notes and encoder, and a play button that opens the in-app
+ * player with the first usable link url (download url, falling back to the
+ * online-play url).
+ *
+ * The card has a fixed height so every quality in a row lines up, whatever
+ * extra metadata it carries.
  */
 @Composable
 private fun QualityCard(
@@ -865,9 +937,16 @@ private fun QualityCard(
     onPlay: (url: String, title: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Notes and encoder share one line: two optional texts made the cards
+    // different heights.
+    val details = listOfNotNull(
+        quality.notes?.takeIf { it.isNotBlank() },
+        quality.encoder?.takeIf { it.isNotBlank() && it != "unknown" }
+    ).joinToString(" · ")
     Column(
         modifier = modifier
             .width(QualityCardWidth)
+            .height(QualityCardHeight)
             .clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(14.dp),
@@ -881,35 +960,25 @@ private fun QualityCard(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
-        quality.notes?.takeIf { it.isNotBlank() }?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        quality.encoder?.takeIf { it.isNotBlank() && it != "unknown" }?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
+        Text(
+            text = details,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        // Pushes the button to the bottom edge so it sits on the same
+        // line in every card.
+        Spacer(modifier = Modifier.weight(1f))
         // One play button per quality: the first link that carries a url
         // wins (prefer the download url, fall back to the online-play url).
         quality.links.firstNotNullOfOrNull { link ->
             link.downloadUrl ?: link.playUrl
         }?.let { url ->
-            Button(
+            PlayButton(
                 onClick = { onPlay(url, title) },
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = stringResource(R.string.player_play),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+            )
         }
     }
 }
@@ -929,6 +998,7 @@ private fun EpisodeCard(
     Column(
         modifier = modifier
             .width(EpisodeCardWidth)
+            .height(EpisodeCardHeight)
             .clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(14.dp),
@@ -942,18 +1012,14 @@ private fun EpisodeCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+        // Keeps the button on the same line in every episode card.
+        Spacer(modifier = Modifier.weight(1f))
         val url = episode.downloadUrl ?: episode.playUrl
         if (url != null) {
-            Button(
+            PlayButton(
                 onClick = { onPlay(url, title) },
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = stringResource(R.string.player_play),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+            )
         }
     }
 }
@@ -1044,6 +1110,34 @@ private fun VoiceActorCard(actor: VoiceActor, modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 3,
             overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 960, heightDp = 540)
+@Composable
+private fun MovieDetailPreview() {
+    F2MBoxTheme {
+        MovieDetail(
+            data = MovieData(
+                title = "Sample Movie",
+                intro = MovieIntro(
+                    title = "Sample Movie",
+                    notes = listOf("1080p", "SoftSub"),
+                    formats = listOf("MKV", "MP4"),
+                    genres = listOf(GenreRef("Action", "/action")),
+                    info = MovieInfo(
+                        release = "2024",
+                        durationMinutes = 120,
+                        countries = "USA",
+                        language = "English"
+                    )
+                ),
+                trailer = Trailer(url = "http://example.com/trailer.mp4")
+            ),
+            fetchPage = { Result.success(ScrapeResult.Listing(com.mab.f2mbox.data.remote.ListData())) },
+            onOpenUrl = {},
+            onNavigateBack = {}
         )
     }
 }

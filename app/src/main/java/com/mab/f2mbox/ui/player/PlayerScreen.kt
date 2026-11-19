@@ -122,6 +122,12 @@ private const val SeekThrottleMs = 120L
 /** How long the seek OSD stays up after the last seek key. */
 private const val SeekOsdDelayMs = 900L
 
+/** One hour: past this the time read-out switches to h:mm:ss. */
+private const val OneHourMs = 3_600_000L
+
+/** Shown instead of a total time when the video has no known duration. */
+private const val UnknownDurationLabel = "--:--"
+
 /**
  * Full-screen video player built for the D-pad, with two input modes like
  * mainstream TV players:
@@ -850,11 +856,6 @@ private fun PlayerControls(
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                Text(
-                    text = formatTime(positionMs),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = Color.White
-                )
             }
 
             SeekBar(
@@ -888,11 +889,24 @@ private fun SeekBar(
     } else {
         0f
     }
+    // Both times use the same shape (h:mm:ss once the video is an hour
+    // long) so they line up and the bar stays centered between them.
+    val showHours = durationMs >= OneHourMs
+    val timeWidth = if (showHours) 92.dp else 60.dp
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // Elapsed time: fixed width so the digits changing don't shift the
+        // bar around.
+        Text(
+            text = formatTime(positionMs, showHours),
+            style = MaterialTheme.typography.titleSmall,
+            color = Color.White,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(timeWidth)
+        )
         BoxWithConstraints(
             modifier = Modifier
                 .weight(1f)
@@ -961,9 +975,15 @@ private fun SeekBar(
             )
         }
         Text(
-            text = formatTime(durationMs),
+            text = if (durationMs > 0) {
+                formatTime(durationMs, showHours)
+            } else {
+                UnknownDurationLabel
+            },
             style = MaterialTheme.typography.titleSmall,
-            color = Color.White
+            color = Color.White,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(timeWidth)
         )
     }
 }
@@ -1365,13 +1385,17 @@ private fun seekBy(player: Player, deltaMs: Long) {
     player.seekTo(target)
 }
 
-/** Formats a position as m:ss or h:mm:ss (latin digits for timecodes). */
-private fun formatTime(ms: Long): String {
-    val totalSeconds = ms / 1000
+/**
+ * Formats a position as m:ss or h:mm:ss (latin digits for timecodes).
+ * [showHours] forces the hours field, so the elapsed and total times of a
+ * video share one shape and stay aligned next to the seek bar.
+ */
+private fun formatTime(ms: Long, showHours: Boolean = false): String {
+    val totalSeconds = (ms / 1000).coerceAtLeast(0L)
     val hours = totalSeconds / 3600
     val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
-    return if (hours > 0) {
+    return if (showHours || hours > 0) {
         String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
     } else {
         String.format(Locale.US, "%d:%02d", minutes, seconds)
