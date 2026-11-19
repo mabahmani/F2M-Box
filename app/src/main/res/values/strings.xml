@@ -43,13 +43,27 @@
     <string name="comments_error">Couldn\'t load comments.&#x200E;</string>
     <string name="like_count">👍 %1$d</string>
     <string name="dislike_count">👎 %1$d</string>
-    <string name="download">Download</string>
-    <string name="play_online">Play online</string>
     <string name="trailer">Trailer</string>
     <string name="watch_trailer">Watch trailer</string>
     <string name="dubbing">Dubbing</string>
     <string name="voice_actors">Voice actors</string>
-    <string name="downloads">Download &amp; play</string>
+    <string name="downloads">Play</string>
+
+    <!-- Player -->
+    <string name="player_play">Play</string>
+    <string name="player_pause">Pause</string>
+    <string name="player_replay">Replay</string>
+    <string name="player_skip_back">Skip back 10 seconds</string>
+    <string name="player_skip_forward">Skip forward 10 seconds</string>
+    <string name="player_speed">Playback speed</string>
+    <string name="player_subtitles">Subtitles</string>
+    <string name="player_subtitles_off">Off</string>
+    <string name="player_audio">Audio track</string>
+    <string name="player_audio_auto">Auto</string>
+    <string name="player_error">Couldn\'t play the video. Check your connection and try again.&#x200E;</string>
+    <string name="player_error_decode">This device can\'t decode this video. Try another quality.&#x200E;</string>
+    <string name="player_error_decode_codec">This device can\'t decode %1$s. Try another quality.&#x200E;</string>
+    <string name="player_error_network">Playback failed. Check your connection and try again.&#x200E;</string>
 
     <!-- Person -->
     <string name="person_kind_actor">Actor</string>

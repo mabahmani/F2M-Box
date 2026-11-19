@@ -30,6 +30,7 @@ import com.mab.f2mbox.ui.connect.SplashScreen
 import com.mab.f2mbox.ui.connect.describe
 import com.mab.f2mbox.ui.home.HomeScreen
 import com.mab.f2mbox.ui.list.ListScreen
+import com.mab.f2mbox.ui.player.PlayerScreen
 import com.mab.f2mbox.ui.theme.F2MBoxTheme
 import kotlinx.coroutines.delay
 
@@ -67,6 +68,9 @@ private sealed interface Route {
 
     /** Results of one search query, rendered like any listing. */
     data class Results(val query: String) : Route
+
+    /** In-app playback of one direct video url. */
+    data class Player(val url: String, val title: String) : Route
 }
 
 /**
@@ -122,7 +126,8 @@ private fun ConnectGate(repository: F2MRepository) {
                 routeKey = current.url,
                 fetchPage = { pageUrl -> repository.scrape(pageUrl ?: current.url) },
                 onNavigateBack = goBack,
-                onOpenUrl = { navigate(Route.Scrape(it)) }
+                onOpenUrl = { navigate(Route.Scrape(it)) },
+                onPlay = { url, title -> navigate(Route.Player(url, title)) }
             )
             is Route.Results -> ListScreen(
                 routeKey = "search:${current.query}",
@@ -131,7 +136,13 @@ private fun ConnectGate(repository: F2MRepository) {
                         .map { ScrapeResult.Listing(it) }
                 },
                 onNavigateBack = goBack,
-                onOpenUrl = { navigate(Route.Scrape(it)) }
+                onOpenUrl = { navigate(Route.Scrape(it)) },
+                onPlay = { url, title -> navigate(Route.Player(url, title)) }
+            )
+            is Route.Player -> PlayerScreen(
+                url = current.url,
+                title = current.title,
+                onNavigateBack = goBack
             )
         }
         else -> SplashScreen(

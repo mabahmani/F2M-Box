@@ -84,6 +84,7 @@ fun ListScreen(
     fetchPage: suspend (pageUrl: String?) -> Result<ScrapeResult>,
     onNavigateBack: () -> Unit,
     onOpenUrl: (String) -> Unit = {},
+    onPlay: (url: String, title: String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     // Visited page urls, newest last; the origin page is a null marker.
@@ -153,6 +154,7 @@ fun ListScreen(
                 data = result.data,
                 fetchPage = fetchPage,
                 onOpenUrl = onOpenUrl,
+                onPlay = onPlay,
                 onNavigateBack = onNavigateBack,
                 modifier = modifier
             )

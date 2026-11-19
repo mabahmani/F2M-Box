@@ -2,11 +2,6 @@
 
 package com.mab.f2mbox.ui.detail
 
-import android.app.DownloadManager
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.os.Environment
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -47,7 +42,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -108,6 +102,7 @@ fun MovieDetail(
     data: MovieData,
     fetchPage: suspend (pageUrl: String?) -> Result<ScrapeResult>,
     onOpenUrl: (String) -> Unit,
+    onPlay: (url: String, title: String) -> Unit = { _, _ -> },
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -231,7 +226,11 @@ fun MovieDetail(
             }
             data.trailer?.takeIf { it.url != null }?.let { trailer ->
                 item(key = "trailer") {
-                    TrailerCard(trailer = trailer)
+                    TrailerCard(
+                        trailer = trailer,
+                        title = intro.title.orEmpty(),
+                        onPlay = onPlay
+                    )
                 }
             }
             intro.excerpt?.takeIf { it.isNotBlank() }?.let { excerpt ->
@@ -386,7 +385,11 @@ fun MovieDetail(
                 item(key = "variant-row-${variant.variant}") {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         items(variant.qualities.size) { index ->
-                            QualityCard(quality = variant.qualities[index])
+                            QualityCard(
+                                quality = variant.qualities[index],
+                                title = intro.title.orEmpty(),
+                                onPlay = onPlay
+                            )
                         }
                     }
                 }
@@ -462,7 +465,8 @@ fun MovieDetail(
                                     items(quality.episodes.size) { index ->
                                         EpisodeCard(
                                             episode = quality.episodes[index],
-                                            quality = quality.quality
+                                            title = intro.title.orEmpty(),
+                                            onPlay = onPlay
                                         )
                                     }
                                 }
@@ -851,13 +855,16 @@ private fun CommentsPager(
 
 /**
  * One quality of a download variant: the quality name, its encoder/notes
- * and a button per link — direct downloads enqueue in the system
- * [DownloadManager], online-play links open in the browser.
+ * and a single play button that opens the in-app player with the first
+ * usable link url (download url, falling back to the online-play url).
  */
 @Composable
-private fun QualityCard(quality: DownloadQuality, modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-
+private fun QualityCard(
+    quality: DownloadQuality,
+    title: String,
+    onPlay: (url: String, title: String) -> Unit,
+    modifier: Modifier = Modifier
+) {
     Column(
         modifier = modifier
             .width(QualityCardWidth)
@@ -888,22 +895,17 @@ private fun QualityCard(quality: DownloadQuality, modifier: Modifier = Modifier)
                 color = MaterialTheme.colorScheme.primary
             )
         }
-        quality.links.forEach { link ->
-            val isDownload = link.downloadUrl != null
+        // One play button per quality: the first link that carries a url
+        // wins (prefer the download url, fall back to the online-play url).
+        quality.links.firstNotNullOfOrNull { link ->
+            link.downloadUrl ?: link.playUrl
+        }?.let { url ->
             Button(
-                onClick = {
-                    when {
-                        isDownload -> link.downloadUrl?.let {
-                            enqueueDownload(context, it, quality.quality.orEmpty())
-                        }
-                        else -> link.playUrl?.let { openExternally(context, it) }
-                    }
-                },
-                enabled = link.downloadUrl != null || link.playUrl != null,
+                onClick = { onPlay(url, title) },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = link.label.orEmpty(),
+                    text = stringResource(R.string.player_play),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -913,14 +915,17 @@ private fun QualityCard(quality: DownloadQuality, modifier: Modifier = Modifier)
 }
 
 /**
- * One episode of a series quality: its label and quality, with a direct
- * download button (enqueued in [DownloadManager]) and an online-play
- * button (opens in the browser).
+ * One episode of a series quality: its label and quality, with a single
+ * play button that opens the in-app player with the episode's download url
+ * (falling back to its online-play url).
  */
 @Composable
-private fun EpisodeCard(episode: EpisodeLink, quality: String?, modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-
+private fun EpisodeCard(
+    episode: EpisodeLink,
+    title: String,
+    onPlay: (url: String, title: String) -> Unit,
+    modifier: Modifier = Modifier
+) {
     Column(
         modifier = modifier
             .width(EpisodeCardWidth)
@@ -937,34 +942,14 @@ private fun EpisodeCard(episode: EpisodeLink, quality: String?, modifier: Modifi
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        quality?.takeIf { it.isNotBlank() }?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        episode.downloadUrl?.let { url ->
+        val url = episode.downloadUrl ?: episode.playUrl
+        if (url != null) {
             Button(
-                onClick = { enqueueDownload(context, url, episode.label.orEmpty()) },
+                onClick = { onPlay(url, title) },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = stringResource(R.string.download),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-        episode.playUrl?.let { url ->
-            Button(
-                onClick = { openExternally(context, url) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = stringResource(R.string.play_online),
+                    text = stringResource(R.string.player_play),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -975,12 +960,15 @@ private fun EpisodeCard(episode: EpisodeLink, quality: String?, modifier: Modifi
 
 /**
  * The trailer card: the trailer's poster thumbnail next to a play button
- * that hands the mp4 url to a video player via an ACTION_VIEW intent.
+ * that opens the in-app player via [onPlay].
  */
 @Composable
-private fun TrailerCard(trailer: Trailer, modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-
+private fun TrailerCard(
+    trailer: Trailer,
+    title: String,
+    onPlay: (url: String, title: String) -> Unit,
+    modifier: Modifier = Modifier
+) {
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(10.dp))
@@ -999,14 +987,14 @@ private fun TrailerCard(trailer: Trailer, modifier: Modifier = Modifier) {
                 .clip(RoundedCornerShape(8.dp))
                 .background(MaterialTheme.colorScheme.surface)
         )
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = stringResource(R.string.trailer),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
             )
-            Button(onClick = { trailer.url?.let { openVideo(context, it) } }) {
+            Button(onClick = { trailer.url?.let { onPlay(it, title) } }) {
                 Text(stringResource(R.string.watch_trailer))
             }
         }
@@ -1060,27 +1048,3 @@ private fun VoiceActorCard(actor: VoiceActor, modifier: Modifier = Modifier) {
     }
 }
 
-private fun openExternally(context: Context, url: String) {
-    runCatching {
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-    }
-}
-
-/** Opens a video url with an explicit video mime so media players match. */
-private fun openVideo(context: Context, url: String) {
-    runCatching {
-        context.startActivity(
-            Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(url), "video/*")
-        )
-    }
-}
-
-private fun enqueueDownload(context: Context, url: String, title: String) {
-    val fileName = Uri.parse(url).lastPathSegment ?: "download"
-    val request = DownloadManager.Request(Uri.parse(url))
-        .setTitle(title)
-        .setDescription(fileName)
-        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-        .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, fileName)
-    runCatching { context.getSystemService(DownloadManager::class.java)?.enqueue(request) }
-}
