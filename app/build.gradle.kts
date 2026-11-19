@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.mab.f2mbox"
-        minSdk = 36
+        minSdk = 30
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
