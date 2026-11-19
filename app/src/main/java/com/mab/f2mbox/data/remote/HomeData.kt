@@ -11,6 +11,7 @@ import kotlinx.serialization.Serializable
 data class HomeData(
     val title: String? = null,
     @SerialName("hero_slider") val heroSlider: List<HeroSlide> = emptyList(),
+    val sections: List<HomeSection> = emptyList(),
 )
 
 /**
@@ -32,4 +33,37 @@ data class HeroSlide(
 data class ImageRef(
     val url: String? = null,
     val alt: String? = null,
+)
+
+/**
+ * One home carousel ("carougsel-postsN"): a titled horizontal row of
+ * posters, e.g. "فیلم‌های به روز شده" or "سریال‌های کره‌ای".
+ */
+@Serializable
+data class HomeSection(
+    val id: String? = null,
+    val title: String? = null,
+    val url: String? = null,
+    val items: List<SectionItem> = emptyList(),
+)
+
+/** One poster card inside a [HomeSection]. */
+@Serializable
+data class SectionItem(
+    val title: String,
+    val url: String,
+    @SerialName("link_title") val linkTitle: String? = null,
+    val poster: ImageRef? = null,
+    val rating: Double? = null,
+    val year: Int? = null,
+    @SerialName("status_text") val statusText: String? = null,
+    val formats: List<String> = emptyList(),
+    val genres: List<GenreRef> = emptyList(),
+)
+
+/** A genre tag attached to a [SectionItem]. */
+@Serializable
+data class GenreRef(
+    val name: String? = null,
+    val url: String? = null,
 )

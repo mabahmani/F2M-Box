@@ -35,12 +35,16 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import com.mab.f2mbox.R
 import com.mab.f2mbox.data.remote.HeroSlide
 import kotlinx.coroutines.delay
 
@@ -53,11 +57,16 @@ private const val AUTO_ADVANCE_MS = 6_000L
  * moves between slides and resets the timer.
  */
 @Composable
-fun HeroSlider(items: List<HeroSlide>, modifier: Modifier = Modifier) {
+fun HeroSlider(
+    items: List<HeroSlide>,
+    focusRequester: FocusRequester,
+    modifier: Modifier = Modifier
+) {
     if (items.isEmpty()) return
 
     var page by remember(items) { mutableIntStateOf(0) }
-    val focusRequester = remember { FocusRequester() }
+    // In RTL the slider reads right-to-left, so "next" lies to the left.
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
 
     // Auto-advance. Keyed on [page] so any change (auto or manual) restarts
     // the countdown.
@@ -65,9 +74,6 @@ fun HeroSlider(items: List<HeroSlide>, modifier: Modifier = Modifier) {
         delay(AUTO_ADVANCE_MS)
         page = (page + 1) % items.size
     }
-
-    // The slider owns D-pad navigation as soon as the home screen appears.
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
     Box(
         modifier = modifier
@@ -78,11 +84,19 @@ fun HeroSlider(items: List<HeroSlide>, modifier: Modifier = Modifier) {
                 if (event.type == KeyEventType.KeyDown) {
                     when (event.key) {
                         Key.DirectionLeft -> {
-                            page = (page - 1 + items.size) % items.size
+                            page = if (isRtl) {
+                                (page + 1) % items.size
+                            } else {
+                                (page - 1 + items.size) % items.size
+                            }
                             true
                         }
                         Key.DirectionRight -> {
-                            page = (page + 1) % items.size
+                            page = if (isRtl) {
+                                (page - 1 + items.size) % items.size
+                            } else {
+                                (page + 1) % items.size
+                            }
                             true
                         }
                         else -> false
@@ -118,19 +132,33 @@ private fun SlideContent(slide: HeroSlide) {
             model = slide.backdrop?.url,
             contentDescription = slide.backdrop?.alt ?: slide.title,
             contentScale = ContentScale.Crop,
+            // Crop centers by default, which cuts the top off wide backdrops;
+            // aligning to the top keeps the artwork's upper area visible.
+            alignment = Alignment.TopCenter,
             modifier = Modifier.fillMaxSize()
         )
 
-        // Darken the text side and the bottom so overlay content stays legible.
+        // Darken the content side (start = right in RTL) and the bottom so
+        // overlay content stays legible. Gradient stops mirror with the
+        // layout direction because brushes are not direction-aware.
+        val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
-                    Brush.horizontalGradient(
-                        0f to Color.Black.copy(alpha = 0.85f),
-                        0.55f to Color.Black.copy(alpha = 0.35f),
-                        1f to Color.Transparent
-                    )
+                    if (isRtl) {
+                        Brush.horizontalGradient(
+                            0f to Color.Transparent,
+                            0.45f to Color.Black.copy(alpha = 0.35f),
+                            1f to Color.Black.copy(alpha = 0.85f)
+                        )
+                    } else {
+                        Brush.horizontalGradient(
+                            0f to Color.Black.copy(alpha = 0.85f),
+                            0.55f to Color.Black.copy(alpha = 0.35f),
+                            1f to Color.Transparent
+                        )
+                    }
                 )
         )
         Box(
@@ -199,12 +227,7 @@ private fun RatingBadge(rating: Double, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "★",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(
-            text = " $rating",
+            text = stringResource(R.string.rating_format, rating.toString()),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurface
         )

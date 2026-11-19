@@ -74,8 +74,8 @@ fun SplashScreen(
                 LoadingDots()
                 Spacer(Modifier.height(16.dp))
                 Text(
-                    text = "Connecting…",
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = stringResource(R.string.server_wakeup_hint),
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -87,14 +87,14 @@ fun SplashScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = state.message,
+                    text = stringResource(state.messageRes),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(20.dp))
                 Button(onClick = onRetry) {
-                    Text("Retry")
+                    Text(stringResource(R.string.retry))
                 }
             }
 

@@ -1,5 +1,7 @@
 package com.mab.f2mbox.ui.connect
 
+import androidx.annotation.StringRes
+import com.mab.f2mbox.R
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -10,15 +12,19 @@ import retrofit2.HttpException
 sealed interface ConnectState {
     data object Connecting : ConnectState
     data object Ready : ConnectState
-    data class Failed(val message: String) : ConnectState
+    data class Failed(@StringRes val messageRes: Int) : ConnectState
 }
 
-/** Turns network/serialization failures into plain, helpful text. */
-internal fun describe(error: Throwable?): String = when (error) {
-    is UnknownHostException -> "No internet connection. Check your network and try again."
-    is SocketTimeoutException -> "The server took too long to respond. It may be waking up — try again."
-    is ConnectException -> "Could not connect to the F2M Box server."
-    is HttpException -> "Server error (${error.code()}). Please try again."
-    is SerializationException -> "Received an unexpected response from the server."
-    else -> error?.message ?: "Something went wrong. Please try again."
+/**
+ * Turns network/serialization failures into a localized message resource.
+ * Resolve with [androidx.compose.ui.res.stringResource] in the UI layer.
+ */
+@StringRes
+internal fun describe(error: Throwable?): Int = when (error) {
+    is UnknownHostException -> R.string.error_no_internet
+    is SocketTimeoutException -> R.string.error_timeout
+    is ConnectException -> R.string.error_connect
+    is HttpException -> R.string.error_server
+    is SerializationException -> R.string.error_unexpected_response
+    else -> R.string.error_unknown
 }

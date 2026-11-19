@@ -1,5 +1,25 @@
 <resources>
     <string name="app_name">F2M Box</string>
-    <string name="tagline">Your World of Entertainment.</string>
-    <string name="short_description">Movies and series, all in one place.</string>
+    <string name="tagline">Your World of Entertainment.&#x200E;</string>
+    <string name="short_description">Movies and series, all in one place.&#x200E;</string>
+
+    <!-- Connect / splash.
+         LRM (&#x200E;) is appended to LTR strings with trailing punctuation:
+         in the RTL layout the bidi algorithm would otherwise pull the
+         neutral dots/periods to the wrong side. -->
+    <string name="server_wakeup_hint">The server may take up to 2 minutes to wake up</string>
+    <string name="retry">Retry</string>
+
+    <!-- Home -->
+    <string name="loading">Loading…&#x200E;</string>
+    <string name="rating_format">★ %1$s</string>
+    <string name="see_more">See more</string>
+
+    <!-- Errors -->
+    <string name="error_no_internet">No internet connection. Check your network and try again.&#x200E;</string>
+    <string name="error_timeout">The server took too long to respond. It may be waking up — try again.&#x200E;</string>
+    <string name="error_connect">Could not connect to the F2M Box server.&#x200E;</string>
+    <string name="error_server">Server error. Please try again.&#x200E;</string>
+    <string name="error_unexpected_response">Received an unexpected response from the server.&#x200E;</string>
+    <string name="error_unknown">Something went wrong. Please try again.&#x200E;</string>
 </resources>

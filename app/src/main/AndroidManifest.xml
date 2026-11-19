@@ -17,6 +17,7 @@
         android:banner="@drawable/banner"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:layoutDirection="rtl"
         android:supportsRtl="true"
         android:theme="@style/Theme.F2MBox">
         <activity

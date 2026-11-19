@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -15,6 +16,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.NonInteractiveSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
@@ -34,14 +37,18 @@ class MainActivity : ComponentActivity() {
         val repository = F2MRepository()
         setContent {
             F2MBoxTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    shape = RectangleShape,
-                    colors = NonInteractiveSurfaceDefaults.colors(
-                        containerColor = MaterialTheme.colorScheme.background
-                    )
-                ) {
-                    ConnectGate(repository = repository)
+                // The whole app is RTL by default: the content is Persian and
+                // every layout mirrors (rows flow right-to-left, start = right).
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        shape = RectangleShape,
+                        colors = NonInteractiveSurfaceDefaults.colors(
+                            containerColor = MaterialTheme.colorScheme.background
+                        )
+                    ) {
+                        ConnectGate(repository = repository)
+                    }
                 }
             }
         }
