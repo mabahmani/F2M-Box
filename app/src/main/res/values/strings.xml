@@ -64,6 +64,24 @@
     <string name="player_error_decode">This device can\'t decode this video. Try another quality.&#x200E;</string>
     <string name="player_error_decode_codec">This device can\'t decode %1$s. Try another quality.&#x200E;</string>
     <string name="player_error_network">Playback failed. Check your connection and try again.&#x200E;</string>
+    <string name="player_subtitle_customize">Customize…</string>
+    <string name="player_subtitle_size">Size</string>
+    <string name="player_subtitle_color">Text color</string>
+    <string name="player_subtitle_background">Background</string>
+    <string name="player_subtitle_edge">Edge</string>
+    <string name="player_subtitle_opt_small">Small</string>
+    <string name="player_subtitle_opt_normal">Normal</string>
+    <string name="player_subtitle_opt_large">Large</string>
+    <string name="player_subtitle_opt_xl">Extra large</string>
+    <string name="player_subtitle_opt_white">White</string>
+    <string name="player_subtitle_opt_yellow">Yellow</string>
+    <string name="player_subtitle_opt_cyan">Cyan</string>
+    <string name="player_subtitle_opt_green">Green</string>
+    <string name="player_subtitle_opt_none">None</string>
+    <string name="player_subtitle_opt_dim">Dim</string>
+    <string name="player_subtitle_opt_solid">Solid</string>
+    <string name="player_subtitle_opt_shadow">Shadow</string>
+    <string name="player_subtitle_opt_outline">Outline</string>
 
     <!-- Person -->
     <string name="person_kind_actor">Actor</string>

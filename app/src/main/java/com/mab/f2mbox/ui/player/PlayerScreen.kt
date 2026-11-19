@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -276,16 +277,24 @@ fun PlayerScreen(
     var speedMenuVisible by remember { mutableStateOf(false) }
     var subtitleMenuVisible by remember { mutableStateOf(false) }
     var audioMenuVisible by remember { mutableStateOf(false) }
+    // Subtitle look, loaded from (and saved back to) SharedPreferences;
+    // edited live through the settings panel.
+    var subtitleSettings by remember { mutableStateOf(loadSubtitleSettings(context)) }
+    var subtitlePanelVisible by remember { mutableStateOf(false) }
+    val subtitleTypeface = remember {
+        ResourcesCompat.getFont(context, R.font.vazirmatn_rd_regular)
+    }
     LaunchedEffect(playbackSpeed) {
         player.setPlaybackSpeed(playbackSpeed)
     }
 
     LaunchedEffect(
         controlsVisible, isPlaying, interaction,
-        speedMenuVisible, subtitleMenuVisible, audioMenuVisible
+        speedMenuVisible, subtitleMenuVisible, audioMenuVisible, subtitlePanelVisible
     ) {
         if (controlsVisible && isPlaying &&
-            !speedMenuVisible && !subtitleMenuVisible && !audioMenuVisible
+            !speedMenuVisible && !subtitleMenuVisible && !audioMenuVisible &&
+            !subtitlePanelVisible
         ) {
             delay(ControlsHideDelayMs)
             controlsVisible = false
@@ -355,8 +364,11 @@ fun PlayerScreen(
     // it (guarded so the initial composition doesn't steal focus).
     var wasMenuOpen by remember { mutableStateOf(false) }
     var menuReturnFocus by remember { mutableStateOf<FocusRequester?>(null) }
-    LaunchedEffect(speedMenuVisible, subtitleMenuVisible, audioMenuVisible) {
-        val anyOpen = speedMenuVisible || subtitleMenuVisible || audioMenuVisible
+    LaunchedEffect(
+        speedMenuVisible, subtitleMenuVisible, audioMenuVisible, subtitlePanelVisible
+    ) {
+        val anyOpen = speedMenuVisible || subtitleMenuVisible || audioMenuVisible ||
+            subtitlePanelVisible
         if (anyOpen && !wasMenuOpen) {
             menuReturnFocus = when {
                 speedMenuVisible -> speedButtonFocus
@@ -381,9 +393,11 @@ fun PlayerScreen(
         }
     }
 
-    // Back: close any open menu first, then hide the overlay, then leave.
+    // Back: close the settings panel, then any open menu, then hide the
+    // overlay, then leave.
     BackHandler {
         when {
+            subtitlePanelVisible -> subtitlePanelVisible = false
             speedMenuVisible || subtitleMenuVisible || audioMenuVisible -> {
                 speedMenuVisible = false
                 subtitleMenuVisible = false
@@ -466,26 +480,19 @@ fun PlayerScreen(
             )
 
             // Bottom-pinned subtitle layer: rewritten cues (embedded
-            // positioning stripped) in the app's Vazirmatn face.
+            // positioning stripped), styled by the user's subtitle settings.
             AndroidView(
                 factory = { ctx ->
                     SubtitleView(ctx).apply {
-                        setStyle(
-                            CaptionStyleCompat(
-                                Color.White.toArgb(),
-                                Color.Transparent.toArgb(),
-                                android.graphics.Color.TRANSPARENT,
-                                CaptionStyleCompat.EDGE_TYPE_NONE,
-                                android.graphics.Color.TRANSPARENT,
-                                ResourcesCompat.getFont(ctx, R.font.vazirmatn_rd_regular)
-                            )
-                        )
                         setApplyEmbeddedStyles(false)
                         setApplyEmbeddedFontSizes(false)
                         setBottomPaddingFraction(0.02f)
                     }
                 },
-                update = { it.setCues(subtitleCues) },
+                update = {
+                    applySubtitleSettings(it, subtitleSettings, subtitleTypeface)
+                    it.setCues(subtitleCues)
+                },
                 modifier = Modifier.fillMaxSize()
             )
 
@@ -544,6 +551,18 @@ fun PlayerScreen(
                 onSubtitleSelect = {
                     selectSubtitle(it)
                     subtitleMenuVisible = false
+                    interaction++
+                },
+                onOpenSubtitleSettings = {
+                    subtitleMenuVisible = false
+                    subtitlePanelVisible = true
+                    interaction++
+                },
+                subtitleSettings = subtitleSettings,
+                subtitlePanelVisible = subtitlePanelVisible,
+                onSubtitleSettingsChange = { settings ->
+                    subtitleSettings = settings
+                    saveSubtitleSettings(context, settings)
                     interaction++
                 },
                 audioTracks = audioTracks,
@@ -623,6 +642,10 @@ private fun PlayerControls(
     subtitleMenuVisible: Boolean,
     onToggleSubtitleMenu: () -> Unit,
     onSubtitleSelect: (MediaTrack?) -> Unit,
+    onOpenSubtitleSettings: () -> Unit,
+    subtitleSettings: SubtitleSettings,
+    subtitlePanelVisible: Boolean,
+    onSubtitleSettingsChange: (SubtitleSettings) -> Unit,
     audioTracks: List<MediaTrack>,
     audioMenuVisible: Boolean,
     onToggleAudioMenu: () -> Unit,
@@ -702,6 +725,7 @@ private fun PlayerControls(
                 val options = buildList {
                     add(stringResource(R.string.player_subtitles_off))
                     subtitleTracks.forEach { add(it.label) }
+                    add(stringResource(R.string.player_subtitle_customize))
                 }
                 val selected = subtitleTracks.indexOfFirst {
                     it.group.isTrackSelected(it.trackIndex)
@@ -710,8 +734,19 @@ private fun PlayerControls(
                     options = options,
                     selectedIndex = if (selected >= 0) selected + 1 else 0,
                     onSelect = { index ->
-                        onSubtitleSelect(if (index == 0) null else subtitleTracks[index - 1])
+                        when {
+                            index == options.lastIndex -> onOpenSubtitleSettings()
+                            index == 0 -> onSubtitleSelect(null)
+                            else -> onSubtitleSelect(subtitleTracks[index - 1])
+                        }
                     },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            if (subtitlePanelVisible) {
+                SubtitleSettingsPanel(
+                    settings = subtitleSettings,
+                    onChange = onSubtitleSettingsChange,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -1064,10 +1099,163 @@ private fun ChoiceMenu(
     }
 }
 
-/** One selectable embedded track (audio or subtitle text) in the video. */
-private class MediaTrack(val group: Tracks.Group, val trackIndex: Int, val label: String)
+/** One row of the subtitle settings panel: a labeled group of options. */
+private class SubtitleSettingRow(
+    val label: String,
+    val options: List<String>,
+    val selectedIndex: Int,
+    val apply: (Int) -> Unit
+)
 
-/** Collects every supported embedded track of one type from a [Tracks] snapshot. */
+/**
+ * Subtitle customization panel: one row per setting (size, text color,
+ * background, edge), rendered as option chips with TV-style roving highlight.
+ * The panel is a single focus target: Up/Down move between rows, Left/Right
+ * move the highlight within a row, Center applies the highlighted option
+ * immediately (live preview, kept open for more tweaks), and everything else
+ * is consumed so it stays modal (Back is handled by the screen).
+ */
+@Composable
+private fun SubtitleSettingsPanel(
+    settings: SubtitleSettings,
+    onChange: (SubtitleSettings) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val rows = listOf(
+        SubtitleSettingRow(
+            label = stringResource(R.string.player_subtitle_size),
+            options = listOf(
+                stringResource(R.string.player_subtitle_opt_small),
+                stringResource(R.string.player_subtitle_opt_normal),
+                stringResource(R.string.player_subtitle_opt_large),
+                stringResource(R.string.player_subtitle_opt_xl)
+            ),
+            selectedIndex = SubtitleSizeOptions.indexOf(settings.textSizeSp).coerceAtLeast(0),
+            apply = { onChange(settings.copy(textSizeSp = SubtitleSizeOptions[it])) }
+        ),
+        SubtitleSettingRow(
+            label = stringResource(R.string.player_subtitle_color),
+            options = listOf(
+                stringResource(R.string.player_subtitle_opt_white),
+                stringResource(R.string.player_subtitle_opt_yellow),
+                stringResource(R.string.player_subtitle_opt_cyan),
+                stringResource(R.string.player_subtitle_opt_green)
+            ),
+            selectedIndex = SubtitleColorOptions.indexOf(settings.colorArgb).coerceAtLeast(0),
+            apply = { onChange(settings.copy(colorArgb = SubtitleColorOptions[it])) }
+        ),
+        SubtitleSettingRow(
+            label = stringResource(R.string.player_subtitle_background),
+            options = listOf(
+                stringResource(R.string.player_subtitle_opt_none),
+                stringResource(R.string.player_subtitle_opt_dim),
+                stringResource(R.string.player_subtitle_opt_solid)
+            ),
+            selectedIndex = SubtitleBackgroundOptions.indexOf(settings.backgroundArgb)
+                .coerceAtLeast(0),
+            apply = { onChange(settings.copy(backgroundArgb = SubtitleBackgroundOptions[it])) }
+        ),
+        SubtitleSettingRow(
+            label = stringResource(R.string.player_subtitle_edge),
+            options = listOf(
+                stringResource(R.string.player_subtitle_opt_none),
+                stringResource(R.string.player_subtitle_opt_shadow),
+                stringResource(R.string.player_subtitle_opt_outline)
+            ),
+            selectedIndex = SubtitleEdgeOptions.indexOf(settings.edgeType).coerceAtLeast(0),
+            apply = { onChange(settings.copy(edgeType = SubtitleEdgeOptions[it])) }
+        )
+    )
+
+    var row by remember { mutableIntStateOf(0) }
+    var col by remember {
+        mutableIntStateOf(rows.first().selectedIndex.coerceIn(0, rows.first().options.lastIndex))
+    }
+    val panelFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        while (!panelFocus.requestFocus()) delay(50)
+    }
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.Black.copy(alpha = 0.85f))
+            .padding(16.dp)
+            .focusRequester(panelFocus)
+            .focusable()
+            .onKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                when (event.key) {
+                    Key.DirectionUp -> {
+                        row = (row - 1).coerceAtLeast(0)
+                        col = col.coerceIn(0, rows[row].options.lastIndex)
+                        true
+                    }
+                    Key.DirectionDown -> {
+                        row = (row + 1).coerceAtMost(rows.lastIndex)
+                        col = col.coerceIn(0, rows[row].options.lastIndex)
+                        true
+                    }
+                    Key.DirectionLeft -> {
+                        col = (col - 1).coerceAtLeast(0)
+                        true
+                    }
+                    Key.DirectionRight -> {
+                        col = (col + 1).coerceAtMost(rows[row].options.lastIndex)
+                        true
+                    }
+                    Key.DirectionCenter, Key.Enter, Key.Spacebar -> {
+                        if (event.nativeKeyEvent.repeatCount == 0) {
+                            rows[row].apply(col)
+                        }
+                        true
+                    }
+                    // Consume everything else so the panel stays modal.
+                    else -> true
+                }
+            },
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        rows.forEachIndexed { rowIndex, settingRow ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = settingRow.label,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.width(110.dp)
+                )
+                settingRow.options.forEachIndexed { optionIndex, option ->
+                    val isHighlighted = rowIndex == row && optionIndex == col
+                    val isCurrent = optionIndex == settingRow.selectedIndex
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                when {
+                                    isHighlighted -> MaterialTheme.colorScheme.primary
+                                    isCurrent -> Color.White.copy(alpha = 0.25f)
+                                    else -> Color.White.copy(alpha = 0.15f)
+                                }
+                            )
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = option,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = Color.White,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** One selectable embedded track (audio or subtitle text) in the video. */
+private class MediaTrack(val group: Tracks.Group, val trackIndex: Int, val label: String)/** Collects every supported embedded track of one type from a [Tracks] snapshot. */
 private fun tracksOfType(tracks: Tracks, type: Int): List<MediaTrack> = buildList {
     tracks.groups.forEach { group ->
         if (group.type == type) {
@@ -1188,4 +1376,79 @@ private fun formatTime(ms: Long): String {
     } else {
         String.format(Locale.US, "%d:%02d", minutes, seconds)
     }
+}
+
+/**
+ * User-customizable subtitle appearance, persisted in SharedPreferences so
+ * the choice survives restarts. [edgeType] is a [CaptionStyleCompat] edge
+ * constant; the color fields are raw ARGB ints.
+ */
+private data class SubtitleSettings(
+    val textSizeSp: Float = 20f,
+    val colorArgb: Int = android.graphics.Color.WHITE,
+    val backgroundArgb: Int = android.graphics.Color.TRANSPARENT,
+    val edgeType: Int = CaptionStyleCompat.EDGE_TYPE_NONE
+)
+
+private const val SUBTITLE_PREFS_FILE = "player_subtitle_settings"
+
+/** Subtitle size choices in sp, tuned for 10-foot TV viewing. */
+private val SubtitleSizeOptions = listOf(16f, 20f, 25f, 32f)
+
+private val SubtitleColorOptions = listOf(
+    android.graphics.Color.WHITE,
+    android.graphics.Color.YELLOW,
+    0xFF00E5FF.toInt(), // cyan
+    0xFF9CCC65.toInt() // soft green
+)
+
+private val SubtitleBackgroundOptions = listOf(
+    android.graphics.Color.TRANSPARENT,
+    0x88000000.toInt(), // dim: 50% black
+    android.graphics.Color.BLACK
+)
+
+private val SubtitleEdgeOptions = listOf(
+    CaptionStyleCompat.EDGE_TYPE_NONE,
+    CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW,
+    CaptionStyleCompat.EDGE_TYPE_OUTLINE
+)
+
+private fun loadSubtitleSettings(context: android.content.Context): SubtitleSettings {
+    val prefs = context.getSharedPreferences(SUBTITLE_PREFS_FILE, android.content.Context.MODE_PRIVATE)
+    return SubtitleSettings(
+        textSizeSp = prefs.getFloat("size", 20f),
+        colorArgb = prefs.getInt("color", android.graphics.Color.WHITE),
+        backgroundArgb = prefs.getInt("background", android.graphics.Color.TRANSPARENT),
+        edgeType = prefs.getInt("edge", CaptionStyleCompat.EDGE_TYPE_NONE)
+    )
+}
+
+private fun saveSubtitleSettings(context: android.content.Context, settings: SubtitleSettings) {
+    context.getSharedPreferences(SUBTITLE_PREFS_FILE, android.content.Context.MODE_PRIVATE)
+        .edit()
+        .putFloat("size", settings.textSizeSp)
+        .putInt("color", settings.colorArgb)
+        .putInt("background", settings.backgroundArgb)
+        .putInt("edge", settings.edgeType)
+        .apply()
+}
+
+/** Pushes [settings] onto [view]; [typeface] keeps the app's subtitle face. */
+private fun applySubtitleSettings(
+    view: SubtitleView,
+    settings: SubtitleSettings,
+    typeface: android.graphics.Typeface?
+) {
+    view.setStyle(
+        CaptionStyleCompat(
+            settings.colorArgb,
+            settings.backgroundArgb,
+            android.graphics.Color.TRANSPARENT,
+            settings.edgeType,
+            android.graphics.Color.BLACK,
+            typeface
+        )
+    )
+    view.setFixedTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, settings.textSizeSp)
 }
