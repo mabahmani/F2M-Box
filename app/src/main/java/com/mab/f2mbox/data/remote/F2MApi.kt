@@ -12,6 +12,10 @@ interface F2MApi {
     /** Server liveness probe used by the connect screen. */
     @retrofit2.http.GET("health")
     suspend fun health(): Envelope<HealthData>
+
+    /** Homepage payload: hero slider, carousels, navigation, … */
+    @retrofit2.http.GET("home")
+    suspend fun home(): Envelope<HomeData>
 }
 
 object Api {
@@ -25,12 +29,13 @@ object Api {
 
     /**
      * Generous timeouts: the backend runs on a free tier that can take a
-     * while to answer while its instance wakes up.
+     * while to answer while its instance wakes up. The home endpoint has
+     * been observed taking up to ~2 minutes on a cold start.
      */
     private val okhttp = OkHttpClient.Builder()
-        .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(45, TimeUnit.SECONDS)
-        .callTimeout(60, TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(150, TimeUnit.SECONDS)
+        .callTimeout(180, TimeUnit.SECONDS)
         .build()
 
     val client: F2MApi by lazy {

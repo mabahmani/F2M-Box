@@ -2,6 +2,7 @@ package com.mab.f2mbox.data
 
 import com.mab.f2mbox.data.remote.F2MApi
 import com.mab.f2mbox.data.remote.HealthData
+import com.mab.f2mbox.data.remote.HomeData
 
 /**
  * Single entry point for F2M Scrapper data. Each call returns [Result] so
@@ -14,5 +15,12 @@ class F2MRepository(private val api: F2MApi = com.mab.f2mbox.data.remote.Api.cli
         val envelope = api.health()
         check(envelope.ok) { envelope.error?.message ?: "Server reported an error" }
         checkNotNull(envelope.data) { "Empty health response" }
+    }
+
+    /** Fetches the homepage payload (hero slider, carousels, …). */
+    suspend fun home(): Result<HomeData> = runCatching {
+        val envelope = api.home()
+        check(envelope.ok) { envelope.error?.message ?: "Server reported an error" }
+        checkNotNull(envelope.data) { "Empty home response" }
     }
 }

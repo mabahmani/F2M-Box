@@ -23,6 +23,7 @@ import com.mab.f2mbox.data.F2MRepository
 import com.mab.f2mbox.ui.connect.ConnectState
 import com.mab.f2mbox.ui.connect.SplashScreen
 import com.mab.f2mbox.ui.connect.describe
+import com.mab.f2mbox.ui.home.HomeScreen
 import com.mab.f2mbox.ui.theme.F2MBoxTheme
 import kotlinx.coroutines.delay
 
@@ -73,10 +74,13 @@ private fun ConnectGate(repository: F2MRepository) {
         state = ConnectState.Failed(describe(lastError))
     }
 
-    SplashScreen(
-        state = state,
-        onRetry = { attempt++ }
-    )
+    when (state) {
+        ConnectState.Ready -> HomeScreen(repository = repository)
+        else -> SplashScreen(
+            state = state,
+            onRetry = { attempt++ }
+        )
+    }
 }
 
 private const val MAX_AUTO_RETRIES = 3
