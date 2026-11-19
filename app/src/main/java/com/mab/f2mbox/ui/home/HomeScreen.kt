@@ -2,9 +2,11 @@
 
 package com.mab.f2mbox.ui.home
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -19,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -29,6 +32,7 @@ import androidx.tv.material3.Text
 import com.mab.f2mbox.R
 import com.mab.f2mbox.data.F2MRepository
 import com.mab.f2mbox.data.remote.HomeData
+import com.mab.f2mbox.ui.connect.LoadingDots
 import com.mab.f2mbox.ui.connect.describe
 import kotlinx.coroutines.delay
 
@@ -64,17 +68,14 @@ fun HomeScreen(
             modifier = modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = stringResource(R.string.loading),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            LoadingDots()
         }
 
         is HomeUiState.Error -> Box(
             modifier = modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
+            val context = LocalContext.current
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = stringResource(current.messageRes),
@@ -83,8 +84,13 @@ fun HomeScreen(
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(20.dp))
-                Button(onClick = { attempt++ }) {
-                    Text(stringResource(R.string.retry))
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Button(onClick = { (context as? android.app.Activity)?.finish() }) {
+                        Text(stringResource(R.string.back))
+                    }
+                    Button(onClick = { attempt++ }) {
+                        Text(stringResource(R.string.retry))
+                    }
                 }
             }
         }

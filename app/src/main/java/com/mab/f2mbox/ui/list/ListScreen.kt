@@ -44,6 +44,7 @@ import com.mab.f2mbox.R
 import com.mab.f2mbox.data.remote.ListData
 import com.mab.f2mbox.data.remote.ScrapeResult
 import com.mab.f2mbox.data.remote.SectionItem
+import com.mab.f2mbox.ui.connect.LoadingDots
 import com.mab.f2mbox.ui.connect.describe
 import com.mab.f2mbox.ui.detail.MovieDetail
 import com.mab.f2mbox.ui.home.PosterCard
@@ -117,11 +118,7 @@ fun ListScreen(
             modifier = modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = stringResource(R.string.loading),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            LoadingDots()
         }
 
         is ListUiState.Error -> Box(
@@ -136,8 +133,13 @@ fun ListScreen(
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(20.dp))
-                Button(onClick = { attempt++ }) {
-                    Text(stringResource(R.string.retry))
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Button(onClick = onNavigateBack) {
+                        Text(stringResource(R.string.back))
+                    }
+                    Button(onClick = { attempt++ }) {
+                        Text(stringResource(R.string.retry))
+                    }
                 }
             }
         }

@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -93,8 +94,14 @@ fun SplashScreen(
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(20.dp))
-                Button(onClick = onRetry) {
-                    Text(stringResource(R.string.retry))
+                val context = LocalContext.current
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Button(onClick = { (context as? android.app.Activity)?.finish() }) {
+                        Text(stringResource(R.string.back))
+                    }
+                    Button(onClick = onRetry) {
+                        Text(stringResource(R.string.retry))
+                    }
                 }
             }
 
@@ -105,7 +112,7 @@ fun SplashScreen(
 
 /** Three brand-colored dots pulsing in sequence. */
 @Composable
-private fun LoadingDots(modifier: Modifier = Modifier) {
+internal fun LoadingDots(modifier: Modifier = Modifier) {
     val transition = rememberInfiniteTransition(label = "loading")
     val dotColors = listOf(
         MaterialTheme.colorScheme.primary,
