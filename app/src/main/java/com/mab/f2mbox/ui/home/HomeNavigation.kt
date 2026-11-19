@@ -46,15 +46,22 @@ private val ChipShape = RoundedCornerShape(50)
 
 /**
  * The home payload's navigation block: a row of quick links (movies, series,
- * top charts) with a genre-filter row underneath that follows the selected
+ * top charts) with a genre-filter row underneath that follows the focused
  * link — movie genres under "فیلم ها", series genres under "سریال ها", and
- * nothing under the top charts, which have no genre facet.
- *
- * Selecting a link only switches the genre row for now; opening the actual
- * listing pages comes with the navigation/screen pass.
+ * nothing under the top charts, which have no genre facet. On TV the
+ * selection follows focus, so browsing the links previews their genres;
+ * pressing OK on a chip opens its listing through [onOpenUrl]. A search
+ * field sits under the filter rows; submitting a query calls [onSearch].
  */
 @Composable
-fun NavigationBlock(navigation: HomeNavigation, modifier: Modifier = Modifier) {
+fun NavigationBlock(
+    navigation: HomeNavigation,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    onOpenUrl: (String) -> Unit,
+    onSearch: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
     if (navigation.sections.isEmpty()) return
 
     var selectedSection by remember(navigation) { mutableIntStateOf(0) }
@@ -69,7 +76,8 @@ fun NavigationBlock(navigation: HomeNavigation, modifier: Modifier = Modifier) {
                 SectionChip(
                     section = navigation.sections[index],
                     isSelected = index == selectedSection,
-                    onClick = { selectedSection = index }
+                    onFocus = { selectedSection = index },
+                    onClick = { onOpenUrl(navigation.sections[index].url) }
                 )
             }
         }
@@ -83,9 +91,19 @@ fun NavigationBlock(navigation: HomeNavigation, modifier: Modifier = Modifier) {
         ) { url ->
             GenreRow(
                 genres = genresFor(url, navigation),
+                onOpenUrl = onOpenUrl,
                 modifier = Modifier.fillMaxWidth()
             )
         }
+
+        SearchField(
+            query = searchQuery,
+            onQueryChange = onSearchQueryChange,
+            onSubmit = onSearch,
+            modifier = Modifier
+                .padding(top = 16.dp)
+                .padding(horizontal = ContentMargin)
+        )
     }
 }
 
@@ -97,7 +115,11 @@ private fun genresFor(sectionUrl: String?, navigation: HomeNavigation): List<Gen
 }
 
 @Composable
-private fun GenreRow(genres: List<GenreLink>, modifier: Modifier = Modifier) {
+private fun GenreRow(
+    genres: List<GenreLink>,
+    onOpenUrl: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
     if (genres.isEmpty()) {
         Spacer(modifier.height(44.dp))
         return
@@ -109,7 +131,7 @@ private fun GenreRow(genres: List<GenreLink>, modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         items(genres.size) { index ->
-            GenreChip(genre = genres[index])
+            GenreChip(genre = genres[index], onClick = { onOpenUrl(genres[index].url) })
         }
     }
 }
@@ -122,6 +144,7 @@ private fun GenreRow(genres: List<GenreLink>, modifier: Modifier = Modifier) {
 private fun SectionChip(
     section: NavSection,
     isSelected: Boolean,
+    onFocus: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -138,7 +161,10 @@ private fun SectionChip(
                 scaleX = scale
                 scaleY = scale
             }
-            .onFocusChanged { isFocused = it.isFocused }
+            .onFocusChanged {
+                isFocused = it.isFocused
+                if (it.isFocused) onFocus()
+            }
             .clickable(onClick = onClick)
             .clip(ChipShape)
             .background(
@@ -174,7 +200,11 @@ private fun SectionChip(
  * titles filed under it in a dimmer tone.
  */
 @Composable
-private fun GenreChip(genre: GenreLink, modifier: Modifier = Modifier) {
+private fun GenreChip(
+    genre: GenreLink,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         targetValue = if (isFocused) 1.08f else 1f,
@@ -189,7 +219,7 @@ private fun GenreChip(genre: GenreLink, modifier: Modifier = Modifier) {
                 scaleY = scale
             }
             .onFocusChanged { isFocused = it.isFocused }
-            .clickable { /* Listing screen comes later. */ }
+            .clickable(onClick = onClick)
             .clip(ChipShape)
             .background(
                 if (isFocused) {

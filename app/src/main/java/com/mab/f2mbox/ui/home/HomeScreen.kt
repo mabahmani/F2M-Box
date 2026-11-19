@@ -33,11 +33,20 @@ import com.mab.f2mbox.ui.connect.describe
 import kotlinx.coroutines.delay
 
 /**
- * Home screen. Loads the homepage payload once and renders the hero slider;
- * the carousels below it come in a later pass.
+ * Home screen. Loads the homepage payload once and renders the hero slider,
+ * the navigation block and the carousels. Tapping any navigation target
+ * (section chip, genre chip, see-more card) hands its url to [onOpenUrl];
+ * submitting the inline search field calls [onSearch] with the query.
  */
 @Composable
-fun HomeScreen(repository: F2MRepository, modifier: Modifier = Modifier) {
+fun HomeScreen(
+    repository: F2MRepository,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    onOpenUrl: (String) -> Unit = {},
+    onSearch: (String) -> Unit = {},
+    modifier: Modifier = Modifier
+) {
     var state by remember { mutableStateOf<HomeUiState>(HomeUiState.Loading) }
     var attempt by remember { mutableIntStateOf(0) }
 
@@ -79,7 +88,14 @@ fun HomeScreen(repository: F2MRepository, modifier: Modifier = Modifier) {
             }
         }
 
-        is HomeUiState.Ready -> HomeContent(home = current.home, modifier = modifier)
+        is HomeUiState.Ready -> HomeContent(
+            home = current.home,
+            searchQuery = searchQuery,
+            onSearchQueryChange = onSearchQueryChange,
+            onOpenUrl = onOpenUrl,
+            onSearch = onSearch,
+            modifier = modifier
+        )
     }
 }
 
@@ -89,7 +105,14 @@ fun HomeScreen(repository: F2MRepository, modifier: Modifier = Modifier) {
  * under that.
  */
 @Composable
-private fun HomeContent(home: HomeData, modifier: Modifier = Modifier) {
+private fun HomeContent(
+    home: HomeData,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    onOpenUrl: (String) -> Unit,
+    onSearch: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val heroHeight = maxHeight
 
@@ -119,12 +142,18 @@ private fun HomeContent(home: HomeData, modifier: Modifier = Modifier) {
             }
             home.navigation?.let { nav ->
                 item {
-                    NavigationBlock(navigation = nav)
+                    NavigationBlock(
+                        navigation = nav,
+                        searchQuery = searchQuery,
+                        onSearchQueryChange = onSearchQueryChange,
+                        onOpenUrl = onOpenUrl,
+                        onSearch = onSearch
+                    )
                 }
             }
             home.sections.forEach { section ->
                 item(key = section.id) {
-                    SectionRow(section = section)
+                    SectionRow(section = section, onOpenUrl = onOpenUrl)
                 }
             }
             // Breathing room below the last row so it clears the screen edge.

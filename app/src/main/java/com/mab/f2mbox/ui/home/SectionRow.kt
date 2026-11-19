@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -68,7 +69,11 @@ private const val MAX_GENRE_CHIPS = 3
  * `sections` list.
  */
 @Composable
-fun SectionRow(section: HomeSection, modifier: Modifier = Modifier) {
+fun SectionRow(
+    section: HomeSection,
+    onOpenUrl: (String) -> Unit = {},
+    modifier: Modifier = Modifier
+) {
     if (section.items.isEmpty()) return
 
     Column(modifier = modifier.fillMaxWidth().padding(top = 28.dp)) {
@@ -83,11 +88,14 @@ fun SectionRow(section: HomeSection, modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(section.items.size) { index ->
-                PosterCard(item = section.items[index])
+                PosterCard(
+                    item = section.items[index],
+                    modifier = Modifier.width(PosterCardWidth)
+                )
             }
             section.url?.let {
                 item(key = "see-more-${section.id}") {
-                    SeeMoreCard()
+                    SeeMoreCard(onClick = { onOpenUrl(section.url) })
                 }
             }
         }
@@ -126,7 +134,10 @@ private fun Chevron(color: Color, modifier: Modifier = Modifier) {
  * "See more" with a chevron and leads to the section's listing page.
  */
 @Composable
-private fun SeeMoreCard(modifier: Modifier = Modifier) {
+private fun SeeMoreCard(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         targetValue = if (isFocused) 1.08f else 1f,
@@ -143,7 +154,7 @@ private fun SeeMoreCard(modifier: Modifier = Modifier) {
                 scaleY = scale
             }
             .onFocusChanged { isFocused = it.isFocused }
-            .clickable { /* Detail screen comes later. */ }
+            .clickable(onClick = onClick)
             .clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .border(
@@ -177,9 +188,12 @@ private fun SeeMoreCard(modifier: Modifier = Modifier) {
 /**
  * A focusable poster card: vertical poster image, rating badge on top,
  * title and status/year below. Scales up and gets a border when focused.
+ * Width comes from [modifier]; the poster keeps a 2:3 aspect ratio, so
+ * callers pass e.g. `Modifier.width(PosterCardWidth)` in rows or
+ * `Modifier.fillMaxWidth()` in grid cells.
  */
 @Composable
-private fun PosterCard(item: SectionItem, modifier: Modifier = Modifier) {
+internal fun PosterCard(item: SectionItem, modifier: Modifier = Modifier) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         targetValue = if (isFocused) 1.08f else 1f,
@@ -189,7 +203,6 @@ private fun PosterCard(item: SectionItem, modifier: Modifier = Modifier) {
 
     Column(
         modifier = modifier
-            .width(PosterCardWidth)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -204,8 +217,8 @@ private fun PosterCard(item: SectionItem, modifier: Modifier = Modifier) {
                 contentDescription = item.poster?.alt ?: item.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .width(PosterCardWidth)
-                    .height(PosterCardHeight)
+                    .fillMaxWidth()
+                    .aspectRatio(2f / 3f)
                     .clip(RoundedCornerShape(10.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .border(

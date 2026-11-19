@@ -16,6 +16,27 @@ interface F2MApi {
     /** Homepage payload: hero slider, carousels, navigation, … */
     @retrofit2.http.GET("home")
     suspend fun home(): Envelope<HomeData>
+
+    /**
+     * Scrapes any listing url. The envelope's [Envelope.type] selects the
+     * payload shape ("list" for listing pages, others to come); the caller
+     * checks it before using [Envelope.data].
+     */
+    @retrofit2.http.GET("scrape")
+    suspend fun scrape(@retrofit2.http.Query("url") url: String): Envelope<ListData>
+
+    /**
+     * Searches titles by scraping the site's results page (source=html),
+     * which returns the same "list" payload as [scrape], so the result
+     * renders in the listing grid with its pagination. The json
+     * quick-search source (type "search") is not modeled yet.
+     */
+    @retrofit2.http.GET("search")
+    suspend fun search(
+        @retrofit2.http.Query("q") query: String,
+        @retrofit2.http.Query("source") source: String = "html",
+        @retrofit2.http.Query("pages") pages: Int = 1,
+    ): Envelope<ListData>
 }
 
 object Api {

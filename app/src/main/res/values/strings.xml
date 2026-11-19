@@ -15,6 +15,18 @@
     <string name="rating_format">★ %1$s</string>
     <string name="see_more">See more</string>
 
+    <!-- Search -->
+    <string name="search">Search</string>
+    <string name="search_hint">Movie or series name…&#x200E;</string>
+    <string name="search_hint_detail">Press OK on the field to open the keyboard, then submit with the Search button.&#x200E;</string>
+    <string name="no_results">No results found</string>
+
+    <!-- Listing -->
+    <string name="page_format">Page %1$d&#x200E;</string>
+    <string name="previous">Previous</string>
+    <string name="next">Next</string>
+    <string name="back_to_home">Back to home</string>
+
     <!-- Errors -->
     <string name="error_no_internet">No internet connection. Check your network and try again.&#x200E;</string>
     <string name="error_timeout">The server took too long to respond. It may be waking up — try again.&#x200E;</string>
