@@ -289,3 +289,16 @@ data class VoiceActor(
     val name: String,
     val roles: List<String> = emptyList(),
 )
+
+/**
+ * Normalizes image URLs (such as person/actor photos) replacing
+ * `/images/`, `/images/M/`, etc., with `/wp-content/uploads/thumbs/`.
+ */
+fun normalizeImageUrl(url: String?): String? {
+    if (url.isNullOrBlank()) return url
+    return url
+        .replace("/images/M/", "/wp-content/uploads/thumbs/")
+        .replace("/images/", "/wp-content/uploads/thumbs/")
+        .replace("/image/M/", "/wp-content/uploads/thumbs/")
+        .replace("/image/", "/wp-content/uploads/thumbs/")
+}

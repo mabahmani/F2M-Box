@@ -76,6 +76,7 @@ import com.mab.f2mbox.data.remote.Reactions
 import com.mab.f2mbox.data.remote.ScrapeResult
 import com.mab.f2mbox.data.remote.Trailer
 import com.mab.f2mbox.data.remote.VoiceActor
+import com.mab.f2mbox.data.remote.normalizeImageUrl
 import com.mab.f2mbox.ui.home.PosterCard
 import com.mab.f2mbox.ui.theme.F2MBoxTheme
 import kotlinx.coroutines.delay
@@ -735,7 +736,7 @@ private fun PersonCard(person: PersonRef, onOpenUrl: (String) -> Unit, modifier:
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         AsyncImage(
-            model = person.image,
+            model = normalizeImageUrl(person.image),
             contentDescription = person.name,
             contentScale = ContentScale.Crop,
             modifier = Modifier

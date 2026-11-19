@@ -44,6 +44,7 @@ import coil3.compose.AsyncImage
 import com.mab.f2mbox.R
 import com.mab.f2mbox.data.remote.PersonData
 import com.mab.f2mbox.data.remote.PersonProfile
+import com.mab.f2mbox.data.remote.normalizeImageUrl
 import com.mab.f2mbox.ui.home.PosterCard
 import com.mab.f2mbox.ui.list.PagerControls
 import kotlinx.coroutines.delay
@@ -156,7 +157,7 @@ private fun PersonHeader(
         }
         person?.photo?.url?.let { photoUrl ->
             AsyncImage(
-                model = photoUrl,
+                model = normalizeImageUrl(photoUrl),
                 contentDescription = person.photo?.alt ?: person.name,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
