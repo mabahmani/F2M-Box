@@ -77,17 +77,17 @@ fun SearchField(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Button(onClick = onClearCacheAndRefresh) {
+                Text(
+                    text = stringResource(R.string.clear_cache_refresh),
+                    textAlign = TextAlign.Center
+                )
+            }
             Button(onClick = { submit() }, modifier = Modifier.width(SearchButtonWidth)) {
                 Text(
                     text = stringResource(R.string.search),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
-                )
-            }
-            Button(onClick = onClearCacheAndRefresh) {
-                Text(
-                    text = stringResource(R.string.clear_cache_refresh),
-                    textAlign = TextAlign.Center
                 )
             }
             OutlinedTextField(
