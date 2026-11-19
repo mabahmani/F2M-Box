@@ -34,6 +34,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button
 import androidx.tv.material3.ExperimentalTvMaterial3Api
@@ -42,10 +43,12 @@ import androidx.tv.material3.Text
 import com.mab.f2mbox.R
 import com.mab.f2mbox.data.remote.ListData
 import com.mab.f2mbox.data.remote.ScrapeResult
+import com.mab.f2mbox.data.remote.SectionItem
 import com.mab.f2mbox.ui.connect.describe
 import com.mab.f2mbox.ui.detail.MovieDetail
 import com.mab.f2mbox.ui.home.PosterCard
 import com.mab.f2mbox.ui.person.PersonScreen
+import com.mab.f2mbox.ui.theme.F2MBoxTheme
 import kotlinx.coroutines.delay
 
 private val ContentMargin = 48.dp
@@ -54,8 +57,8 @@ private val GridColumns = 4
 // the grid's top clip edge so the enlarged card isn't cut off.
 private val GridTopPadding = 28.dp
 // Breathing room inside every grid cell, so the wide cards keep an even
-// gutter: column gap is 2x this, row gap 2x + the 4dp between rows.
-private val GridItemPadding = 8.dp
+// gutter: column gap is 2x this, row gap 2x + spacing between rows.
+private val GridItemPadding = 16.dp
 
 /** UI state of the scrape screen. */
 sealed interface ListUiState {
@@ -222,10 +225,8 @@ private fun ListContent(
                 top = GridTopPadding,
                 bottom = 32.dp
             ),
-            // Cells sit flush against each other; each card stretches to
-            // fill its cell, inset by [GridItemPadding] on every side, so
-            // the row width mostly goes to the posters with an even gutter.
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(data.items.size, key = { data.items[it].url }) { index ->
                 PosterCard(
@@ -311,5 +312,30 @@ internal fun PagerControls(
         Button(onClick = onNext, enabled = hasNext) {
             Text(stringResource(R.string.next))
         }
+    }
+}
+
+@Preview(showBackground = true, widthDp = 960, heightDp = 540)
+@Composable
+private fun ListContentPreview() {
+    F2MBoxTheme {
+        ListContent(
+            data = ListData(
+                title = "Movies List",
+                items = List(8) { index ->
+                    SectionItem(
+                        title = "Movie ${index + 1}",
+                        url = "/movie/$index",
+                        rating = 8.5
+                    )
+                }
+            ),
+            onNavigateBack = {},
+            onOpenUrl = {},
+            hasPrevious = false,
+            onPrevious = {},
+            hasNext = true,
+            onNext = {}
+        )
     }
 }

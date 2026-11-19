@@ -54,8 +54,8 @@ private val GridColumns = 4
 // the grid's top clip edge so the enlarged card isn't cut off.
 private val GridTopPadding = 28.dp
 // Breathing room inside every grid cell, so the wide cards keep an even
-// gutter: column gap is 2x this, row gap 2x + the 4dp between rows.
-private val GridItemPadding = 8.dp
+// gutter: column gap is 2x this, row gap 2x + spacing between rows.
+private val GridItemPadding = 16.dp
 
 /**
  * A person's archive screen (`type: "person"` scrape): a header with the
@@ -108,10 +108,8 @@ fun PersonScreen(
                 top = GridTopPadding,
                 bottom = 32.dp
             ),
-            // Cells sit flush against each other; each card stretches to
-            // fill its cell, inset by [GridItemPadding] on every side, so
-            // the row width mostly goes to the posters with an even gutter.
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(data.items.size, key = { data.items[it].url }) { index ->
                 PosterCard(
