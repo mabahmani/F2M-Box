@@ -5,13 +5,40 @@ import kotlinx.serialization.Serializable
 
 /**
  * Payload of `GET /home`. Only the fields the app consumes are modeled;
- * `ignoreUnknownKeys` drops the rest (json_ld, navigation, open_graph, …).
+ * `ignoreUnknownKeys` drops the rest (json_ld, open_graph, …).
  */
 @Serializable
 data class HomeData(
     val title: String? = null,
     @SerialName("hero_slider") val heroSlider: List<HeroSlide> = emptyList(),
     val sections: List<HomeSection> = emptyList(),
+    val navigation: HomeNavigation? = null,
+)
+
+/**
+ * The home payload's `navigation` block: quick links to the main listings
+ * (movies, series, top charts) plus genre filters for each content type.
+ */
+@Serializable
+data class HomeNavigation(
+    val sections: List<NavSection> = emptyList(),
+    @SerialName("movie_genres") val movieGenres: List<GenreLink> = emptyList(),
+    @SerialName("series_genres") val seriesGenres: List<GenreLink> = emptyList(),
+)
+
+/** One quick link of the navigation block, e.g. "فیلم ها" or "250 فیلم برتر". */
+@Serializable
+data class NavSection(
+    val name: String,
+    val url: String,
+)
+
+/** One genre filter link with the number of titles filed under it. */
+@Serializable
+data class GenreLink(
+    val name: String,
+    val url: String,
+    val count: Int = 0,
 )
 
 /**

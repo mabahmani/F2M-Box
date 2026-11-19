@@ -1,0 +1,225 @@
+@file:OptIn(ExperimentalTvMaterial3Api::class)
+
+package com.mab.f2mbox.ui.home
+
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Text
+import com.mab.f2mbox.data.remote.GenreLink
+import com.mab.f2mbox.data.remote.HomeNavigation
+import com.mab.f2mbox.data.remote.NavSection
+
+private val ContentMargin = 48.dp
+private val ChipShape = RoundedCornerShape(50)
+
+/**
+ * The home payload's navigation block: a row of quick links (movies, series,
+ * top charts) with a genre-filter row underneath that follows the selected
+ * link — movie genres under "فیلم ها", series genres under "سریال ها", and
+ * nothing under the top charts, which have no genre facet.
+ *
+ * Selecting a link only switches the genre row for now; opening the actual
+ * listing pages comes with the navigation/screen pass.
+ */
+@Composable
+fun NavigationBlock(navigation: HomeNavigation, modifier: Modifier = Modifier) {
+    if (navigation.sections.isEmpty()) return
+
+    var selectedSection by remember(navigation) { mutableIntStateOf(0) }
+    val activeSection = navigation.sections[selectedSection.coerceAtMost(navigation.sections.lastIndex)]
+
+    Column(modifier = modifier.fillMaxWidth().padding(top = 28.dp)) {
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = ContentMargin),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(navigation.sections.size) { index ->
+                SectionChip(
+                    section = navigation.sections[index],
+                    isSelected = index == selectedSection,
+                    onClick = { selectedSection = index }
+                )
+            }
+        }
+
+        // Keyed on the section url so switching links crossfades the genre row.
+        Crossfade(
+            targetState = activeSection.url,
+            animationSpec = tween(durationMillis = 300),
+            label = "genre-row",
+            modifier = Modifier.padding(top = 12.dp)
+        ) { url ->
+            GenreRow(
+                genres = genresFor(url, navigation),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+/** Genre links of the section whose listing url is given, if any. */
+private fun genresFor(sectionUrl: String?, navigation: HomeNavigation): List<GenreLink> = when {
+    sectionUrl?.contains("/movies") == true -> navigation.movieGenres
+    sectionUrl?.contains("/series") == true -> navigation.seriesGenres
+    else -> emptyList()
+}
+
+@Composable
+private fun GenreRow(genres: List<GenreLink>, modifier: Modifier = Modifier) {
+    if (genres.isEmpty()) {
+        Spacer(modifier.height(44.dp))
+        return
+    }
+
+    LazyRow(
+        modifier = modifier,
+        contentPadding = PaddingValues(horizontal = ContentMargin),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        items(genres.size) { index ->
+            GenreChip(genre = genres[index])
+        }
+    }
+}
+
+/**
+ * A quick-link chip: pill-shaped, filled with the primary color while
+ * selected so the active listing is obvious at a glance.
+ */
+@Composable
+private fun SectionChip(
+    section: NavSection,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var isFocused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.08f else 1f,
+        animationSpec = tween(durationMillis = 200),
+        label = "section-chip-scale"
+    )
+
+    Box(
+        modifier = modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .onFocusChanged { isFocused = it.isFocused }
+            .clickable(onClick = onClick)
+            .clip(ChipShape)
+            .background(
+                when {
+                    isSelected -> MaterialTheme.colorScheme.primary
+                    isFocused -> MaterialTheme.colorScheme.surfaceVariant
+                    else -> Color.Transparent
+                }
+            )
+            .border(
+                width = if (isFocused && !isSelected) 2.dp else 0.dp,
+                color = MaterialTheme.colorScheme.primary,
+                shape = ChipShape
+            )
+            .padding(horizontal = 22.dp, vertical = 10.dp)
+    ) {
+        Text(
+            text = section.name,
+            style = MaterialTheme.typography.titleMedium,
+            color = if (isSelected) {
+                MaterialTheme.colorScheme.onPrimary
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+/**
+ * A genre filter chip: neutral pill with the genre name and the number of
+ * titles filed under it in a dimmer tone.
+ */
+@Composable
+private fun GenreChip(genre: GenreLink, modifier: Modifier = Modifier) {
+    var isFocused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.08f else 1f,
+        animationSpec = tween(durationMillis = 200),
+        label = "genre-chip-scale"
+    )
+
+    Row(
+        modifier = modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .onFocusChanged { isFocused = it.isFocused }
+            .clickable { /* Listing screen comes later. */ }
+            .clip(ChipShape)
+            .background(
+                if (isFocused) {
+                    MaterialTheme.colorScheme.surfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
+                }
+            )
+            .border(
+                width = if (isFocused) 2.dp else 0.dp,
+                color = MaterialTheme.colorScheme.primary,
+                shape = ChipShape
+            )
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(
+            text = genre.name,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        if (genre.count > 0) {
+            Text(
+                text = genre.count.toString(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}

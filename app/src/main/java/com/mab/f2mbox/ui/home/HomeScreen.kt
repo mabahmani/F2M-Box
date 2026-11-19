@@ -84,8 +84,9 @@ fun HomeScreen(repository: F2MRepository, modifier: Modifier = Modifier) {
 }
 
 /**
- * Vertical scroll of the hero on top and every home section (a horizontal
- * poster row) below it.
+ * Vertical scroll of the hero on top, the navigation block (quick links +
+ * genre filters) below it, and every home section (a horizontal poster row)
+ * under that.
  */
 @Composable
 private fun HomeContent(home: HomeData, modifier: Modifier = Modifier) {
@@ -114,6 +115,11 @@ private fun HomeContent(home: HomeData, modifier: Modifier = Modifier) {
                             .fillParentMaxWidth()
                             .height(heroHeight)
                     )
+                }
+            }
+            home.navigation?.let { nav ->
+                item {
+                    NavigationBlock(navigation = nav)
                 }
             }
             home.sections.forEach { section ->
