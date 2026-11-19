@@ -89,10 +89,13 @@ fun ListScreen(
     // Keyed on the route key so a new listing/search starts a fresh stack.
     var pages by remember(routeKey) { mutableStateOf(listOf<String?>(null as String?)) }
     var attempt by remember(routeKey) { mutableIntStateOf(0) }
-    var state by remember { mutableStateOf<ListUiState>(ListUiState.Loading) }
+    // Keyed on the route key too: navigating scrape → scrape (e.g. a detail's
+    // suggested row) reuses this composition with a new routeKey, and without
+    // the key the old Ready result would stick and the new fetch never run.
+    var state by remember(routeKey) { mutableStateOf<ListUiState>(ListUiState.Loading) }
     val currentPage = pages.last()
 
-    LaunchedEffect(currentPage, attempt) {
+    LaunchedEffect(routeKey, currentPage, attempt) {
         state = ListUiState.Loading
         fetchPage(currentPage).fold(
             onSuccess = { state = ListUiState.Ready(it) },

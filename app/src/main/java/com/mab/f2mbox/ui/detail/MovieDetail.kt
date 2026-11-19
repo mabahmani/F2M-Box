@@ -62,10 +62,16 @@ import com.mab.f2mbox.R
 import com.mab.f2mbox.data.remote.Comments
 import com.mab.f2mbox.data.remote.Comment
 import com.mab.f2mbox.data.remote.DownloadQuality
+import com.mab.f2mbox.data.remote.Dubbing
+import com.mab.f2mbox.data.remote.Dub
+import com.mab.f2mbox.data.remote.EpisodeLink
 import com.mab.f2mbox.data.remote.MovieData
 import com.mab.f2mbox.data.remote.MovieIntro
 import com.mab.f2mbox.data.remote.PersonRef
+import com.mab.f2mbox.data.remote.Reactions
 import com.mab.f2mbox.data.remote.ScrapeResult
+import com.mab.f2mbox.data.remote.Trailer
+import com.mab.f2mbox.data.remote.VoiceActor
 import com.mab.f2mbox.ui.home.PosterCard
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -73,8 +79,10 @@ import kotlinx.coroutines.launch
 private val ContentMargin = 48.dp
 private val PosterWidth = 200.dp
 private val QualityCardWidth = 280.dp
+private val EpisodeCardWidth = 220.dp
 private val SuggestedCardWidth = 140.dp
 private val PersonCardWidth = 120.dp
+private val VoiceActorCardWidth = 200.dp
 private val PersonImageSize = 96.dp
 // Blurred intro backdrop: blur radius and the overscan factor that pushes
 // the blur's soft out-of-bounds edge outside the clipped intro bounds.
@@ -120,6 +128,19 @@ fun MovieDetail(
     var commentLoading by remember(data) { mutableStateOf(false) }
     var commentError by remember(data) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    // Collapsible seasons: which season indexes are expanded (the last one
+    // open by default, since that's the currently-airing season). Toggled
+    // from the season header row itself.
+    val seasons = data.downloads?.seasons.orEmpty()
+    var expandedSeasons by remember(data) {
+        mutableStateOf(if (seasons.isEmpty()) emptySet() else setOf(seasons.lastIndex))
+    }
+    // Collapsible dubs: which dub indexes are expanded (all collapsed by
+    // default). Toggled from the dub header row itself.
+    var expandedDubs by remember(data) {
+        mutableStateOf<Set<Int>>(emptySet())
+    }
 
     fun loadNextCommentPage(current: Comments) {
         val nextUrl = current.pagination.next ?: return
@@ -206,7 +227,12 @@ fun MovieDetail(
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             item(key = "intro") {
-                IntroBlock(intro = intro, onOpenUrl = onOpenUrl)
+                IntroBlock(intro = intro, reactions = data.reactions, onOpenUrl = onOpenUrl)
+            }
+            data.trailer?.takeIf { it.url != null }?.let { trailer ->
+                item(key = "trailer") {
+                    TrailerCard(trailer = trailer)
+                }
             }
             intro.excerpt?.takeIf { it.isNotBlank() }?.let { excerpt ->
                 item(key = "excerpt") {
@@ -243,6 +269,111 @@ fun MovieDetail(
                     }
                 }
             }
+            data.dubbing?.takeIf { it.dubs.isNotEmpty() }?.let { dubbing ->
+                item(key = "dubbing-title") {
+                    Text(
+                        text = stringResource(R.string.dubbing),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(top = 12.dp)
+                    )
+                }
+                dubbing.dubs.forEachIndexed { dubIndex, dub ->
+                    val isExpanded = dubIndex in expandedDubs
+                    item(key = "dub-$dubIndex-title") {
+                        var isFocused by remember { mutableStateOf(false) }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onFocusChanged { isFocused = it.isFocused }
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(
+                                    if (isFocused) {
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                    } else {
+                                        Color.Transparent
+                                    }
+                                )
+                                .clickable {
+                                    expandedDubs = if (isExpanded) {
+                                        expandedDubs - dubIndex
+                                    } else {
+                                        expandedDubs + dubIndex
+                                    }
+                                }
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                text = if (isExpanded) "▾" else "◂",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = dub.title.orEmpty(),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                    if (isExpanded) {
+                        item(key = "dub-$dubIndex-info") {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                dub.fields.forEach { (label, value) ->
+                                    Text(
+                                        text = "$label: $value",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                dub.notes
+                                    .filter { it.isNotBlank() && it != "..." }
+                                    .forEach { note ->
+                                        Text(
+                                            text = "• $note",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                            }
+                        }
+                        if (dub.voiceActors.isNotEmpty()) {
+                            item(key = "dub-$dubIndex-voice-title") {
+                                Text(
+                                    text = stringResource(R.string.voice_actors),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            item(key = "dub-$dubIndex-voice-row") {
+                                LazyRow(
+                                    // Inset so the focus-scaled first/last cards
+                                    // aren't clipped at the row's bounds.
+                                    contentPadding = PaddingValues(horizontal = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    items(dub.voiceActors.size) { index ->
+                                        VoiceActorCard(actor = dub.voiceActors[index])
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            data.downloads?.takeIf { it.variants.isNotEmpty() || it.seasons.isNotEmpty() }?.let {
+                item(key = "downloads-title") {
+                    Text(
+                        text = stringResource(R.string.downloads),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(top = 12.dp)
+                    )
+                }
+            }
             data.downloads?.variants?.forEach { variant ->
                 item(key = "variant-title-${variant.variant}") {
                     Text(
@@ -256,6 +387,86 @@ fun MovieDetail(
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         items(variant.qualities.size) { index ->
                             QualityCard(quality = variant.qualities[index])
+                        }
+                    }
+                }
+            }
+            data.downloads?.seasons?.forEachIndexed { seasonIndex, season ->
+                val isExpanded = seasonIndex in expandedSeasons
+                item(key = "season-$seasonIndex-title") {
+                    var isFocused by remember { mutableStateOf(false) }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp)
+                            .onFocusChanged { isFocused = it.isFocused }
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(
+                                if (isFocused) {
+                                    MaterialTheme.colorScheme.surfaceVariant
+                                } else {
+                                    Color.Transparent
+                                }
+                            )
+                            .clickable {
+                                expandedSeasons = if (isExpanded) {
+                                    expandedSeasons - seasonIndex
+                                } else {
+                                    expandedSeasons + seasonIndex
+                                }
+                            }
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = if (isExpanded) "▾" else "◂",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = season.name.orEmpty(),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f)
+                        )
+                        season.status?.takeIf { it.isNotBlank() }?.let { status ->
+                            AccentChip(text = status, color = MaterialTheme.colorScheme.secondary)
+                        }
+                    }
+                }
+                if (isExpanded) {
+                    season.variants.forEachIndexed { variantIndex, variant ->
+                        item(key = "season-$seasonIndex-variant-$variantIndex-title") {
+                            Text(
+                                text = variant.title.orEmpty(),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        variant.qualities.forEachIndexed { qualityIndex, quality ->
+                            item(key = "season-$seasonIndex-variant-$variantIndex-quality-$qualityIndex-title") {
+                                Text(
+                                    text = quality.quality.orEmpty(),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            item(key = "season-$seasonIndex-variant-$variantIndex-quality-$qualityIndex-row") {
+                                LazyRow(
+                                    // Inset so the focus-scaled first/last cards
+                                    // aren't clipped at the row's bounds.
+                                    contentPadding = PaddingValues(horizontal = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    items(quality.episodes.size) { index ->
+                                        EpisodeCard(
+                                            episode = quality.episodes[index],
+                                            quality = quality.quality
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -325,6 +536,7 @@ fun MovieDetail(
 @Composable
 private fun IntroBlock(
     intro: MovieIntro,
+    reactions: Reactions?,
     onOpenUrl: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -358,6 +570,24 @@ private fun IntroBlock(
                     intro.notes.forEach { note ->
                         AccentChip(text = note, color = MaterialTheme.colorScheme.primary)
                     }
+                }
+            }
+
+            reactions?.takeIf { it.likeCount > 0 || it.dislikeCount > 0 }?.let {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.like_count, it.likeCount),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = stringResource(R.string.dislike_count, it.dislikeCount),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
@@ -682,9 +912,166 @@ private fun QualityCard(quality: DownloadQuality, modifier: Modifier = Modifier)
     }
 }
 
+/**
+ * One episode of a series quality: its label and quality, with a direct
+ * download button (enqueued in [DownloadManager]) and an online-play
+ * button (opens in the browser).
+ */
+@Composable
+private fun EpisodeCard(episode: EpisodeLink, quality: String?, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+
+    Column(
+        modifier = modifier
+            .width(EpisodeCardWidth)
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            text = episode.label.orEmpty(),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        quality?.takeIf { it.isNotBlank() }?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        episode.downloadUrl?.let { url ->
+            Button(
+                onClick = { enqueueDownload(context, url, episode.label.orEmpty()) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = stringResource(R.string.download),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+        episode.playUrl?.let { url ->
+            Button(
+                onClick = { openExternally(context, url) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = stringResource(R.string.play_online),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The trailer card: the trailer's poster thumbnail next to a play button
+ * that hands the mp4 url to a video player via an ACTION_VIEW intent.
+ */
+@Composable
+private fun TrailerCard(trailer: Trailer, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        AsyncImage(
+            model = trailer.poster,
+            contentDescription = stringResource(R.string.trailer),
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .width(200.dp)
+                .aspectRatio(16f / 9f)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surface)
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = stringResource(R.string.trailer),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Button(onClick = { trailer.url?.let { openVideo(context, it) } }) {
+                Text(stringResource(R.string.watch_trailer))
+            }
+        }
+    }
+}
+
+/**
+ * One voice actor of a dub: their name and the roles they voice. Focusable
+ * with a focus border for the same reason as [CommentCard]: the list only
+ * scrolls toward focusable items, so a plain card here would leave the
+ * dubbing section unreachable from the cast row above it.
+ */
+@Composable
+private fun VoiceActorCard(actor: VoiceActor, modifier: Modifier = Modifier) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = modifier
+            .width(VoiceActorCardWidth)
+            .onFocusChanged { isFocused = it.isFocused }
+            .focusable()
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .border(
+                width = if (isFocused) 2.dp else 0.dp,
+                color = if (isFocused) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    Color.Transparent
+                },
+                shape = RoundedCornerShape(10.dp)
+            )
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(
+            text = actor.name,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = actor.roles.joinToString("، "),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
 private fun openExternally(context: Context, url: String) {
     runCatching {
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    }
+}
+
+/** Opens a video url with an explicit video mime so media players match. */
+private fun openVideo(context: Context, url: String) {
+    runCatching {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(url), "video/*")
+        )
     }
 }
 

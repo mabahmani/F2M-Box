@@ -48,7 +48,11 @@ sealed interface ScrapeResult {
     /** `type: "list"` — a genre archive, search results, a chart, … */
     data class Listing(val data: ListData) : ScrapeResult
 
-    /** `type: "movie"` — a movie's detail page with its download links. */
+    /**
+     * `type: "movie"` / `type: "series"` — a movie's or series' detail page
+     * with its download links; the two share one payload shape (series
+     * downloads carry seasons of episodes instead of per-file variants).
+     */
     data class Movie(val data: MovieData) : ScrapeResult
 }
 
@@ -69,6 +73,9 @@ data class MovieData(
     val actors: List<PersonRef> = emptyList(),
     val suggested: SuggestedSection? = null,
     val comments: Comments? = null,
+    val trailer: Trailer? = null,
+    val reactions: Reactions? = null,
+    val dubbing: Dubbing? = null,
 )
 
 /** A person on a [MovieData] detail page: director or cast member. */
@@ -135,11 +142,15 @@ data class MovieInfo(
     val release: String? = null,
 )
 
-/** The download block of a [MovieData]: one entry per dubbed/subbed variant. */
+/**
+ * The download block of a [MovieData]: movies carry one entry per
+ * dubbed/subbed [variant]; series instead carry [seasons] of episode links.
+ */
 @Serializable
 data class Downloads(
     val type: String? = null,
     val variants: List<DownloadVariant> = emptyList(),
+    val seasons: List<Season> = emptyList(),
 )
 
 /**
@@ -171,4 +182,81 @@ data class DownloadLink(
     val label: String? = null,
     @SerialName("download_url") val downloadUrl: String? = null,
     @SerialName("play_url") val playUrl: String? = null,
+)
+
+/** One season of a series [Downloads] block: its title/status and variants. */
+@Serializable
+data class Season(
+    val name: String? = null,
+    val status: String? = null,
+    @SerialName("episode_links_count") val episodeLinksCount: Int = 0,
+    val variants: List<SeriesVariant> = emptyList(),
+)
+
+/**
+ * One download variant of a [Season] (hardsub / dubbed cut), shaped like a
+ * [DownloadVariant] but with per-episode qualities.
+ */
+@Serializable
+data class SeriesVariant(
+    val title: String? = null,
+    val variant: String? = null,
+    val qualities: List<SeriesQuality> = emptyList(),
+)
+
+/** One quality of a [SeriesVariant], holding one link per episode. */
+@Serializable
+data class SeriesQuality(
+    val quality: String? = null,
+    @SerialName("episode_count") val episodeCount: Int = 0,
+    val episodes: List<EpisodeLink> = emptyList(),
+)
+
+/**
+ * One episode of a [SeriesQuality]: its label ("قسمت 01"), file name and
+ * its direct download / online-play urls.
+ */
+@Serializable
+data class EpisodeLink(
+    val label: String? = null,
+    val filename: String? = null,
+    @SerialName("download_url") val downloadUrl: String? = null,
+    @SerialName("play_url") val playUrl: String? = null,
+)
+
+/** The trailer of a [MovieData]: its poster image and direct video url. */
+@Serializable
+data class Trailer(
+    val poster: String? = null,
+    val url: String? = null,
+)
+
+/** Like/dislike tallies of a [MovieData] page. */
+@Serializable
+data class Reactions(
+    @SerialName("like_count") val likeCount: Int = 0,
+    @SerialName("dislike_count") val dislikeCount: Int = 0,
+)
+
+/** The dubbing-info block of a [MovieData]: one entry per Persian dub. */
+@Serializable
+data class Dubbing(
+    val dubs: List<Dub> = emptyList(),
+)
+
+/** One dub of a [Dubbing] block: credits, notes and its voice actors. */
+@Serializable
+data class Dub(
+    val title: String? = null,
+    /** Credit labels to values, e.g. "مترجم" to the translator's name. */
+    val fields: Map<String, String> = emptyMap(),
+    val notes: List<String> = emptyList(),
+    @SerialName("voice_actors") val voiceActors: List<VoiceActor> = emptyList(),
+)
+
+/** One voice actor of a [Dub]: their name and the roles they voice. */
+@Serializable
+data class VoiceActor(
+    val name: String,
+    val roles: List<String> = emptyList(),
 )

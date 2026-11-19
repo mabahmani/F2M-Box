@@ -43,6 +43,13 @@
     <string name="comments_error">Couldn\'t load comments.&#x200E;</string>
     <string name="like_count">👍 %1$d</string>
     <string name="dislike_count">👎 %1$d</string>
+    <string name="download">Download</string>
+    <string name="play_online">Play online</string>
+    <string name="trailer">Trailer</string>
+    <string name="watch_trailer">Watch trailer</string>
+    <string name="dubbing">Dubbing</string>
+    <string name="voice_actors">Voice actors</string>
+    <string name="downloads">Download &amp; play</string>
 
     <!-- Errors -->
     <string name="error_no_internet">No internet connection. Check your network and try again.&#x200E;</string>
