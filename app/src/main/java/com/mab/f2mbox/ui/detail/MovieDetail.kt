@@ -101,8 +101,9 @@ private val BackdropBlur = 24.dp
 private const val BackdropOverscan = 1.3f
 
 /**
- * Detail page of a `type: "movie"` scrape. A blurred full-screen poster
- * backdrop (with a darkening scrim) sits behind everything; on top, a
+ * Detail page of a `type: "movie"` scrape. A blurred full-screen backdrop
+ * (the trailer image when the title has one, else the poster, under a
+ * darkening scrim) sits behind everything; on top, a
  * header (back button + title), an intro block (poster, notes, formats,
  * genres, release info), directors/cast rows, the synopsis, one horizontal
  * row of quality cards per download variant, a suggested-titles row and the
@@ -194,11 +195,12 @@ fun MovieDetail(
             // out-of-bounds edge; this clips it back to the screen bounds.
             .clipToBounds()
     ) {
-        // Blurred poster as the full-screen backdrop, scaled up so the
+        // Blurred trailer image (falling back to the poster when the title
+        // has no trailer) as the full-screen backdrop, scaled up so the
         // blur's faded edges stay outside the visible bounds, under a scrim
         // to keep the foreground legible.
         AsyncImage(
-            model = intro.poster?.url,
+            model = data.trailer?.poster ?: intro.poster?.url,
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
