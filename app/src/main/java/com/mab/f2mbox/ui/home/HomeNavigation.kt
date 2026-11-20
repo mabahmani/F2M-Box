@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -144,12 +143,18 @@ fun NavigationBlock(
     }
 }
 
-/** Genre links of the section whose listing url is given, if any. */
+/**
+ * Genre links of the section whose listing url is given, if any.
+ */
 private fun genresFor(sectionUrl: String?, navigation: HomeNavigation): List<GenreLink> = when {
     sectionUrl?.contains("/movies") == true -> navigation.movieGenres
     sectionUrl?.contains("/series") == true -> navigation.seriesGenres
     else -> emptyList()
 }
+
+// Fixed height of the genre-row slot, so the search field below keeps its
+// position whether the row is showing chips or empty.
+private val GenreRowSlotHeight = 44.dp
 
 @Composable
 private fun GenreRow(
@@ -158,22 +163,24 @@ private fun GenreRow(
     focusRequester: FocusRequester?,
     modifier: Modifier = Modifier
 ) {
-    if (genres.isEmpty()) {
-        Spacer(modifier.height(44.dp))
-        return
-    }
-
-    LazyRow(
-        modifier = modifier,
-        contentPadding = PaddingValues(horizontal = ContentMargin),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    Box(
+        modifier = modifier.height(GenreRowSlotHeight),
+        contentAlignment = Alignment.Center
     ) {
-        items(genres.size) { index ->
-            GenreChip(
-                genre = genres[index],
-                onClick = { onOpenUrl(genres[index].url) },
-                focusRequester = focusRequester.takeIf { index == 0 }
-            )
+        if (genres.isNotEmpty()) {
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = ContentMargin),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(genres.size) { index ->
+                    GenreChip(
+                        genre = genres[index],
+                        onClick = { onOpenUrl(genres[index].url) },
+                        focusRequester = focusRequester.takeIf { index == 0 }
+                    )
+                }
+            }
         }
     }
 }
@@ -199,15 +206,17 @@ private fun SectionChip(
 
     Box(
         modifier = modifier
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
             .onFocusChanged {
                 isFocused = it.isFocused
                 if (it.isFocused) onFocus()
             }
             .clickable(onClick = onClick)
+            // Inside the focusable node so the focus bounds stay at the
+            // layout size while the chip animates — see PosterCard.
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
             .clip(ChipShape)
             .background(
                 when {
@@ -257,10 +266,7 @@ private fun GenreChip(
 
     Row(
         modifier = modifier
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
+            .onFocusChanged { isFocused = it.isFocused }
             .then(
                 if (focusRequester != null) {
                     Modifier.focusRequester(focusRequester)
@@ -268,8 +274,13 @@ private fun GenreChip(
                     Modifier
                 }
             )
-            .onFocusChanged { isFocused = it.isFocused }
             .clickable(onClick = onClick)
+            // Inside the focusable node so the focus bounds stay at the
+            // layout size while the chip animates — see PosterCard.
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
             .clip(ChipShape)
             .background(
                 if (isFocused) {

@@ -150,12 +150,13 @@ private fun SeeMoreCard(
         modifier = modifier
             .width(PosterCardWidth)
             .height(PosterCardHeight)
+            .onFocusChanged { isFocused = it.isFocused }
+            .clickable(onClick = onClick)
+            // Inside the focusable node — see PosterCard.
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
             }
-            .onFocusChanged { isFocused = it.isFocused }
-            .clickable(onClick = onClick)
             .clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .border(
@@ -208,12 +209,16 @@ internal fun PosterCard(
 
     Column(
         modifier = modifier
+            .onFocusChanged { isFocused = it.isFocused }
+            .clickable(onClick = onClick)
+            // Sits inside the focusable node so the focus bounds stay at the
+            // layout size while the card animates; a scaled focus target
+            // makes the scroll containers chase its growing bounds and the
+            // screen shakes.
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
-            }
-            .onFocusChanged { isFocused = it.isFocused }
-            .clickable(onClick = onClick),
+            },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box {
