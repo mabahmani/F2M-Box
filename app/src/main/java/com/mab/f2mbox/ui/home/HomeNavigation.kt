@@ -25,13 +25,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
@@ -40,6 +48,8 @@ import androidx.tv.material3.Text
 import com.mab.f2mbox.data.remote.GenreLink
 import com.mab.f2mbox.data.remote.HomeNavigation
 import com.mab.f2mbox.data.remote.NavSection
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private val ContentMargin = 48.dp
 private val ChipShape = RoundedCornerShape(50)
@@ -50,8 +60,10 @@ private val ChipShape = RoundedCornerShape(50)
  * link — movie genres under "فیلم ها", series genres under "سریال ها", and
  * nothing under the top charts, which have no genre facet. On TV the
  * selection follows focus, so browsing the links previews their genres;
- * pressing OK on a chip opens its listing through [onOpenUrl]. A search
- * field sits under the filter rows; submitting a query calls [onSearch].
+ * pressing OK on a chip opens its listing through [onOpenUrl]. Down on a
+ * quick link lands on its genre row when the section has one, so the search
+ * field below is only reached by pressing Down again. A search field sits
+ * under the filter rows; submitting a query calls [onSearch].
  */
 @Composable
 fun NavigationBlock(
@@ -67,11 +79,33 @@ fun NavigationBlock(
 
     var selectedSection by remember(navigation) { mutableIntStateOf(0) }
     val activeSection = navigation.sections[selectedSection.coerceAtMost(navigation.sections.lastIndex)]
+    val activeGenres = genresFor(activeSection.url, navigation)
+    // Focus handle for the first genre chip of the active section.
+    val genreFocus = remember { FocusRequester() }
+    val scope = rememberCoroutineScope()
 
     Column(modifier = modifier.fillMaxWidth().padding(top = 28.dp)) {
         LazyRow(
             contentPadding = PaddingValues(horizontal = ContentMargin),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.onPreviewKeyEvent { event ->
+                // Down from a quick link goes to its genre row when the
+                // section has one; default focus search would jump straight
+                // to the search field below.
+                if (event.type == KeyEventType.KeyDown &&
+                    event.key == Key.DirectionDown &&
+                    activeGenres.isNotEmpty()
+                ) {
+                    // Selection follows focus, so the crossfade may still be
+                    // swapping the genre row in; retry until a chip attaches.
+                    scope.launch {
+                        while (!genreFocus.requestFocus()) delay(50)
+                    }
+                    true
+                } else {
+                    false
+                }
+            }
         ) {
             items(navigation.sections.size) { index ->
                 SectionChip(
@@ -93,6 +127,7 @@ fun NavigationBlock(
             GenreRow(
                 genres = genresFor(url, navigation),
                 onOpenUrl = onOpenUrl,
+                focusRequester = genreFocus,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -120,6 +155,7 @@ private fun genresFor(sectionUrl: String?, navigation: HomeNavigation): List<Gen
 private fun GenreRow(
     genres: List<GenreLink>,
     onOpenUrl: (String) -> Unit,
+    focusRequester: FocusRequester?,
     modifier: Modifier = Modifier
 ) {
     if (genres.isEmpty()) {
@@ -133,7 +169,11 @@ private fun GenreRow(
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         items(genres.size) { index ->
-            GenreChip(genre = genres[index], onClick = { onOpenUrl(genres[index].url) })
+            GenreChip(
+                genre = genres[index],
+                onClick = { onOpenUrl(genres[index].url) },
+                focusRequester = focusRequester.takeIf { index == 0 }
+            )
         }
     }
 }
@@ -205,6 +245,7 @@ private fun SectionChip(
 private fun GenreChip(
     genre: GenreLink,
     onClick: () -> Unit,
+    focusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -220,6 +261,13 @@ private fun GenreChip(
                 scaleX = scale
                 scaleY = scale
             }
+            .then(
+                if (focusRequester != null) {
+                    Modifier.focusRequester(focusRequester)
+                } else {
+                    Modifier
+                }
+            )
             .onFocusChanged { isFocused = it.isFocused }
             .clickable(onClick = onClick)
             .clip(ChipShape)
