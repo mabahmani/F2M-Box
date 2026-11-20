@@ -283,10 +283,12 @@ fun PlayerScreen(
     var speedMenuVisible by remember { mutableStateOf(false) }
     var subtitleMenuVisible by remember { mutableStateOf(false) }
     var audioMenuVisible by remember { mutableStateOf(false) }
-    // Subtitle look, loaded from (and saved back to) SharedPreferences;
-    // edited live through the settings panel.
+    // Subtitle look, loaded from SharedPreferences. While the settings
+    // panel is open, tweaks are draft (live preview only); Save persists
+    // them, Cancel (or Back) reverts to the snapshot taken on open.
     var subtitleSettings by remember { mutableStateOf(loadSubtitleSettings(context)) }
     var subtitlePanelVisible by remember { mutableStateOf(false) }
+    var subtitleSettingsBackup by remember { mutableStateOf<SubtitleSettings?>(null) }
     val subtitleTypeface = remember {
         ResourcesCompat.getFont(context, R.font.vazirmatn_rd_regular)
     }
@@ -360,6 +362,22 @@ fun PlayerScreen(
         player.trackSelectionParameters = builder.build()
     }
 
+    // Closes the subtitle settings panel, persisting the draft tweaks.
+    val saveSubtitlePanel: () -> Unit = {
+        subtitleSettingsBackup = null
+        subtitlePanelVisible = false
+        saveSubtitleSettings(context, subtitleSettings)
+        interaction++
+    }
+    // Closes the subtitle settings panel, reverting the draft tweaks to
+    // the settings from when the panel was opened.
+    val cancelSubtitlePanel: () -> Unit = {
+        subtitleSettingsBackup?.let { subtitleSettings = it }
+        subtitleSettingsBackup = null
+        subtitlePanelVisible = false
+        interaction++
+    }
+
     val playPauseFocus = remember { FocusRequester() }
     val surfaceFocus = remember { FocusRequester() }
     val speedButtonFocus = remember { FocusRequester() }
@@ -399,11 +417,11 @@ fun PlayerScreen(
         }
     }
 
-    // Back: close the settings panel, then any open menu, then hide the
+    // Back: cancel the settings panel, close any open menu, then hide the
     // overlay, then leave.
     BackHandler {
         when {
-            subtitlePanelVisible -> subtitlePanelVisible = false
+            subtitlePanelVisible -> cancelSubtitlePanel()
             speedMenuVisible || subtitleMenuVisible || audioMenuVisible -> {
                 speedMenuVisible = false
                 subtitleMenuVisible = false
@@ -561,6 +579,7 @@ fun PlayerScreen(
                 },
                 onOpenSubtitleSettings = {
                     subtitleMenuVisible = false
+                    subtitleSettingsBackup = subtitleSettings
                     subtitlePanelVisible = true
                     interaction++
                 },
@@ -568,9 +587,10 @@ fun PlayerScreen(
                 subtitlePanelVisible = subtitlePanelVisible,
                 onSubtitleSettingsChange = { settings ->
                     subtitleSettings = settings
-                    saveSubtitleSettings(context, settings)
                     interaction++
                 },
+                onSubtitleSettingsSave = saveSubtitlePanel,
+                onSubtitleSettingsCancel = cancelSubtitlePanel,
                 audioTracks = audioTracks,
                 audioMenuVisible = audioMenuVisible,
                 onToggleAudioMenu = {
@@ -652,6 +672,8 @@ private fun PlayerControls(
     subtitleSettings: SubtitleSettings,
     subtitlePanelVisible: Boolean,
     onSubtitleSettingsChange: (SubtitleSettings) -> Unit,
+    onSubtitleSettingsSave: () -> Unit,
+    onSubtitleSettingsCancel: () -> Unit,
     audioTracks: List<MediaTrack>,
     audioMenuVisible: Boolean,
     onToggleAudioMenu: () -> Unit,
@@ -753,6 +775,8 @@ private fun PlayerControls(
                 SubtitleSettingsPanel(
                     settings = subtitleSettings,
                     onChange = onSubtitleSettingsChange,
+                    onSave = onSubtitleSettingsSave,
+                    onCancel = onSubtitleSettingsCancel,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -1087,6 +1111,9 @@ private fun ChoiceMenu(
                         }
                         true
                     }
+                    // Back falls through to the screen-level BackHandler,
+                    // which closes the menu.
+                    Key.Back -> false
                     // Consume everything else so the menu stays modal.
                     else -> true
                 }
@@ -1129,16 +1156,19 @@ private class SubtitleSettingRow(
 
 /**
  * Subtitle customization panel: one row per setting (size, text color,
- * background, edge), rendered as option chips with TV-style roving highlight.
- * The panel is a single focus target: Up/Down move between rows, Left/Right
- * move the highlight within a row, Center applies the highlighted option
- * immediately (live preview, kept open for more tweaks), and everything else
- * is consumed so it stays modal (Back is handled by the screen).
+ * background, edge) plus a Cancel/Save row, rendered as option chips with
+ * TV-style roving highlight. The panel is a single focus target: Up/Down
+ * move between rows, Left/Right move the highlight within a row, Center
+ * applies the highlighted option immediately (live preview, kept open for
+ * more tweaks) or activates the highlighted button, and everything else is
+ * consumed so it stays modal (Back is handled by the screen and cancels).
  */
 @Composable
 private fun SubtitleSettingsPanel(
     settings: SubtitleSettings,
     onChange: (SubtitleSettings) -> Unit,
+    onSave: () -> Unit,
+    onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val rows = listOf(
@@ -1191,6 +1221,9 @@ private fun SubtitleSettingsPanel(
     var col by remember {
         mutableIntStateOf(rows.first().selectedIndex.coerceIn(0, rows.first().options.lastIndex))
     }
+    // The last roving row is the Cancel/Save buttons.
+    val buttonRow = rows.size
+    val maxCol: (Int) -> Int = { if (it == buttonRow) 1 else rows[it].options.lastIndex }
     val panelFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
         while (!panelFocus.requestFocus()) delay(50)
@@ -1207,12 +1240,12 @@ private fun SubtitleSettingsPanel(
                 when (event.key) {
                     Key.DirectionUp -> {
                         row = (row - 1).coerceAtLeast(0)
-                        col = col.coerceIn(0, rows[row].options.lastIndex)
+                        col = col.coerceIn(0, maxCol(row))
                         true
                     }
                     Key.DirectionDown -> {
-                        row = (row + 1).coerceAtMost(rows.lastIndex)
-                        col = col.coerceIn(0, rows[row].options.lastIndex)
+                        row = (row + 1).coerceAtMost(buttonRow)
+                        col = col.coerceIn(0, maxCol(row))
                         true
                     }
                     Key.DirectionLeft -> {
@@ -1220,15 +1253,22 @@ private fun SubtitleSettingsPanel(
                         true
                     }
                     Key.DirectionRight -> {
-                        col = (col + 1).coerceAtMost(rows[row].options.lastIndex)
+                        col = (col + 1).coerceAtMost(maxCol(row))
                         true
                     }
                     Key.DirectionCenter, Key.Enter, Key.Spacebar -> {
                         if (event.nativeKeyEvent.repeatCount == 0) {
-                            rows[row].apply(col)
+                            if (row == buttonRow) {
+                                if (col == 0) onCancel() else onSave()
+                            } else {
+                                rows[row].apply(col)
+                            }
                         }
                         true
                     }
+                    // Back falls through to the screen-level BackHandler,
+                    // which cancels the panel.
+                    Key.Back -> false
                     // Consume everything else so the panel stays modal.
                     else -> true
                 }
@@ -1271,6 +1311,45 @@ private fun SubtitleSettingsPanel(
                 }
             }
         }
+
+        // Cancel / Save row: Left/Right switch buttons, Center activates.
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            SubtitlePanelButton(
+                label = stringResource(R.string.player_subtitle_cancel),
+                highlighted = row == buttonRow && col == 0
+            )
+            SubtitlePanelButton(
+                label = stringResource(R.string.player_subtitle_save),
+                highlighted = row == buttonRow && col == 1
+            )
+        }
+    }
+}
+
+/** One Cancel/Save chip of the subtitle settings panel. */
+@Composable
+private fun SubtitlePanelButton(
+    label: String,
+    highlighted: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(
+                if (highlighted) MaterialTheme.colorScheme.primary
+                else Color.White.copy(alpha = 0.15f)
+            )
+            .padding(horizontal = 14.dp, vertical = 8.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall,
+            color = Color.White,
+            maxLines = 1
+        )
     }
 }
 

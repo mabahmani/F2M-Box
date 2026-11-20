@@ -83,6 +83,8 @@
     <string name="player_subtitle_opt_solid">Solid</string>
     <string name="player_subtitle_opt_shadow">Shadow</string>
     <string name="player_subtitle_opt_outline">Outline</string>
+    <string name="player_subtitle_cancel">Cancel</string>
+    <string name="player_subtitle_save">Save</string>
 
     <!-- Person -->
     <string name="person_kind_actor">Actor</string>
