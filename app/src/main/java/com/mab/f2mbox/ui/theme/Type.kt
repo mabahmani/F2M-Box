@@ -26,107 +26,107 @@ val VazirmatnRD = FontFamily(
 )
 
 /**
- * Clean, generous type scale for the 10-foot TV experience,
- * set in Vazirmatn Round-Dots.
+ * Clean, generous type scale for the 10-foot TV experience, set in
+ * Vazirmatn Round-Dots.
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 val Typography = Typography(
     displayLarge = TextStyle(
         fontFamily = VazirmatnRD,
         fontWeight = FontWeight.Bold,
-        fontSize = 44.sp,
-        lineHeight = 52.sp
+        fontSize = 52.sp,
+        lineHeight = 62.sp
     ),
     displayMedium = TextStyle(
         fontFamily = VazirmatnRD,
         fontWeight = FontWeight.Bold,
-        fontSize = 36.sp,
-        lineHeight = 44.sp
+        fontSize = 44.sp,
+        lineHeight = 52.sp
     ),
     displaySmall = TextStyle(
         fontFamily = VazirmatnRD,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 30.sp,
-        lineHeight = 38.sp
+        fontSize = 36.sp,
+        lineHeight = 46.sp
     ),
     headlineLarge = TextStyle(
         fontFamily = VazirmatnRD,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 28.sp,
-        lineHeight = 34.sp
+        fontSize = 34.sp,
+        lineHeight = 42.sp
     ),
     headlineMedium = TextStyle(
         fontFamily = VazirmatnRD,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 24.sp,
-        lineHeight = 30.sp
+        fontSize = 29.sp,
+        lineHeight = 36.sp
     ),
     headlineSmall = TextStyle(
         fontFamily = VazirmatnRD,
         fontWeight = FontWeight.Medium,
-        fontSize = 20.sp,
-        lineHeight = 26.sp
+        fontSize = 24.sp,
+        lineHeight = 32.sp
     ),
     titleLarge = TextStyle(
         fontFamily = VazirmatnRD,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp,
-        lineHeight = 26.sp
+        fontSize = 24.sp,
+        lineHeight = 32.sp
     ),
     titleMedium = TextStyle(
         fontFamily = VazirmatnRD,
         fontWeight = FontWeight.Medium,
-        fontSize = 16.sp,
-        lineHeight = 22.sp,
+        fontSize = 19.sp,
+        lineHeight = 26.sp,
         letterSpacing = 0.15.sp
     ),
     titleSmall = TextStyle(
         fontFamily = VazirmatnRD,
         fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
+        fontSize = 17.sp,
+        lineHeight = 24.sp,
         letterSpacing = 0.1.sp
     ),
     bodyLarge = TextStyle(
         fontFamily = VazirmatnRD,
         fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
+        fontSize = 19.sp,
+        lineHeight = 29.sp,
         letterSpacing = 0.25.sp
     ),
     bodyMedium = TextStyle(
         fontFamily = VazirmatnRD,
         fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
+        fontSize = 17.sp,
+        lineHeight = 24.sp,
         letterSpacing = 0.25.sp
     ),
     bodySmall = TextStyle(
         fontFamily = VazirmatnRD,
         fontWeight = FontWeight.Normal,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
+        fontSize = 14.sp,
+        lineHeight = 19.sp,
         letterSpacing = 0.2.sp
     ),
     labelLarge = TextStyle(
         fontFamily = VazirmatnRD,
         fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
+        fontSize = 17.sp,
+        lineHeight = 24.sp,
         letterSpacing = 0.1.sp
     ),
     labelMedium = TextStyle(
         fontFamily = VazirmatnRD,
         fontWeight = FontWeight.Medium,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
+        fontSize = 14.sp,
+        lineHeight = 19.sp,
         letterSpacing = 0.4.sp
     ),
     labelSmall = TextStyle(
         fontFamily = VazirmatnRD,
         fontWeight = FontWeight.Medium,
-        fontSize = 10.sp,
-        lineHeight = 14.sp,
+        fontSize = 12.sp,
+        lineHeight = 17.sp,
         letterSpacing = 0.4.sp
     )
 )
