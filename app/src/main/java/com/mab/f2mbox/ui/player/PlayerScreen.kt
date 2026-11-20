@@ -16,8 +16,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -105,6 +107,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.mab.f2mbox.R
 import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 import java.util.Locale
 
 /** One D-pad seek step, in milliseconds. */
@@ -510,7 +513,6 @@ fun PlayerScreen(
                     SubtitleView(ctx).apply {
                         setApplyEmbeddedStyles(false)
                         setApplyEmbeddedFontSizes(false)
-                        setBottomPaddingFraction(0.02f)
                     }
                 },
                 update = {
@@ -1146,18 +1148,31 @@ private fun ChoiceMenu(
     }
 }
 
-/** One row of the subtitle settings panel: a labeled group of options. */
-private class SubtitleSettingRow(
+/** One roving row of the subtitle settings panel. */
+private sealed interface SubtitlePanelRow
+
+/** A labeled group of option chips picked with Left/Right. */
+private class SubtitleChipsRow(
     val label: String,
     val options: List<String>,
     val selectedIndex: Int,
     val apply: (Int) -> Unit
-)
+) : SubtitlePanelRow
+
+/** A percent slider (0-100) scrubbed with Left/Right in [stepPercent] steps. */
+private class SubtitleSliderRow(
+    val label: String,
+    val valuePercent: Int,
+    val stepPercent: Int,
+    val apply: (Int) -> Unit
+) : SubtitlePanelRow
 
 /**
- * Subtitle customization panel: one row per setting (size, text color,
- * background, edge) plus a Cancel/Save row, rendered as option chips with
- * TV-style roving highlight. The panel is a single focus target: Up/Down
+ * Subtitle customization panel: one row per setting (size and weight chips,
+ * text color chips, a background-opacity slider, edge-type chips, an edge
+ * strength slider and a bottom-offset slider) plus a Cancel/Save row,
+ * rendered with TV-style roving highlight. The panel
+ * is a single focus target: Up/Down
  * move between rows, Left/Right move the highlight within a row, Center
  * applies the highlighted option immediately (live preview, kept open for
  * more tweaks) or activates the highlighted button, and everything else is
@@ -1171,8 +1186,8 @@ private fun SubtitleSettingsPanel(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val rows = listOf(
-        SubtitleSettingRow(
+    val rows = listOf<SubtitlePanelRow>(
+        SubtitleChipsRow(
             label = stringResource(R.string.player_subtitle_size),
             options = listOf(
                 stringResource(R.string.player_subtitle_opt_small),
@@ -1183,29 +1198,36 @@ private fun SubtitleSettingsPanel(
             selectedIndex = SubtitleSizeOptions.indexOf(settings.textSizeSp).coerceAtLeast(0),
             apply = { onChange(settings.copy(textSizeSp = SubtitleSizeOptions[it])) }
         ),
-        SubtitleSettingRow(
+        SubtitleChipsRow(
+            label = stringResource(R.string.player_subtitle_weight),
+            options = listOf(
+                stringResource(R.string.player_subtitle_opt_normal),
+                stringResource(R.string.player_subtitle_opt_bold)
+            ),
+            selectedIndex = SubtitleWeightOptions.indexOf(settings.fontWeight).coerceAtLeast(0),
+            apply = { onChange(settings.copy(fontWeight = SubtitleWeightOptions[it])) }
+        ),
+        SubtitleChipsRow(
             label = stringResource(R.string.player_subtitle_color),
             options = listOf(
                 stringResource(R.string.player_subtitle_opt_white),
                 stringResource(R.string.player_subtitle_opt_yellow),
                 stringResource(R.string.player_subtitle_opt_cyan),
-                stringResource(R.string.player_subtitle_opt_green)
+                stringResource(R.string.player_subtitle_opt_green),
+                stringResource(R.string.player_subtitle_opt_orange),
+                stringResource(R.string.player_subtitle_opt_pink),
+                stringResource(R.string.player_subtitle_opt_light_blue)
             ),
             selectedIndex = SubtitleColorOptions.indexOf(settings.colorArgb).coerceAtLeast(0),
             apply = { onChange(settings.copy(colorArgb = SubtitleColorOptions[it])) }
         ),
-        SubtitleSettingRow(
+        SubtitleSliderRow(
             label = stringResource(R.string.player_subtitle_background),
-            options = listOf(
-                stringResource(R.string.player_subtitle_opt_none),
-                stringResource(R.string.player_subtitle_opt_dim),
-                stringResource(R.string.player_subtitle_opt_solid)
-            ),
-            selectedIndex = SubtitleBackgroundOptions.indexOf(settings.backgroundArgb)
-                .coerceAtLeast(0),
-            apply = { onChange(settings.copy(backgroundArgb = SubtitleBackgroundOptions[it])) }
+            valuePercent = android.graphics.Color.alpha(settings.backgroundArgb) * 100 / 255,
+            stepPercent = 5,
+            apply = { onChange(settings.copy(backgroundArgb = blackWithAlpha(it * 255 / 100))) }
         ),
-        SubtitleSettingRow(
+        SubtitleChipsRow(
             label = stringResource(R.string.player_subtitle_edge),
             options = listOf(
                 stringResource(R.string.player_subtitle_opt_none),
@@ -1214,16 +1236,35 @@ private fun SubtitleSettingsPanel(
             ),
             selectedIndex = SubtitleEdgeOptions.indexOf(settings.edgeType).coerceAtLeast(0),
             apply = { onChange(settings.copy(edgeType = SubtitleEdgeOptions[it])) }
+        ),
+        SubtitleSliderRow(
+            label = stringResource(R.string.player_subtitle_strength),
+            valuePercent = settings.edgeStrengthPercent,
+            stepPercent = 5,
+            apply = { onChange(settings.copy(edgeStrengthPercent = it)) }
+        ),
+        SubtitleSliderRow(
+            label = stringResource(R.string.player_subtitle_offset),
+            valuePercent = (settings.bottomPaddingFraction / SubtitleOffsetMax * 100).roundToInt(),
+            stepPercent = (SubtitleOffsetStep / SubtitleOffsetMax * 100).roundToInt(),
+            apply = { onChange(settings.copy(bottomPaddingFraction = it / 100f * SubtitleOffsetMax)) }
         )
     )
 
     var row by remember { mutableIntStateOf(0) }
     var col by remember {
-        mutableIntStateOf(rows.first().selectedIndex.coerceIn(0, rows.first().options.lastIndex))
+        val first = rows.filterIsInstance<SubtitleChipsRow>().first()
+        mutableIntStateOf(first.selectedIndex.coerceIn(0, first.options.lastIndex))
     }
     // The last roving row is the Cancel/Save buttons.
     val buttonRow = rows.size
-    val maxCol: (Int) -> Int = { if (it == buttonRow) 1 else rows[it].options.lastIndex }
+    val maxCol: (Int) -> Int = { r ->
+        when {
+            r == buttonRow -> 1
+            r < rows.size -> (rows[r] as? SubtitleChipsRow)?.options?.lastIndex ?: 0
+            else -> 0
+        }
+    }
     val panelFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
         while (!panelFocus.requestFocus()) delay(50)
@@ -1249,19 +1290,37 @@ private fun SubtitleSettingsPanel(
                         true
                     }
                     Key.DirectionLeft -> {
-                        col = (col - 1).coerceAtLeast(0)
+                        val panelRow = rows.getOrNull(row)
+                        if (panelRow is SubtitleSliderRow) {
+                            panelRow.apply(
+                                (panelRow.valuePercent - panelRow.stepPercent).coerceAtLeast(0)
+                            )
+                        } else {
+                            col = (col - 1).coerceAtLeast(0)
+                        }
                         true
                     }
                     Key.DirectionRight -> {
-                        col = (col + 1).coerceAtMost(maxCol(row))
+                        val panelRow = rows.getOrNull(row)
+                        if (panelRow is SubtitleSliderRow) {
+                            panelRow.apply(
+                                (panelRow.valuePercent + panelRow.stepPercent).coerceAtMost(100)
+                            )
+                        } else {
+                            col = (col + 1).coerceAtMost(maxCol(row))
+                        }
                         true
                     }
                     Key.DirectionCenter, Key.Enter, Key.Spacebar -> {
                         if (event.nativeKeyEvent.repeatCount == 0) {
-                            if (row == buttonRow) {
-                                if (col == 0) onCancel() else onSave()
-                            } else {
-                                rows[row].apply(col)
+                            when {
+                                row == buttonRow -> if (col == 0) onCancel() else onSave()
+                                row < rows.size -> when (val panelRow = rows[row]) {
+                                    is SubtitleChipsRow -> panelRow.apply(col)
+                                    // Sliders scrub with Left/Right; OK does
+                                    // nothing.
+                                    is SubtitleSliderRow -> {}
+                                }
                             }
                         }
                         true
@@ -1275,40 +1334,57 @@ private fun SubtitleSettingsPanel(
             },
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        rows.forEachIndexed { rowIndex, settingRow ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = settingRow.label,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = Color.White.copy(alpha = 0.7f),
-                    modifier = Modifier.width(110.dp)
-                )
-                settingRow.options.forEachIndexed { optionIndex, option ->
-                    val isHighlighted = rowIndex == row && optionIndex == col
-                    val isCurrent = optionIndex == settingRow.selectedIndex
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(
-                                when {
-                                    isHighlighted -> MaterialTheme.colorScheme.primary
-                                    isCurrent -> Color.White.copy(alpha = 0.25f)
-                                    else -> Color.White.copy(alpha = 0.15f)
-                                }
-                            )
-                            .padding(horizontal = 14.dp, vertical = 8.dp)
+        rows.forEachIndexed { rowIndex, panelRow ->
+            when (panelRow) {
+                is SubtitleChipsRow -> {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = option,
+                            text = panelRow.label,
                             style = MaterialTheme.typography.titleSmall,
-                            color = Color.White,
-                            maxLines = 1
+                            color = Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier.width(110.dp)
                         )
+                        // Chips wrap onto extra lines on narrow screens
+                        // instead of clipping past the panel edge.
+                        FlowRow(
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            panelRow.options.forEachIndexed { optionIndex, option ->
+                                val isHighlighted = rowIndex == row && optionIndex == col
+                                val isCurrent = optionIndex == panelRow.selectedIndex
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(
+                                            when {
+                                                isHighlighted -> MaterialTheme.colorScheme.primary
+                                                isCurrent -> Color.White.copy(alpha = 0.25f)
+                                                else -> Color.White.copy(alpha = 0.15f)
+                                            }
+                                        )
+                                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        text = option,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = Color.White,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
+                is SubtitleSliderRow -> SubtitlePercentSlider(
+                    label = panelRow.label,
+                    valuePercent = panelRow.valuePercent,
+                    highlighted = rowIndex == row
+                )
             }
         }
 
@@ -1349,6 +1425,57 @@ private fun SubtitlePanelButton(
             style = MaterialTheme.typography.titleSmall,
             color = Color.White,
             maxLines = 1
+        )
+    }
+}
+
+/**
+ * Percent slider row: a track with a filled portion proportional to the
+ * value plus a percentage readout. Scrubbed with Left/Right from the
+ * panel's key handler.
+ */
+@Composable
+private fun SubtitlePercentSlider(
+    label: String,
+    valuePercent: Int,
+    highlighted: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall,
+            color = Color.White.copy(alpha = 0.7f),
+            modifier = Modifier.width(110.dp)
+        )
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(6.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(Color.White.copy(alpha = 0.25f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(valuePercent / 100f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(
+                        if (highlighted) MaterialTheme.colorScheme.primary
+                        else Color.White.copy(alpha = 0.6f)
+                    )
+            )
+        }
+        Text(
+            text = "$valuePercent%",
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White,
+            textAlign = TextAlign.End,
+            modifier = Modifier.width(40.dp)
         )
     }
 }
@@ -1484,13 +1611,19 @@ private fun formatTime(ms: Long, showHours: Boolean = false): String {
 /**
  * User-customizable subtitle appearance, persisted in SharedPreferences so
  * the choice survives restarts. [edgeType] is a [CaptionStyleCompat] edge
- * constant; the color fields are raw ARGB ints.
+ * constant; [fontWeight] is an OpenType weight (400 normal, 700 bold);
+ * [edgeStrengthPercent] scales the edge (shadow/outline) visibility;
+ * [bottomPaddingFraction] is the subtitle's distance from the screen bottom
+ * as a fraction of the view height; the color fields are raw ARGB ints.
  */
 private data class SubtitleSettings(
     val textSizeSp: Float = 20f,
+    val fontWeight: Int = 400,
     val colorArgb: Int = android.graphics.Color.WHITE,
     val backgroundArgb: Int = android.graphics.Color.TRANSPARENT,
-    val edgeType: Int = CaptionStyleCompat.EDGE_TYPE_NONE
+    val edgeType: Int = CaptionStyleCompat.EDGE_TYPE_NONE,
+    val edgeStrengthPercent: Int = 100,
+    val bottomPaddingFraction: Float = 0.02f
 )
 
 private const val SUBTITLE_PREFS_FILE = "player_subtitle_settings"
@@ -1498,17 +1631,17 @@ private const val SUBTITLE_PREFS_FILE = "player_subtitle_settings"
 /** Subtitle size choices in sp, tuned for 10-foot TV viewing. */
 private val SubtitleSizeOptions = listOf(16f, 20f, 25f, 32f)
 
+/** Subtitle font-weight choices (OpenType weights). */
+private val SubtitleWeightOptions = listOf(400, 700)
+
 private val SubtitleColorOptions = listOf(
     android.graphics.Color.WHITE,
     android.graphics.Color.YELLOW,
     0xFF00E5FF.toInt(), // cyan
-    0xFF9CCC65.toInt() // soft green
-)
-
-private val SubtitleBackgroundOptions = listOf(
-    android.graphics.Color.TRANSPARENT,
-    0x88000000.toInt(), // dim: 50% black
-    android.graphics.Color.BLACK
+    0xFF9CCC65.toInt(), // soft green
+    0xFFFF9800.toInt(), // orange
+    0xFFFF4081.toInt(), // pink
+    0xFF4FC3F7.toInt() // light blue
 )
 
 private val SubtitleEdgeOptions = listOf(
@@ -1517,13 +1650,24 @@ private val SubtitleEdgeOptions = listOf(
     CaptionStyleCompat.EDGE_TYPE_OUTLINE
 )
 
+// Bottom-offset slider range, as a fraction of the video height. The slider
+// works in percent of this range, stepping [SubtitleOffsetStep] per press.
+private const val SubtitleOffsetMax = 0.3f
+private const val SubtitleOffsetStep = 0.01f
+
+/** Black with the given 0-255 alpha; the base for bg/edge colors. */
+private fun blackWithAlpha(alpha: Int): Int = alpha.coerceIn(0, 255) shl 24
+
 private fun loadSubtitleSettings(context: android.content.Context): SubtitleSettings {
     val prefs = context.getSharedPreferences(SUBTITLE_PREFS_FILE, android.content.Context.MODE_PRIVATE)
     return SubtitleSettings(
         textSizeSp = prefs.getFloat("size", 20f),
+        fontWeight = prefs.getInt("weight", 400),
         colorArgb = prefs.getInt("color", android.graphics.Color.WHITE),
         backgroundArgb = prefs.getInt("background", android.graphics.Color.TRANSPARENT),
-        edgeType = prefs.getInt("edge", CaptionStyleCompat.EDGE_TYPE_NONE)
+        edgeType = prefs.getInt("edge", CaptionStyleCompat.EDGE_TYPE_NONE),
+        edgeStrengthPercent = prefs.getInt("edge_strength", 100),
+        bottomPaddingFraction = prefs.getFloat("bottom", 0.02f)
     )
 }
 
@@ -1531,9 +1675,12 @@ private fun saveSubtitleSettings(context: android.content.Context, settings: Sub
     context.getSharedPreferences(SUBTITLE_PREFS_FILE, android.content.Context.MODE_PRIVATE)
         .edit()
         .putFloat("size", settings.textSizeSp)
+        .putInt("weight", settings.fontWeight)
         .putInt("color", settings.colorArgb)
         .putInt("background", settings.backgroundArgb)
         .putInt("edge", settings.edgeType)
+        .putInt("edge_strength", settings.edgeStrengthPercent)
+        .putFloat("bottom", settings.bottomPaddingFraction)
         .apply()
 }
 
@@ -1549,9 +1696,19 @@ private fun applySubtitleSettings(
             settings.backgroundArgb,
             android.graphics.Color.TRANSPARENT,
             settings.edgeType,
-            android.graphics.Color.BLACK,
-            typeface
+            blackWithAlpha(settings.edgeStrengthPercent * 255 / 100),
+            weightedTypeface(typeface, settings.fontWeight)
         )
     )
     view.setFixedTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, settings.textSizeSp)
+    view.setBottomPaddingFraction(settings.bottomPaddingFraction)
+}
+
+/** Applies the chosen weight on top of the base subtitle face. */
+private fun weightedTypeface(
+    base: android.graphics.Typeface?,
+    weight: Int
+): android.graphics.Typeface? {
+    if (base == null || weight == SubtitleWeightOptions.first()) return base
+    return android.graphics.Typeface.create(base, weight, false)
 }
