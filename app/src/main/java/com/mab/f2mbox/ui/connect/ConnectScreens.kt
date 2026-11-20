@@ -57,12 +57,12 @@ fun SplashScreen(
                 style = MaterialTheme.typography.displayLarge,
                 color = MaterialTheme.colorScheme.primary
             )
-            Text(
-                text = stringResource(R.string.tagline),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp)
-            )
+//            Text(
+//                text = stringResource(R.string.tagline),
+//                style = MaterialTheme.typography.titleMedium,
+//                color = MaterialTheme.colorScheme.onSurfaceVariant,
+//                modifier = Modifier.padding(top = 8.dp)
+//            )
         }
 
         when (state) {

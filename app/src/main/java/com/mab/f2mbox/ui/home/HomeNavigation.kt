@@ -226,7 +226,7 @@ private fun SectionChip(
                 }
             )
             .border(
-                width = if (isFocused && !isSelected) 2.dp else 0.dp,
+                width = if (isFocused && !isSelected) 2.dp else 1.dp,
                 color = MaterialTheme.colorScheme.primary,
                 shape = ChipShape
             )
@@ -234,7 +234,7 @@ private fun SectionChip(
     ) {
         Text(
             text = section.name,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleSmall,
             color = if (isSelected) {
                 MaterialTheme.colorScheme.onPrimary
             } else {
@@ -290,7 +290,7 @@ private fun GenreChip(
                 }
             )
             .border(
-                width = if (isFocused) 2.dp else 0.dp,
+                width = if (isFocused) 2.dp else 1.dp,
                 color = MaterialTheme.colorScheme.primary,
                 shape = ChipShape
             )

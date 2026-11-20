@@ -59,8 +59,8 @@ import com.mab.f2mbox.data.remote.HomeSection
 import com.mab.f2mbox.data.remote.SectionItem
 
 private val ContentMargin = 48.dp
-private val PosterCardWidth = 140.dp
-private val PosterCardHeight = 210.dp
+private val PosterCardWidth = 180.dp
+private val PosterCardHeight = 270.dp
 private const val MAX_GENRE_CHIPS = 3
 
 /**
