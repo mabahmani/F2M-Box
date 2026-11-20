@@ -3,11 +3,17 @@
 package com.mab.f2mbox.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
@@ -34,12 +40,17 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import android.view.View
 import androidx.tv.material3.Button
+import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.mab.f2mbox.R
 
 private val SearchButtonWidth = 160.dp
+
+// Rectangle with a small radius, matching the outlined text field's
+// corners (tv buttons default to a full pill).
+private val SearchControlShape = RoundedCornerShape(4.dp)
 
 /**
  * Always-visible search input for the home navigation block. tv-material
@@ -75,20 +86,44 @@ fun SearchField(
     Column(modifier = modifier) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            // Buttons stretch to the text field's height.
+            modifier = Modifier.height(IntrinsicSize.Min)
         ) {
-            Button(onClick = onClearCacheAndRefresh) {
-                Text(
-                    text = stringResource(R.string.clear_cache_refresh),
-                    textAlign = TextAlign.Center
-                )
+            Button(
+                onClick = onClearCacheAndRefresh,
+                modifier = Modifier.fillMaxHeight(),
+                shape = ButtonDefaults.shape(shape = SearchControlShape)
+            ) {
+                // The tv button lays its content row out top-start, so the
+                // stretched button needs its own vertical centering.
+                Box(
+                    modifier = Modifier.fillMaxHeight(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.clear_cache_refresh),
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
-            Button(onClick = { submit() }, modifier = Modifier.width(SearchButtonWidth)) {
-                Text(
-                    text = stringResource(R.string.search),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
+            Button(
+                onClick = { submit() },
+                modifier = Modifier
+                    .width(SearchButtonWidth)
+                    .fillMaxHeight(),
+                shape = ButtonDefaults.shape(shape = SearchControlShape)
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxHeight(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.search),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
             OutlinedTextField(
                 value = query,
