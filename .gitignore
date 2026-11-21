@@ -23,6 +23,7 @@ captures/
 *.aab
 *.apk
 /app/release/
+/app/debug/
 output-metadata.json
 *.iml
 .idea/
