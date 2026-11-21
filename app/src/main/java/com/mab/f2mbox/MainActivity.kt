@@ -37,6 +37,7 @@ import com.mab.f2mbox.ui.connect.SplashScreen
 import com.mab.f2mbox.ui.connect.describe
 import com.mab.f2mbox.ui.home.HomeScreen
 import com.mab.f2mbox.ui.list.ListScreen
+import com.mab.f2mbox.ui.logs.LogsScreen
 import com.mab.f2mbox.ui.player.PlayerScreen
 import com.mab.f2mbox.ui.theme.F2MBoxTheme
 import kotlinx.coroutines.delay
@@ -82,6 +83,9 @@ private sealed interface Route {
 
     /** In-app playback of one direct video url. */
     data class Player(val url: String, val title: String) : Route
+
+    /** Session log of the scraper engine, reached from the home screen. */
+    data object Logs : Route
 }
 
 /**
@@ -94,6 +98,7 @@ private fun Route.stateKey(): String = when (this) {
     is Route.Scrape -> "scrape:$url"
     is Route.Results -> "results:$query"
     is Route.Player -> "player:$url"
+    Route.Logs -> "logs"
 }
 
 /**
@@ -226,7 +231,8 @@ private fun ConnectGate(scraper: F2MScraper) {
                         onClearCache = {
                             scraper.clearCache()
                             pageCache.clear()
-                        }
+                        },
+                        onOpenLogs = { navigate(Route.Logs) }
                     )
                     is Route.Scrape -> ListScreen(
                         routeKey = current.url,
@@ -254,6 +260,7 @@ private fun ConnectGate(scraper: F2MScraper) {
                         title = current.title,
                         onNavigateBack = goBack
                     )
+                    Route.Logs -> LogsScreen(onNavigateBack = goBack)
                 }
             }
         }

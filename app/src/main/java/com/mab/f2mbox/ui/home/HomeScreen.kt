@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -76,6 +77,7 @@ fun HomeScreen(
     activeDomain: String? = null,
     onHomeLoaded: (HomeData) -> Unit = {},
     onClearCache: () -> Unit = { scraper.clearCache() },
+    onOpenLogs: () -> Unit = {},
 ) {
     var state by remember {
         mutableStateOf<HomeUiState>(
@@ -170,6 +172,7 @@ fun HomeScreen(
                 onClearCache()
                 fetchToken++
             },
+            onOpenLogs = onOpenLogs,
             modifier = modifier
         )
     }
@@ -191,6 +194,7 @@ private fun HomeContent(
     onSearch: (String) -> Unit,
     focusTracker: FocusTracker,
     onRefresh: () -> Unit,
+    onOpenLogs: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
@@ -244,6 +248,17 @@ private fun HomeContent(
                         Icon(
                             imageVector = Icons.Outlined.Refresh,
                             contentDescription = stringResource(R.string.clear_cache_refresh),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = onOpenLogs,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Terminal,
+                            contentDescription = stringResource(R.string.view_logs),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp)
                         )
