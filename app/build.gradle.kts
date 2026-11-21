@@ -12,10 +12,12 @@ android {
 
     defaultConfig {
         applicationId = "com.mab.f2mbox"
-        minSdk = 30
+        // Android 8.0: covers essentially every TV box from ~2017 on while
+        // keeping a performance floor a Compose-heavy TV UI can hold up on.
+        minSdk = 26
         targetSdk = 37
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
 
     }
 
