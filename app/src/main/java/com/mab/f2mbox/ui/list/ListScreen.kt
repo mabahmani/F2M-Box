@@ -44,6 +44,7 @@ import com.mab.f2mbox.R
 import com.mab.f2mbox.data.remote.ListData
 import com.mab.f2mbox.data.remote.ScrapeResult
 import com.mab.f2mbox.data.remote.SectionItem
+import com.mab.f2mbox.ui.common.ScraperLogFeed
 import com.mab.f2mbox.ui.connect.LoadingDots
 import com.mab.f2mbox.ui.connect.describe
 import com.mab.f2mbox.ui.detail.MovieDetail
@@ -114,11 +115,14 @@ fun ListScreen(
     }
 
     when (val current = state) {
-        ListUiState.Loading -> Box(
+        ListUiState.Loading -> Column(
             modifier = modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             LoadingDots()
+            Spacer(Modifier.height(16.dp))
+            ScraperLogFeed()
         }
 
         is ListUiState.Error -> Box(

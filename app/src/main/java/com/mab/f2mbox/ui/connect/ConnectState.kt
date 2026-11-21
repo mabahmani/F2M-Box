@@ -6,9 +6,8 @@ import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import kotlinx.serialization.SerializationException
-import retrofit2.HttpException
 
-/** Where the app stands while reaching the F2M Scrapper backend. */
+/** Where the app stands while reaching the F2M site. */
 sealed interface ConnectState {
     data object Connecting : ConnectState
     data object Ready : ConnectState
@@ -24,7 +23,7 @@ internal fun describe(error: Throwable?): Int = when (error) {
     is UnknownHostException -> R.string.error_no_internet
     is SocketTimeoutException -> R.string.error_timeout
     is ConnectException -> R.string.error_connect
-    is HttpException -> R.string.error_server
+    is java.io.IOException -> R.string.error_server
     is SerializationException -> R.string.error_unexpected_response
     else -> R.string.error_unknown
 }

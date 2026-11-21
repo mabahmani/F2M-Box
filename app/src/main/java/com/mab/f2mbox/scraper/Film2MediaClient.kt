@@ -100,12 +100,17 @@ class Film2MediaClient(
         var lastError: Exception? = null
         repeat(ScraperDefaults.MAX_RETRIES + 1) { attempt ->
             try {
+                ScraperLog.log("fetch: $method $url")
                 val response = http.newCall(buildRequest(method, url, data, headers)).execute()
+                // response.request is the FINAL request of the redirect
+                // chain, so this is the url we actually landed on.
+                ScraperLog.log("fetch: ← HTTP ${response.code} ${response.request.url}")
                 if (
                     response.code in ScraperDefaults.RETRYABLE_STATUSES &&
                     attempt < ScraperDefaults.MAX_RETRIES
                 ) {
                     response.close()
+                    ScraperLog.log("fetch: retry ${attempt + 1} (HTTP ${response.code})")
                     delay((ScraperDefaults.RETRY_DELAY_SECONDS * (attempt + 1) * 1000).toLong())
                     lastError = ScrapeException("Server returned ${response.code}")
                     return@repeat
@@ -114,6 +119,7 @@ class Film2MediaClient(
             } catch (e: IOException) {
                 lastError = e
                 if (attempt < ScraperDefaults.MAX_RETRIES) {
+                    ScraperLog.log("fetch: retry ${attempt + 1} (${e.message})")
                     delay((ScraperDefaults.RETRY_DELAY_SECONDS * (attempt + 1) * 1000).toLong())
                 }
             }

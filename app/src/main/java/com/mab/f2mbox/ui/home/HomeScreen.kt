@@ -32,11 +32,10 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.mab.f2mbox.R
-import com.mab.f2mbox.data.F2MRepository
+import com.mab.f2mbox.scraper.F2MScraper
 import com.mab.f2mbox.data.WatchedManager
 import com.mab.f2mbox.data.remote.HomeData
 import com.mab.f2mbox.data.remote.HomeSection
-import com.mab.f2mbox.data.remote.clearNetworkCache
 import com.mab.f2mbox.scraper.ScraperLog
 import com.mab.f2mbox.ui.connect.LoadingDots
 import com.mab.f2mbox.ui.connect.describe
@@ -51,7 +50,7 @@ import kotlinx.coroutines.delay
  */
 @Composable
 fun HomeScreen(
-    repository: F2MRepository,
+    scraper: F2MScraper,
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     onOpenUrl: (String) -> Unit = {},
@@ -83,7 +82,7 @@ fun HomeScreen(
     LaunchedEffect(attempt, initialHome) {
         if (initialHome != null && attempt == 0) return@LaunchedEffect
         state = if (initialHome != null && attempt > 0) state else HomeUiState.Loading
-        repository.home().fold(
+        scraper.home().fold(
             onSuccess = { state = HomeUiState.Ready(it) },
             onFailure = { state = HomeUiState.Error(describe(it)) }
         )
@@ -189,7 +188,8 @@ private fun HomeContent(
                         onOpenUrl = onOpenUrl,
                         onSearch = onSearch,
                         onClearCacheAndRefresh = {
-                            clearNetworkCache()
+                            // The local engine fetches fresh every time —
+                            // there is no response cache to clear.
                             onRefresh()
                         }
                     )

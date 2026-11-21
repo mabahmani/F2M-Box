@@ -218,7 +218,60 @@ class F2MScraper(
         }
 
     // ------------------------------------------------------------------
-    // Search
+    // Typed scrape (webapp.py: api_scrape + detect_url_type)
+    // ------------------------------------------------------------------
+
+    /**
+     * Scrapes any site url and dispatches on the page kind, mirroring the
+     * hosted server's auto-detection: listing archives render as
+     * [ScrapeResult.Listing], movie/series detail pages as
+     * [ScrapeResult.Movie] and person archives as [ScrapeResult.Person].
+     * A relative [url] is resolved against the base url.
+     */
+    suspend fun scrape(url: String, pages: Int = 1): Result<com.mab.f2mbox.data.remote.ScrapeResult> =
+        runCatching {
+            val target = resolveUrl(url)
+            when (detectUrlType(target)) {
+                "list" -> com.mab.f2mbox.data.remote.ScrapeResult.Listing(list(target, pages).getOrThrow())
+                "person" -> com.mab.f2mbox.data.remote.ScrapeResult.Person(person(target, pages).getOrThrow())
+                "detail" -> com.mab.f2mbox.data.remote.ScrapeResult.Movie(detail(target).getOrThrow())
+                else -> error("Unsupported scrape url: $target")
+            }
+        }
+
+    /** Classifies a site url (webapp.py: detect_url_type). */
+    internal fun detectUrlType(url: String): String {
+        val httpUrl = runCatching { url.toHttpUrl() }.getOrNull()
+        val path = httpUrl?.encodedPath ?: "/"
+        val query = httpUrl?.queryParameterNames.orEmpty()
+        return when {
+            Regex("^/(category|genres|tag)/.+").containsMatchIn(path) -> "list"
+            Regex("^/(movies|series)(/page/\\d+/?)?/?$").containsMatchIn(path) ||
+                path.startsWith("/250t") -> "list"
+            Regex("^/(actors|directors)/.+").containsMatchIn(path) -> "person"
+            "/series/" in path || Regex("^/\\d+/.+").containsMatchIn(path) -> "detail"
+            "s" in query -> "list" // WordPress-style search: /?s=query
+            else -> "homepage"
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Search (html source — the site's own results page)
+    // ------------------------------------------------------------------
+
+    /**
+     * Searches by scraping the site's WordPress-style results page
+     * (`/?s=<query>`), so the payload is a [ListData] with pagination and
+     * renders in the listing grid like any other page.
+     */
+    suspend fun searchList(query: String, pages: Int = 1): Result<com.mab.f2mbox.data.remote.ListData> {
+        val base = baseUrl().trimEnd('/')
+        val searchUrl = "$base/?s=${java.net.URLEncoder.encode(query, "UTF-8")}"
+        return list(searchUrl, pages)
+    }
+
+    // ------------------------------------------------------------------
+    // Search (quick-search XHR endpoint)
     // ------------------------------------------------------------------
 
     /** Runs a quick-search against the site's XHR endpoint. */

@@ -24,9 +24,7 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.NonInteractiveSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
-import com.mab.f2mbox.data.F2MRepository
 import com.mab.f2mbox.data.remote.HomeData
-import com.mab.f2mbox.data.remote.ScrapeResult
 import com.mab.f2mbox.scraper.BaseUrlResolver
 import com.mab.f2mbox.scraper.F2MScraper
 import com.mab.f2mbox.scraper.ScraperLog
@@ -44,7 +42,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val repository = F2MRepository()
         val resolver = BaseUrlResolver(BaseUrlResolver.KeyValueStorage(SharedPreferencesStore(this)))
         val scraper = F2MScraper(resolver = resolver)
         setContent {
@@ -59,7 +56,7 @@ class MainActivity : ComponentActivity() {
                             containerColor = MaterialTheme.colorScheme.background
                         )
                     ) {
-                        ConnectGate(scraper = scraper, repository = repository)
+                        ConnectGate(scraper = scraper)
                     }
                 }
             }
@@ -87,7 +84,7 @@ private sealed interface Route {
  * a few times, then shows a retry action. Every step is logged.
  */
 @Composable
-private fun ConnectGate(scraper: F2MScraper, repository: F2MRepository) {
+private fun ConnectGate(scraper: F2MScraper) {
     var state by remember { mutableStateOf<ConnectState>(ConnectState.Connecting) }
     var attempt by remember { mutableIntStateOf(0) }
     var route by remember { mutableStateOf<Route>(Route.Home) }
@@ -170,7 +167,7 @@ private fun ConnectGate(scraper: F2MScraper, repository: F2MRepository) {
     when (state) {
         ConnectState.Ready -> when (val current = route) {
             Route.Home -> HomeScreen(
-                repository = repository,
+                scraper = scraper,
                 initialHome = homeData,
                 activeDomain = activeDomain,
                 searchQuery = searchQuery,
@@ -180,7 +177,7 @@ private fun ConnectGate(scraper: F2MScraper, repository: F2MRepository) {
             )
             is Route.Scrape -> ListScreen(
                 routeKey = current.url,
-                fetchPage = { pageUrl -> repository.scrape(pageUrl ?: current.url) },
+                fetchPage = { pageUrl -> scraper.scrape(pageUrl ?: current.url) },
                 onNavigateBack = goBack,
                 onOpenUrl = { navigate(Route.Scrape(it)) },
                 onPlay = { url, title -> navigate(Route.Player(url, title)) }
@@ -188,8 +185,10 @@ private fun ConnectGate(scraper: F2MScraper, repository: F2MRepository) {
             is Route.Results -> ListScreen(
                 routeKey = "search:${current.query}",
                 fetchPage = { pageUrl ->
-                    pageUrl?.let { repository.scrape(it) } ?: repository.search(current.query)
-                        .map { ScrapeResult.Listing(it) }
+                    // Pagination links carry the ?s= query, so they classify
+                    // as list pages; the first page uses the search builder.
+                    pageUrl?.let { scraper.scrape(it) } ?: scraper.searchList(current.query)
+                        .map { com.mab.f2mbox.data.remote.ScrapeResult.Listing(it) }
                 },
                 onNavigateBack = goBack,
                 onOpenUrl = { navigate(Route.Scrape(it)) },

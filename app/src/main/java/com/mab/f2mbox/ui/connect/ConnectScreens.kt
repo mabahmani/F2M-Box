@@ -50,7 +50,7 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.mab.f2mbox.R
-import com.mab.f2mbox.scraper.ScraperLog
+import com.mab.f2mbox.ui.common.ScraperLogFeed
 import com.mab.f2mbox.ui.theme.F2MBoxTheme
 
 /**
@@ -80,7 +80,11 @@ fun SplashScreen(
             )
 
             when (state) {
-                ConnectState.Connecting -> ConnectingLogs()
+                ConnectState.Connecting -> {
+                    LoadingDots()
+                    Spacer(Modifier.height(12.dp))
+                    ScraperLogFeed()
+                }
 
                 is ConnectState.Failed -> CompositionLocalProvider(
                     LocalLayoutDirection provides LayoutDirection.Ltr
@@ -208,43 +212,6 @@ internal fun LoadingDots(modifier: Modifier = Modifier) {
                     .clip(CircleShape)
                     .background(dotColors[i].copy(alpha = alpha.value))
             )
-        }
-    }
-}
-
-/**
- * Live engine feed while connecting: the last few scraper log lines
- * (cached-url hits, config fetch, canonical hops, health checks) so the
- * user sees what the engine is actually doing instead of a static hint.
- * The panel is forced LTR (logs are latin/urls while the app is RTL)
- * and spans most of the screen width for long urls.
- */
-@Composable
-internal fun ConnectingLogs(modifier: Modifier = Modifier) {
-    val lines by ScraperLog.lines.collectAsState()
-    LoadingDots()
-    Spacer(Modifier.height(12.dp))
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-        Column(
-            modifier = modifier
-                .fillMaxWidth(0.82f)
-                .heightIn(max = 200.dp)
-                .verticalScroll(rememberScrollState())
-                .background(
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                    shape = MaterialTheme.shapes.small,
-                )
-                .padding(horizontal = 18.dp, vertical = 12.dp),
-        ) {
-            lines.takeLast(7).forEach { line ->
-                Text(
-                    text = line,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
         }
     }
 }
