@@ -21,12 +21,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
@@ -46,6 +48,7 @@ import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import com.mab.f2mbox.R
 import com.mab.f2mbox.data.remote.HeroSlide
+import com.mab.f2mbox.ui.common.IntStateSaver
 import kotlinx.coroutines.delay
 
 private const val AUTO_ADVANCE_MS = 6_000L
@@ -56,17 +59,22 @@ private const val AUTO_ADVANCE_MS = 6_000L
  * overlaid at the bottom. Auto-advances every few seconds; D-pad left/right
  * moves between slides and resets the timer; OK opens the slide's url via
  * [onSlideClick].
+ *
+ * The slide the user is on is saved, so it is still showing when the user
+ * comes back to the home screen. [onFocused] reports that the slider took
+ * the focus, so it can be restored later.
  */
 @Composable
 fun HeroSlider(
     items: List<HeroSlide>,
     focusRequester: FocusRequester,
     onSlideClick: (String) -> Unit = {},
+    onFocused: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     if (items.isEmpty()) return
 
-    var page by remember(items) { mutableIntStateOf(0) }
+    var page by rememberSaveable(items, saver = IntStateSaver) { mutableIntStateOf(0) }
     // In RTL the slider reads right-to-left, so "next" lies to the left.
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
 
@@ -113,6 +121,7 @@ fun HeroSlider(
             // opens on the first press (focusable + clickable stacked would
             // put focus on the outer, click-less node).
             .clickable { onSlideClick(items[page].url) }
+            .onFocusChanged { if (it.isFocused) onFocused() }
     ) {
         Crossfade(
             targetState = page,

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
@@ -44,9 +44,10 @@ import coil3.compose.AsyncImage
 import com.mab.f2mbox.R
 import com.mab.f2mbox.data.remote.PersonData
 import com.mab.f2mbox.data.remote.PersonProfile
+import com.mab.f2mbox.ui.common.FocusTracker
+import com.mab.f2mbox.ui.common.GridPosterId
 import com.mab.f2mbox.ui.home.PosterCard
 import com.mab.f2mbox.ui.list.PagerControls
-import kotlinx.coroutines.delay
 
 private val ContentMargin = 48.dp
 private val GridColumns = 4
@@ -69,17 +70,17 @@ fun PersonScreen(
     data: PersonData,
     onNavigateBack: () -> Unit,
     onOpenUrl: (String) -> Unit,
+    focusTracker: FocusTracker,
     hasPrevious: Boolean,
     onPrevious: () -> Unit,
     hasNext: Boolean,
     onNext: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Grabs focus for the first poster once the grid attaches, the same way
-    // the hero does on home.
-    val firstPosterFocus = remember { FocusRequester() }
+    // Puts the focus back on the poster the user left — on the first poster
+    // the first time the screen is shown.
     LaunchedEffect(data) {
-        while (!firstPosterFocus.requestFocus()) delay(50)
+        focusTracker.restore(fallbackId = GridPosterId(0))
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -99,8 +100,10 @@ fun PersonScreen(
             return@Column
         }
 
+        val gridState = rememberLazyGridState()
         LazyVerticalGrid(
             columns = GridCells.Fixed(GridColumns),
+            state = gridState,
             modifier = Modifier.fillMaxWidth().weight(1f),
             contentPadding = PaddingValues(
                 start = ContentMargin,
@@ -112,14 +115,13 @@ fun PersonScreen(
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(data.items.size, key = { data.items[it].url }) { index ->
+                val posterId = GridPosterId(index)
                 PosterCard(
                     item = data.items[index],
                     onClick = { onOpenUrl(data.items[index].url) },
-                    modifier = (if (index == 0) {
-                        Modifier.focusRequester(firstPosterFocus)
-                    } else {
-                        Modifier
-                    })
+                    onFocus = { focusTracker.onFocused(posterId) },
+                    modifier = Modifier
+                        .focusRequester(focusTracker.requesterFor(posterId))
                         .fillMaxWidth()
                         .padding(GridItemPadding)
                 )

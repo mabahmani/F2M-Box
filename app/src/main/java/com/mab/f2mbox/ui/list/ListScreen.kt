@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,10 +43,16 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.mab.f2mbox.R
+import com.mab.f2mbox.data.PageCache
 import com.mab.f2mbox.data.remote.ListData
 import com.mab.f2mbox.data.remote.ScrapeResult
 import com.mab.f2mbox.data.remote.SectionItem
+import com.mab.f2mbox.ui.common.FocusTracker
+import com.mab.f2mbox.ui.common.GridPosterId
+import com.mab.f2mbox.ui.common.IntStateSaver
+import com.mab.f2mbox.ui.common.NullableStringListStateSaver
 import com.mab.f2mbox.ui.common.ScraperLogFeed
+import com.mab.f2mbox.ui.common.rememberFocusTracker
 import com.mab.f2mbox.ui.connect.LoadingDots
 import com.mab.f2mbox.ui.connect.describe
 import com.mab.f2mbox.ui.detail.MovieDetail
@@ -82,30 +90,59 @@ sealed interface ListUiState {
  * Clicking any poster or genre hands its url to [onOpenUrl], which opens
  * another scrape screen. [routeKey] identifies the origin — it keys the
  * page stack and retry state.
+ *
+ * The page stack and the parsed page are kept across navigation: the stack
+ * through the saved state of the screen, the parsed page through
+ * [pageCache]. So coming back to this screen shows the page the user left
+ * on, with its data, and without a loading flash.
  */
 @Composable
 fun ListScreen(
     routeKey: String,
     fetchPage: suspend (pageUrl: String?) -> Result<ScrapeResult>,
+    pageCache: PageCache,
     onNavigateBack: () -> Unit,
     onOpenUrl: (String) -> Unit = {},
     onPlay: (url: String, title: String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     // Visited page urls, newest last; the origin page is a null marker.
-    // Keyed on the route key so a new listing/search starts a fresh stack.
-    var pages by remember(routeKey) { mutableStateOf(listOf<String?>(null as String?)) }
-    var attempt by remember(routeKey) { mutableIntStateOf(0) }
-    // Keyed on the route key too: navigating scrape → scrape (e.g. a detail's
-    // suggested row) reuses this composition with a new routeKey, and without
-    // the key the old Ready result would stick and the new fetch never run.
-    var state by remember(routeKey) { mutableStateOf<ListUiState>(ListUiState.Loading) }
+    // Keyed on the route key so a new listing/search starts a fresh stack,
+    // and saved so returning to this listing restores the page it was on.
+    var pages by rememberSaveable(routeKey, saver = NullableStringListStateSaver) {
+        mutableStateOf(listOf<String?>(null as String?))
+    }
+    var attempt by rememberSaveable(routeKey, saver = IntStateSaver) { mutableIntStateOf(0) }
+    // The parsed page is not saveable, so it lives in the session cache: on
+    // the way back the screen renders straight away with the data it had.
+    var state by remember(routeKey) {
+        mutableStateOf<ListUiState>(
+            pageCache[pages.last() ?: routeKey]
+                ?.let { ListUiState.Ready(it) }
+                ?: ListUiState.Loading
+        )
+    }
     val currentPage = pages.last()
+    // Cache key of the current page: the origin page is keyed by the route
+    // itself, every later page by its own url.
+    val cacheKey = currentPage ?: routeKey
+    // Tracks which poster has the focus, so the focus comes back to the
+    // same poster when the user returns to this screen.
+    val focusTracker = rememberFocusTracker()
 
     LaunchedEffect(routeKey, currentPage, attempt) {
+        val cached = pageCache[cacheKey]
+        if (cached != null) {
+            // Already fetched in this session — no need to go online again.
+            state = ListUiState.Ready(cached)
+            return@LaunchedEffect
+        }
         state = ListUiState.Loading
         fetchPage(currentPage).fold(
-            onSuccess = { state = ListUiState.Ready(it) },
+            onSuccess = {
+                state = ListUiState.Ready(it)
+                pageCache.put(cacheKey, it)
+            },
             onFailure = { state = ListUiState.Error(describe(it)) }
         )
     }
@@ -153,6 +190,7 @@ fun ListScreen(
                 data = result.data,
                 onNavigateBack = onNavigateBack,
                 onOpenUrl = onOpenUrl,
+                focusTracker = focusTracker,
                 hasPrevious = pages.size > 1,
                 onPrevious = { pages = pages.dropLast(1) },
                 hasNext = result.data.pagination.next != null,
@@ -171,6 +209,7 @@ fun ListScreen(
                 data = result.data,
                 onNavigateBack = onNavigateBack,
                 onOpenUrl = onOpenUrl,
+                focusTracker = focusTracker,
                 hasPrevious = pages.size > 1,
                 onPrevious = { pages = pages.dropLast(1) },
                 hasNext = result.data.pagination.next != null,
@@ -191,17 +230,17 @@ private fun ListContent(
     data: ListData,
     onNavigateBack: () -> Unit,
     onOpenUrl: (String) -> Unit,
+    focusTracker: FocusTracker,
     hasPrevious: Boolean,
     onPrevious: () -> Unit,
     hasNext: Boolean,
     onNext: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Grabs focus for the first poster once the grid attaches, the same way
-    // the hero does on home.
-    val firstPosterFocus = remember { FocusRequester() }
+    // Puts the focus back on the poster the user left — on the first poster
+    // the first time the screen is shown.
     LaunchedEffect(data) {
-        while (!firstPosterFocus.requestFocus()) delay(50)
+        focusTracker.restore(fallbackId = GridPosterId(0))
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -222,8 +261,10 @@ private fun ListContent(
             return@Column
         }
 
+        val gridState = rememberLazyGridState()
         LazyVerticalGrid(
             columns = GridCells.Fixed(GridColumns),
+            state = gridState,
             modifier = Modifier.fillMaxWidth().weight(1f),
             contentPadding = PaddingValues(
                 start = ContentMargin,
@@ -235,14 +276,13 @@ private fun ListContent(
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(data.items.size, key = { data.items[it].url }) { index ->
+                val posterId = GridPosterId(index)
                 PosterCard(
                     item = data.items[index],
                     onClick = { onOpenUrl(data.items[index].url) },
-                    modifier = (if (index == 0) {
-                        Modifier.focusRequester(firstPosterFocus)
-                    } else {
-                        Modifier
-                    })
+                    onFocus = { focusTracker.onFocused(posterId) },
+                    modifier = Modifier
+                        .focusRequester(focusTracker.requesterFor(posterId))
                         .fillMaxWidth()
                         .padding(GridItemPadding)
                 )
@@ -338,6 +378,7 @@ private fun ListContentPreview() {
             ),
             onNavigateBack = {},
             onOpenUrl = {},
+            focusTracker = rememberFocusTracker(),
             hasPrevious = false,
             onPrevious = {},
             hasNext = true,

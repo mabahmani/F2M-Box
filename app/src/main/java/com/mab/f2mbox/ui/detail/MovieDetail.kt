@@ -35,6 +35,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +55,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
@@ -65,6 +67,8 @@ import coil3.compose.AsyncImage
 import androidx.compose.ui.platform.LocalContext
 import com.mab.f2mbox.data.WatchedItem
 import com.mab.f2mbox.data.WatchedManager
+import com.mab.f2mbox.ui.common.FocusTracker
+import com.mab.f2mbox.ui.common.rememberFocusTracker
 import com.mab.f2mbox.R
 import com.mab.f2mbox.data.remote.Comments
 import com.mab.f2mbox.data.remote.Comment
@@ -82,6 +86,7 @@ import com.mab.f2mbox.data.remote.ScrapeResult
 import com.mab.f2mbox.data.remote.Trailer
 import com.mab.f2mbox.data.remote.VoiceActor
 import com.mab.f2mbox.data.remote.normalizeImageUrl
+import com.mab.f2mbox.ui.common.IntSetStateSaver
 import com.mab.f2mbox.ui.home.PosterCard
 import com.mab.f2mbox.ui.theme.F2MBoxTheme
 import kotlinx.coroutines.delay
@@ -140,11 +145,12 @@ fun MovieDetail(
         onPlay(playUrl, playTitle)
     }
 
-    // Grabs focus for the back button once the header attaches, the same
-    // way the hero does on home.
-    val backFocus = remember { FocusRequester() }
+    // Focus-restorable detail screen: restores focus on the back button
+    // or the element the user left when coming back to this page.
+    val focusTracker = rememberFocusTracker()
+    val backFocusId = "detail:back"
     LaunchedEffect(data) {
-        while (!backFocus.requestFocus()) delay(50)
+        focusTracker.restore(fallbackId = backFocusId)
     }
 
     // Comment thread paging: starts with the payload's own page; "more" and
@@ -158,14 +164,15 @@ fun MovieDetail(
 
     // Collapsible seasons: which season indexes are expanded (the last one
     // open by default, since that's the currently-airing season). Toggled
-    // from the season header row itself.
+    // from the season header row itself. Saved, so the rows the user opened
+    // are still open when the user comes back to this page.
     val seasons = data.downloads?.seasons.orEmpty()
-    var expandedSeasons by remember(data) {
+    var expandedSeasons by rememberSaveable(data, saver = IntSetStateSaver) {
         mutableStateOf(if (seasons.isEmpty()) emptySet() else setOf(seasons.lastIndex))
     }
     // Collapsible dubs: which dub indexes are expanded (all collapsed by
     // default). Toggled from the dub header row itself.
-    var expandedDubs by remember(data) {
+    var expandedDubs by rememberSaveable(data, saver = IntSetStateSaver) {
         mutableStateOf<Set<Int>>(emptySet())
     }
 
@@ -232,7 +239,12 @@ fun MovieDetail(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-            Button(onClick = onNavigateBack, modifier = Modifier.focusRequester(backFocus)) {
+            Button(
+                onClick = onNavigateBack,
+                modifier = Modifier
+                    .focusRequester(focusTracker.requesterFor(backFocusId))
+                    .onFocusChanged { if (it.isFocused) focusTracker.onFocused(backFocusId) }
+            ) {
                 Text(stringResource(R.string.back))
             }
             Text(
@@ -719,6 +731,9 @@ private fun PersonCard(person: PersonRef, onOpenUrl: (String) -> Unit, modifier:
     Column(
         modifier = modifier
             .width(PersonCardWidth)
+            // Same z-lift as PosterCard so the focused border isn't cut by
+            // the neighboring cards' draw order.
+            .zIndex(if (isFocused) 1f else 0f)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale

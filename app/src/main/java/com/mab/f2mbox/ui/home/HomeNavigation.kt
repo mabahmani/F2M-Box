@@ -25,6 +25,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +48,8 @@ import androidx.tv.material3.Text
 import com.mab.f2mbox.data.remote.GenreLink
 import com.mab.f2mbox.data.remote.HomeNavigation
 import com.mab.f2mbox.data.remote.NavSection
+import com.mab.f2mbox.ui.common.FocusTracker
+import com.mab.f2mbox.ui.common.IntStateSaver
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -63,6 +66,9 @@ private val ChipShape = RoundedCornerShape(50)
  * quick link lands on its genre row when the section has one, so the search
  * field below is only reached by pressing Down again. A search field sits
  * under the filter rows; submitting a query calls [onSearch].
+ *
+ * The selected quick link and the focused chip are saved, so they are still
+ * there when the user comes back to the home screen.
  */
 @Composable
 fun NavigationBlock(
@@ -71,15 +77,17 @@ fun NavigationBlock(
     onSearchQueryChange: (String) -> Unit,
     onOpenUrl: (String) -> Unit,
     onSearch: (String) -> Unit,
+    focusTracker: FocusTracker,
     modifier: Modifier = Modifier
 ) {
     if (navigation.sections.isEmpty()) return
 
-    var selectedSection by remember(navigation) { mutableIntStateOf(0) }
-    val activeSection = navigation.sections[selectedSection.coerceAtMost(navigation.sections.lastIndex)]
+    var selectedSection by rememberSaveable(navigation, saver = IntStateSaver) {
+        mutableIntStateOf(0)
+    }
+    val activeIndex = selectedSection.coerceAtMost(navigation.sections.lastIndex)
+    val activeSection = navigation.sections[activeIndex]
     val activeGenres = genresFor(activeSection.url, navigation)
-    // Focus handle for the first genre chip of the active section.
-    val genreFocus = remember { FocusRequester() }
     val scope = rememberCoroutineScope()
 
     Column(modifier = modifier.fillMaxWidth().padding(top = 28.dp)) {
@@ -97,7 +105,8 @@ fun NavigationBlock(
                     // Selection follows focus, so the crossfade may still be
                     // swapping the genre row in; retry until a chip attaches.
                     scope.launch {
-                        while (!genreFocus.requestFocus()) delay(50)
+                        val requester = focusTracker.requesterFor(GenreChipId(activeSection.url, 0))
+                        while (!requester.requestFocus()) delay(50)
                     }
                     true
                 } else {
@@ -106,11 +115,16 @@ fun NavigationBlock(
             }
         ) {
             items(navigation.sections.size) { index ->
+                val chipId = NavChipId(index)
                 SectionChip(
                     section = navigation.sections[index],
                     isSelected = index == selectedSection,
-                    onFocus = { selectedSection = index },
-                    onClick = { onOpenUrl(navigation.sections[index].url) }
+                    onFocus = {
+                        selectedSection = index
+                        focusTracker.onFocused(chipId)
+                    },
+                    onClick = { onOpenUrl(navigation.sections[index].url) },
+                    modifier = Modifier.focusRequester(focusTracker.requesterFor(chipId))
                 )
             }
         }
@@ -125,7 +139,8 @@ fun NavigationBlock(
             GenreRow(
                 genres = genresFor(url, navigation),
                 onOpenUrl = onOpenUrl,
-                focusRequester = genreFocus,
+                focusTracker = focusTracker,
+                sectionUrl = url,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -158,7 +173,8 @@ private val GenreRowSlotHeight = 44.dp
 private fun GenreRow(
     genres: List<GenreLink>,
     onOpenUrl: (String) -> Unit,
-    focusRequester: FocusRequester?,
+    focusTracker: FocusTracker,
+    sectionUrl: String?,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -172,10 +188,12 @@ private fun GenreRow(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(genres.size) { index ->
+                    val chipId = GenreChipId(sectionUrl, index)
                     GenreChip(
                         genre = genres[index],
                         onClick = { onOpenUrl(genres[index].url) },
-                        focusRequester = focusRequester.takeIf { index == 0 }
+                        onFocus = { focusTracker.onFocused(chipId) },
+                        modifier = Modifier.focusRequester(focusTracker.requesterFor(chipId))
                     )
                 }
             }
@@ -246,13 +264,14 @@ private fun SectionChip(
 
 /**
  * A genre filter chip: neutral pill with the genre name and the number of
- * titles filed under it in a dimmer tone.
+ * titles filed under it in a dimmer tone. Reports the focus through
+ * [onFocus], so it can be restored later.
  */
 @Composable
 private fun GenreChip(
     genre: GenreLink,
     onClick: () -> Unit,
-    focusRequester: FocusRequester? = null,
+    onFocus: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -264,14 +283,10 @@ private fun GenreChip(
 
     Row(
         modifier = modifier
-            .onFocusChanged { isFocused = it.isFocused }
-            .then(
-                if (focusRequester != null) {
-                    Modifier.focusRequester(focusRequester)
-                } else {
-                    Modifier
-                }
-            )
+            .onFocusChanged {
+                isFocused = it.isFocused
+                if (it.isFocused) onFocus()
+            }
             .clickable(onClick = onClick)
             // Inside the focusable node so the focus bounds stay at the
             // layout size while the chip animates — see PosterCard.

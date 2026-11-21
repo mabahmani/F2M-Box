@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.runtime.Composable
@@ -23,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,7 +45,10 @@ import com.mab.f2mbox.data.WatchedManager
 import com.mab.f2mbox.data.remote.HomeData
 import com.mab.f2mbox.data.remote.HomeSection
 import com.mab.f2mbox.scraper.ScraperLog
+import com.mab.f2mbox.ui.common.FocusTracker
+import com.mab.f2mbox.ui.common.IntStateSaver
 import com.mab.f2mbox.ui.common.ScraperLogFeed
+import com.mab.f2mbox.ui.common.rememberFocusTracker
 import com.mab.f2mbox.ui.connect.LoadingDots
 import com.mab.f2mbox.ui.connect.describe
 import kotlinx.coroutines.delay
@@ -54,6 +59,10 @@ import kotlinx.coroutines.delay
  * (hero slide, poster card, section chip, genre chip, see-more card) hands
  * its url to [onOpenUrl]; submitting the inline search field calls
  * [onSearch] with the query.
+ *
+ * The screen keeps its scroll position, its hero slide and its focus
+ * position across navigation, so coming back to it shows the home page as
+ * the user left it.
  */
 @Composable
 fun HomeScreen(
@@ -65,15 +74,22 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     initialHome: HomeData? = null,
     activeDomain: String? = null,
+    onHomeLoaded: (HomeData) -> Unit = {},
+    onClearCache: () -> Unit = { scraper.clearCache() },
 ) {
     var state by remember {
         mutableStateOf<HomeUiState>(
             if (initialHome != null) HomeUiState.Ready(initialHome) else HomeUiState.Loading
         )
     }
-    var attempt by remember { mutableIntStateOf(0) }
+    // Counts the fetches of the home page: it is raised by the clear-cache
+    // button and by a retry, and compared with [fetchedToken] to tell
+    // whether a fetch is due. Both are saved, so coming back to the home
+    // screen does not fetch it again.
+    var fetchToken by rememberSaveable(saver = IntStateSaver) { mutableIntStateOf(0) }
+    var fetchedToken by rememberSaveable(saver = IntStateSaver) { mutableIntStateOf(0) }
     val context = LocalContext.current
-    val watchedItems = remember(attempt) { WatchedManager.getWatchedItems(context) }
+    val watchedItems = remember(fetchToken) { WatchedManager.getWatchedItems(context) }
     val watchedSection = if (watchedItems.isNotEmpty()) {
         HomeSection(
             id = "continue-watching",
@@ -83,16 +99,23 @@ fun HomeScreen(
     } else {
         null
     }
+    // Tracks the focused element of the home screen, so the focus comes
+    // back to it after the user visited a listing and came back.
+    val focusTracker = rememberFocusTracker()
 
     // With initialHome the gate already fetched a healthy home page —
     // the first composition renders it directly with no loading state.
-    // An explicit refresh (attempt > 0, e.g. the clear-cache button)
-    // goes through Loading so the re-fetch is visible in the log feed.
-    LaunchedEffect(attempt, initialHome) {
-        if (initialHome != null && attempt == 0) return@LaunchedEffect
+    // An explicit fetch (clear-cache or retry) goes through Loading so the
+    // re-fetch is visible in the log feed.
+    LaunchedEffect(fetchToken) {
+        if (fetchToken == fetchedToken && initialHome != null) return@LaunchedEffect
         state = HomeUiState.Loading
         scraper.home().fold(
-            onSuccess = { state = HomeUiState.Ready(it) },
+            onSuccess = {
+                state = HomeUiState.Ready(it)
+                fetchedToken = fetchToken
+                onHomeLoaded(it)
+            },
             onFailure = { state = HomeUiState.Error(describe(it)) }
         )
     }
@@ -125,7 +148,7 @@ fun HomeScreen(
                     Button(onClick = { (contextError as? android.app.Activity)?.finish() }) {
                         Text(stringResource(R.string.back))
                     }
-                    Button(onClick = { attempt++ }) {
+                    Button(onClick = { fetchToken++ }) {
                         Text(stringResource(R.string.retry))
                     }
                 }
@@ -140,11 +163,12 @@ fun HomeScreen(
             onSearchQueryChange = onSearchQueryChange,
             onOpenUrl = onOpenUrl,
             onSearch = onSearch,
+            focusTracker = focusTracker,
             // Clear-cache action: drop cached pages + the session
             // resolution, then re-fetch home from the live site.
             onRefresh = {
-                scraper.clearCache()
-                attempt++
+                onClearCache()
+                fetchToken++
             },
             modifier = modifier
         )
@@ -165,25 +189,28 @@ private fun HomeContent(
     onSearchQueryChange: (String) -> Unit,
     onOpenUrl: (String) -> Unit,
     onSearch: (String) -> Unit,
+    focusTracker: FocusTracker,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val heroHeight = maxHeight
+        val listState = rememberLazyListState()
 
-        // Created here — outside the lazy list — so it survives scrolling.
-        // The hero grabs focus exactly once, when the home screen first
-        // appears; requesting it from inside the lazy item would re-run every
-        // time the hero re-enters composition and yank the list back to the
-        // top.
-        val heroFocus = remember { FocusRequester() }
-        LaunchedEffect(Unit) {
-            // Lazy items compose during layout, so the hero node may not
-            // exist yet on the first frame; retry until it attaches.
-            while (!heroFocus.requestFocus()) delay(50)
+        // The hero is the fallback focus target of the home screen: it
+        // takes the focus the first time the screen is shown, and whenever
+        // the user did not focus anything else before leaving.
+        val heroFocus = focusTracker.requesterFor(HeroFocusId)
+        // Puts the focus back where the user left it — on the hero the
+        // first time, on the focused poster or chip after that.
+        LaunchedEffect(home) {
+            focusTracker.restore(fallbackId = HeroFocusId)
         }
 
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize()
+        ) {
             // Domain badge + clear-cache icon button as the first scroll
             // item: as a floating overlay it was unreachable with the
             // arrow keys (directional focus search finds nothing "above"
@@ -229,6 +256,7 @@ private fun HomeContent(
                         items = home.heroSlider,
                         focusRequester = heroFocus,
                         onSlideClick = onOpenUrl,
+                        onFocused = { focusTracker.onFocused(HeroFocusId) },
                         modifier = Modifier
                             .fillParentMaxWidth()
                             .height(heroHeight)
@@ -242,18 +270,29 @@ private fun HomeContent(
                         searchQuery = searchQuery,
                         onSearchQueryChange = onSearchQueryChange,
                         onOpenUrl = onOpenUrl,
-                        onSearch = onSearch
+                        onSearch = onSearch,
+                        focusTracker = focusTracker
                     )
                 }
             }
             watchedSection?.let { section ->
                 item(key = section.id) {
-                    SectionRow(section = section, onOpenUrl = onOpenUrl)
+                    SectionRow(
+                        section = section,
+                        onOpenUrl = onOpenUrl,
+                        focusTracker = focusTracker,
+                        rowKey = WatchedSectionRowKey
+                    )
                 }
             }
-            home.sections.forEach { section ->
+            home.sections.forEachIndexed { index, section ->
                 item(key = section.id) {
-                    SectionRow(section = section, onOpenUrl = onOpenUrl)
+                    SectionRow(
+                        section = section,
+                        onOpenUrl = onOpenUrl,
+                        focusTracker = focusTracker,
+                        rowKey = "home:$index"
+                    )
                 }
             }
             // Breathing room below the last row so it clears the screen edge.

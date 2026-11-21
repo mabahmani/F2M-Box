@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -50,6 +51,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -57,6 +59,7 @@ import coil3.compose.AsyncImage
 import com.mab.f2mbox.R
 import com.mab.f2mbox.data.remote.HomeSection
 import com.mab.f2mbox.data.remote.SectionItem
+import com.mab.f2mbox.ui.common.FocusTracker
 
 private val ContentMargin = 48.dp
 private val PosterCardWidth = 180.dp
@@ -67,11 +70,18 @@ private const val MAX_GENRE_CHIPS = 3
  * One home carousel: a section title followed by a horizontally scrollable
  * row of poster cards. Used for every entry of the home payload's
  * `sections` list.
+ *
+ * The posters of the row are focus-restorable: each one reports itself to
+ * [focusTracker], so the focus comes back to the same poster when the user
+ * returns to the home screen. [rowKey] identifies the row among the rows of
+ * the home screen, so their posters do not share a focus id.
  */
 @Composable
 fun SectionRow(
     section: HomeSection,
     onOpenUrl: (String) -> Unit = {},
+    focusTracker: FocusTracker,
+    rowKey: String,
     modifier: Modifier = Modifier
 ) {
     if (section.items.isEmpty()) return
@@ -88,10 +98,14 @@ fun SectionRow(
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(section.items.size) { index ->
+                val posterId = SectionPosterId(rowKey, index)
                 PosterCard(
                     item = section.items[index],
                     onClick = { onOpenUrl(section.items[index].url) },
-                    modifier = Modifier.width(PosterCardWidth)
+                    onFocus = { focusTracker.onFocused(posterId) },
+                    modifier = Modifier
+                        .focusRequester(focusTracker.requesterFor(posterId))
+                        .width(PosterCardWidth)
                 )
             }
             section.url?.let {
@@ -150,6 +164,9 @@ private fun SeeMoreCard(
         modifier = modifier
             .width(PosterCardWidth)
             .height(PosterCardHeight)
+            // Same z-lift as PosterCard so the focused border isn't cut by
+            // the neighboring cards' draw order.
+            .zIndex(if (isFocused) 1f else 0f)
             .onFocusChanged { isFocused = it.isFocused }
             .clickable(onClick = onClick)
             // Inside the focusable node — see PosterCard.
@@ -193,12 +210,15 @@ private fun SeeMoreCard(
  * Width comes from [modifier]; the poster keeps a 2:3 aspect ratio, so
  * callers pass e.g. `Modifier.width(PosterCardWidth)` in rows or
  * `Modifier.fillMaxWidth()` in grid cells. Pressing OK fires [onClick].
+ * [onFocus] is called when the card takes the focus, so the caller can
+ * restore the focus on it later.
  */
 @Composable
 internal fun PosterCard(
     item: SectionItem,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onFocus: (() -> Unit)? = null
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
@@ -209,7 +229,15 @@ internal fun PosterCard(
 
     Column(
         modifier = modifier
-            .onFocusChanged { isFocused = it.isFocused }
+            // Lift the focused card above its row/grid siblings: a scaled-up
+            // card expands past its layout bounds, and later siblings would
+            // otherwise paint over the expansion, cutting the focus border
+            // off the poster's edges.
+            .zIndex(if (isFocused) 1f else 0f)
+            .onFocusChanged {
+                isFocused = it.isFocused
+                if (it.isFocused) onFocus?.invoke()
+            }
             .clickable(onClick = onClick)
             // Sits inside the focusable node so the focus bounds stay at the
             // layout size while the card animates; a scaled focus target
