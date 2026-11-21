@@ -153,6 +153,13 @@ fun MovieDetail(
         focusTracker.restore(fallbackId = backFocusId)
     }
 
+    // The poster's play shortcut lands on the downloads section's first
+    // play button; focusing it also scrolls the section into view.
+    val downloadsFocusRequester = remember { FocusRequester() }
+    val hasDownloads = data.downloads?.let {
+        it.variants.isNotEmpty() || it.seasons.isNotEmpty()
+    } == true
+
     // Comment thread paging: starts with the payload's own page; "more" and
     // "previous" fetch/pop whole comment pages through [fetchPage], since
     // comment-page urls scrape back as movie payloads with that page's
@@ -276,7 +283,16 @@ fun MovieDetail(
             IntroBlock(
                 intro = intro,
                 reactions = data.reactions,
-                onOpenUrl = onOpenUrl
+                onOpenUrl = onOpenUrl,
+                onPlayRequest = if (hasDownloads) {
+                    {
+                        // Not attached when no quality carries a playable
+                        // link, so guard the jump.
+                        runCatching { downloadsFocusRequester.requestFocus() }
+                    }
+                } else {
+                    null
+                }
             )
             // Trailer card and the summary text share one row: the card
             // anchors the section and the summary fills the space beside it.
@@ -421,7 +437,7 @@ fun MovieDetail(
                     modifier = Modifier.padding(top = 12.dp)
                 )
             }
-            data.downloads?.variants?.forEach { variant ->
+            data.downloads?.variants?.forEachIndexed { variantIndex, variant ->
                 Text(
                     text = variant.title.orEmpty(),
                     style = MaterialTheme.typography.titleLarge,
@@ -433,11 +449,17 @@ fun MovieDetail(
                         QualityCard(
                             quality = variant.qualities[index],
                             title = intro.title.orEmpty(),
-                            onPlay = handlePlay
+                            onPlay = handlePlay,
+                            playButtonModifier = if (variantIndex == 0 && index == 0) {
+                                Modifier.focusRequester(downloadsFocusRequester)
+                            } else {
+                                Modifier
+                            }
                         )
                     }
                 }
             }
+            val firstExpandedSeasonIndex = seasons.indices.firstOrNull { it in expandedSeasons }
             data.downloads?.seasons?.forEachIndexed { seasonIndex, season ->
                 val isExpanded = seasonIndex in expandedSeasons
                 key(seasonIndex) {
@@ -505,7 +527,17 @@ fun MovieDetail(
                                     EpisodeCard(
                                         episode = quality.episodes[index],
                                         title = intro.title.orEmpty(),
-                                        onPlay = handlePlay
+                                        onPlay = handlePlay,
+                                        playButtonModifier = if (
+                                            seasonIndex == firstExpandedSeasonIndex &&
+                                            variantIndex == 0 &&
+                                            qualityIndex == 0 &&
+                                            index == 0
+                                        ) {
+                                            Modifier.focusRequester(downloadsFocusRequester)
+                                        } else {
+                                            Modifier
+                                        }
                                     )
                                 }
                             }
@@ -574,22 +606,57 @@ private fun IntroBlock(
     intro: MovieIntro,
     reactions: Reactions?,
     onOpenUrl: (String) -> Unit,
+    onPlayRequest: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    var posterFocused by remember { mutableStateOf(false) }
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        AsyncImage(
-            model = intro.poster?.url,
-            contentDescription = intro.poster?.alt ?: intro.title,
-            contentScale = ContentScale.Crop,
+        // The poster doubles as a shortcut to the play section: when the
+        // page has downloads, focusing it reveals a play overlay and OK
+        // jumps to the downloads section's first play button.
+        Box(
             modifier = Modifier
                 .width(PosterWidth)
                 .aspectRatio(2f / 3f)
-                .clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-        )
+                .then(
+                    if (onPlayRequest != null) {
+                        Modifier
+                            .onFocusChanged { posterFocused = it.isFocused }
+                            .clickable { onPlayRequest() }
+                    } else {
+                        Modifier
+                    }
+                )
+        ) {
+            AsyncImage(
+                model = intro.poster?.url,
+                contentDescription = intro.poster?.alt ?: intro.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .matchParentSize()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            )
+            if (onPlayRequest != null && posterFocused) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color.Black.copy(alpha = 0.45f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.PlayArrow,
+                        contentDescription = stringResource(R.string.player_play),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(56.dp)
+                    )
+                }
+            }
+        }
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -946,6 +1013,7 @@ private fun QualityCard(
     quality: DownloadQuality,
     title: String,
     onPlay: (url: String, title: String) -> Unit,
+    playButtonModifier: Modifier = Modifier,
     modifier: Modifier = Modifier
 ) {
     // Notes and encoder share one line: two optional texts made the cards
@@ -988,7 +1056,7 @@ private fun QualityCard(
         }?.let { url ->
             PlayButton(
                 onClick = { onPlay(url, title) },
-                modifier = Modifier.fillMaxWidth()
+                modifier = playButtonModifier.fillMaxWidth()
             )
         }
     }
@@ -1004,6 +1072,7 @@ private fun EpisodeCard(
     episode: EpisodeLink,
     title: String,
     onPlay: (url: String, title: String) -> Unit,
+    playButtonModifier: Modifier = Modifier,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -1029,7 +1098,7 @@ private fun EpisodeCard(
         if (url != null) {
             PlayButton(
                 onClick = { onPlay(url, title) },
-                modifier = Modifier.fillMaxWidth()
+                modifier = playButtonModifier.fillMaxWidth()
             )
         }
     }
