@@ -132,6 +132,7 @@ fun PersonScreen(
                     hasNext = hasNext,
                     onPrevious = onPrevious,
                     onNext = onNext,
+                    focusTracker = focusTracker,
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }

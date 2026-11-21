@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -51,6 +52,8 @@ import com.mab.f2mbox.ui.common.FocusTracker
 import com.mab.f2mbox.ui.common.GridPosterId
 import com.mab.f2mbox.ui.common.IntStateSaver
 import com.mab.f2mbox.ui.common.NullableStringListStateSaver
+import com.mab.f2mbox.ui.common.PagerNextId
+import com.mab.f2mbox.ui.common.PagerPreviousId
 import com.mab.f2mbox.ui.common.ScraperLogFeed
 import com.mab.f2mbox.ui.common.rememberFocusTracker
 import com.mab.f2mbox.ui.connect.LoadingDots
@@ -293,6 +296,7 @@ private fun ListContent(
                     hasNext = hasNext,
                     onPrevious = onPrevious,
                     onNext = onNext,
+                    focusTracker = focusTracker,
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
@@ -339,26 +343,50 @@ private fun ListHeader(
     }
 }
 
-/** Centered previous/next buttons; each is disabled when unavailable. */
+/**
+ * Centered previous/next buttons; each is disabled when unavailable. The
+ * buttons report their focus to [focusTracker], so the focus comes back to
+ * the one the user used when the screen is restored.
+ */
 @Composable
 internal fun PagerControls(
     hasPrevious: Boolean,
     hasNext: Boolean,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
+    focusTracker: FocusTracker? = null,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally)
     ) {
-        Button(onClick = onPrevious, enabled = hasPrevious) {
+        Button(
+            onClick = onPrevious,
+            enabled = hasPrevious,
+            modifier = pagerButtonModifier(focusTracker, PagerPreviousId)
+        ) {
             Text(stringResource(R.string.previous))
         }
-        Button(onClick = onNext, enabled = hasNext) {
+        Button(
+            onClick = onNext,
+            enabled = hasNext,
+            modifier = pagerButtonModifier(focusTracker, PagerNextId)
+        ) {
             Text(stringResource(R.string.next))
         }
     }
+}
+
+/**
+ * Makes a pager button restorable: it attaches the requester of [id] and
+ * reports the focus, so the button can take the focus back later.
+ */
+private fun pagerButtonModifier(focusTracker: FocusTracker?, id: String): Modifier {
+    if (focusTracker == null) return Modifier
+    return Modifier
+        .focusRequester(focusTracker.requesterFor(id))
+        .onFocusChanged { if (it.isFocused) focusTracker.onFocused(id) }
 }
 
 @Preview(showBackground = true, widthDp = 960, heightDp = 540)

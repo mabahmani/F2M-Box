@@ -55,6 +55,12 @@ private const val FocusRetryDelayMs = 50L
  */
 fun GridPosterId(index: Int): String = "grid:$index"
 
+/** Focus id of the "previous page" button of a paginated screen. */
+const val PagerPreviousId = "pagerPrevious"
+
+/** Focus id of the "next page" button of a paginated screen. */
+const val PagerNextId = "pagerNext"
+
 /**
  * The focused element of a screen, tracked by id, so the focus position can
  * be restored when the user navigates back to the screen.
