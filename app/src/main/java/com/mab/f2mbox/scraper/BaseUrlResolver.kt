@@ -133,8 +133,23 @@ class BaseUrlResolver(
         }
         storage.saveManualDomain(cleaned)
         storage.saveActive(url)
+        // The old session result (if any) points at the domain the user
+        // just replaced — drop it and its health-check page.
+        sessionResolved = null
+        lastHealthyPage = null
         log("manual: accepted → active url cached as $url")
         return true
+    }
+
+    /**
+     * Drops the session-scoped resolution result and health-check page
+     * so the next [resolve] walks the full chain again. Used by the
+     * clear-cache action.
+     */
+    fun invalidate() {
+        sessionResolved = null
+        lastHealthyPage = null
+        log("resolve: session cache invalidated")
     }
 
     /**
@@ -142,8 +157,19 @@ class BaseUrlResolver(
      * fallback chain and re-verifying the bootstrap url when needed.
      * A manually submitted domain ([submitManualDomain]) takes priority
      * over everything.
+     *
+     * The first successful result is remembered for the session
+     * ([sessionResolved]) — a fresh [BaseUrlResolver] is created on
+     * every app open, so this never outlives the launch, and
+     * [invalidate] drops it.
      */
     suspend fun resolve(): String {
+        // Session fast path: already resolved during this app open.
+        sessionResolved?.let {
+            log("resolve: session cache hit $it")
+            return it
+        }
+
         // 0. A manually entered domain (from the error screen) wins —
         //    it is health-verified before being cached, like any url.
         storage.manualDomain()?.let { manual ->
@@ -152,7 +178,7 @@ class BaseUrlResolver(
             if (isHealthy(manualUrl)) {
                 log("step 0: manual domain healthy → using it")
                 storage.saveActive(manualUrl)
-                return manualUrl
+                return manualUrl.also { sessionResolved = it }
             }
             log("step 0: manual domain unhealthy → clearing it")
             storage.saveManualDomain(null)
@@ -163,7 +189,7 @@ class BaseUrlResolver(
             log("step 1: checking cached active url: $cached")
             if (isHealthy(cached)) {
                 log("step 1: cached url is healthy → using it")
-                return cached
+                return cached.also { sessionResolved = it }
             }
             log("step 1: cached url is unhealthy → falling through")
         } ?: log("step 1: no cached active url")
@@ -191,11 +217,15 @@ class BaseUrlResolver(
         if (result.healthy) {
             log("step 4: healthy → saving active url ${result.activeUrl}")
             storage.saveActive(result.activeUrl)
+            sessionResolved = result.activeUrl
         } else {
             log("step 4: not healthy → active url NOT cached")
         }
         return result.activeUrl
     }
+
+    /** The base url resolved during this app open, if any. */
+    private var sessionResolved: String? = null
 
     private data class BootstrapResult(val activeUrl: String, val healthy: Boolean)
 
@@ -211,7 +241,7 @@ class BaseUrlResolver(
         log("verify: fetching bootstrap $bootstrap")
         // OkHttp resolves redirects transparently; fetching the bootstrap
         // lands on whatever domain it currently points at.
-        val (finalUrl, html) = client.fetch(bootstrap)
+        val (finalUrl, html) = client.fetch(bootstrap, bypassCache = true)
         log("verify: landed on $finalUrl")
         val doc = HtmlUtils.parse(html)
         val title = doc.selectFirst("title")?.text()
@@ -229,7 +259,7 @@ class BaseUrlResolver(
             log("verify: canonical $canonical is on a different domain → using its domain root")
             return runCatching {
                 val canonicalUrl = "https://$canonicalDomain/"
-                val (finalCanonicalUrl, canonicalHtml) = client.fetch(canonicalUrl)
+                val (finalCanonicalUrl, canonicalHtml) = client.fetch(canonicalUrl, bypassCache = true)
                 log("verify: canonical domain landed on $finalCanonicalUrl")
                 BootstrapResult(
                     finalCanonicalUrl,
@@ -244,7 +274,7 @@ class BaseUrlResolver(
 
     /** Fetches [url] and checks it looks like a real home page. */
     private suspend fun isHealthy(url: String): Boolean = runCatching {
-        val (finalUrl, html) = client.fetch(url)
+        val (finalUrl, html) = client.fetch(url, bypassCache = true)
         rememberIfHealthy(finalUrl, html)
     }.getOrDefault(false)
 

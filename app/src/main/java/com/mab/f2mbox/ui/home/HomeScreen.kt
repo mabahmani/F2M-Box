@@ -128,7 +128,12 @@ fun HomeScreen(
             onSearchQueryChange = onSearchQueryChange,
             onOpenUrl = onOpenUrl,
             onSearch = onSearch,
-            onRefresh = { attempt++ },
+            // Clear-cache action: drop cached pages + the session
+            // resolution, then re-fetch home from the live site.
+            onRefresh = {
+                scraper.clearCache()
+                attempt++
+            },
             modifier = modifier
         )
     }
@@ -187,11 +192,7 @@ private fun HomeContent(
                         onSearchQueryChange = onSearchQueryChange,
                         onOpenUrl = onOpenUrl,
                         onSearch = onSearch,
-                        onClearCacheAndRefresh = {
-                            // The local engine fetches fresh every time —
-                            // there is no response cache to clear.
-                            onRefresh()
-                        }
+                        onClearCacheAndRefresh = onRefresh
                     )
                 }
             }

@@ -76,6 +76,16 @@ class F2MScraper(
         resolver?.submitManualDomain(domain)
             ?: false.also { ScraperLog.log("manual: no resolver — rejected") }
 
+    /**
+     * Drops every cached page and the session's resolution result —
+     * the home screen's clear-cache action. The next fetches hit the
+     * live site and the resolver walks its full chain again.
+     */
+    fun clearCache() {
+        HtmlCache.clear()
+        resolver?.invalidate()
+    }
+
     // ------------------------------------------------------------------
     // Homepage
     // ------------------------------------------------------------------

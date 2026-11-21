@@ -49,16 +49,31 @@ class Film2MediaClient(
     /**
      * Fetches an HTML page, returning `(final url, body)`. OkHttp
      * resolves the final url after any redirects.
+     *
+     * Results are cached in [HtmlCache] for the session so repeated
+     * requests to the same url (back navigation, re-resolves) don't
+     * re-crawl; pass [bypassCache] = true for checks that must touch
+     * the live site (health checks, manual-domain verification).
      */
-    suspend fun fetch(url: String): Pair<String, String> =
-        send("GET", url, data = null).use { res ->
+    suspend fun fetch(url: String, bypassCache: Boolean = false): Pair<String, String> {
+        if (!bypassCache) {
+            HtmlCache.get(url)?.let { (finalUrl, html) ->
+                ScraperLog.log("fetch: cache hit $url (${html.length} bytes)")
+                return finalUrl to html
+            }
+        }
+        return send("GET", url, data = null).use { res ->
             if (!res.isSuccessful) {
                 throw ScrapeException("HTTP ${res.code} for ${res.request.url}")
             }
             val body = res.readCappedBody()
             pagesFetched++
-            res.request.url.toString() to body
+            val finalUrl = res.request.url.toString()
+            HtmlCache.put(url, finalUrl, body)
+            ScraperLog.log("fetch: cached $url (${body.length} bytes)")
+            finalUrl to body
         }
+    }
 
     // ------------------------------------------------------------------
     // fetchJson — XHR endpoints (quick search)

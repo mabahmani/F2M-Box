@@ -27,6 +27,7 @@ import androidx.tv.material3.Surface
 import com.mab.f2mbox.data.remote.HomeData
 import com.mab.f2mbox.scraper.BaseUrlResolver
 import com.mab.f2mbox.scraper.F2MScraper
+import com.mab.f2mbox.scraper.HtmlCache
 import com.mab.f2mbox.scraper.ScraperLog
 import com.mab.f2mbox.scraper.SharedPreferencesStore
 import com.mab.f2mbox.ui.connect.ConnectState
@@ -42,6 +43,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // The html cache lives for one app open — drop whatever a previous
+        // open left behind (the process can survive between launches).
+        HtmlCache.clear()
         val resolver = BaseUrlResolver(BaseUrlResolver.KeyValueStorage(SharedPreferencesStore(this)))
         val scraper = F2MScraper(resolver = resolver)
         setContent {
