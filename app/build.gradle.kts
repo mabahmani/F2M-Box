@@ -12,8 +12,6 @@ android {
 
     defaultConfig {
         applicationId = "com.mab.f2mbox"
-        // Android 8.0: covers essentially every TV box from ~2017 on while
-        // keeping a performance floor a Compose-heavy TV UI can hold up on.
         minSdk = 30
         targetSdk = 37
         versionCode = 3
@@ -25,7 +23,10 @@ android {
         release {
             optimization {
                 enable = true
-                packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
+                // No packageScope: scoping optimization into kotlin.** let
+                // R8 class-merge stdlib internals, which crashed OkHttp's
+                // static init with IllegalAccessError at startup
+                // (kotlin.text.h extended by class u72 is inaccessible).
             }
         }
     }

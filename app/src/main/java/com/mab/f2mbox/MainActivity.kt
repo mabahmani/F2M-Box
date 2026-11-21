@@ -4,6 +4,13 @@ package com.mab.f2mbox
 
 import android.os.Bundle
 import android.util.Log
+import android.graphics.Typeface
+import android.view.Gravity
+import android.view.ViewGroup
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +32,7 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.NonInteractiveSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
+import com.mab.f2mbox.data.CrashReporter
 import com.mab.f2mbox.data.PageCache
 import com.mab.f2mbox.data.remote.HomeData
 import com.mab.f2mbox.scraper.BaseUrlResolver
@@ -46,11 +54,33 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Capture any crash of a previous session so the logs screen can
+        // show what killed the app on devices without logcat access.
+        CrashReporter.install(this)
         // The html cache lives for one app open — drop whatever a previous
         // open left behind (the process can survive between launches).
         HtmlCache.clear()
         val resolver = BaseUrlResolver(BaseUrlResolver.KeyValueStorage(SharedPreferencesStore(this)))
         val scraper = F2MScraper(resolver = resolver)
+
+        // A crash from the previous session is shown with plain Android
+        // views instead of booting the app: if the crash comes from the UI
+        // stack itself (e.g. R8 breaking a library), a Compose report
+        // screen would crash the same way and the report would never be
+        // visible.
+        val pendingCrash = CrashReporter.pending(this)
+        if (pendingCrash != null) {
+            showCrashReport(pendingCrash) {
+                CrashReporter.clear(this)
+                installUi(scraper)
+            }
+            return
+        }
+        installUi(scraper)
+    }
+
+    /** The whole Compose UI: theme, RTL, connect gate and routes. */
+    private fun installUi(scraper: F2MScraper) {
         setContent {
             F2MBoxTheme {
                 // The whole app is RTL by default: the content is Persian and
@@ -68,6 +98,36 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * Crash report built from framework views only — no Compose, no tv
+     * material — so it renders even when the UI stack is what crashed.
+     */
+    private fun showCrashReport(crash: String, onContinue: () -> Unit) {
+        val button = Button(this).apply {
+            text = getString(R.string.crash_continue)
+            setOnClickListener { onContinue() }
+        }
+        val text = TextView(this).apply {
+            text = crash
+            textSize = 12f
+            typeface = Typeface.MONOSPACE
+            setPadding(48, 16, 48, 32)
+            setTextIsSelectable(true)
+        }
+        val column = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(
+                button,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply { setMargins(48, 48, 48, 24) },
+            )
+            addView(text)
+        }
+        setContentView(ScrollView(this).apply { addView(column) })
     }
 }
 

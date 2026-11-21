@@ -21,6 +21,8 @@
     <string name="view_logs">Logs</string>
     <string name="clear_logs">Clear logs</string>
     <string name="logs_empty">No logs yet.</string>
+    <string name="logs_last_crash">Last crash (previous session)</string>
+    <string name="crash_continue">Continue anyway</string>
     <string name="search_hint">Movie or series name…&#x200E;</string>
     <string name="search_hint_detail">Press OK on the field to open the keyboard.&#x200E;</string>
     <string name="no_results">No results found</string>
