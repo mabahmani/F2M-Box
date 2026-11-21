@@ -38,6 +38,10 @@ object DetailExtractor {
     private val VOICE_CAST_SPLIT = Regex("""،|,""")
     private val VOICE_ROLE = Regex("""^(.*?)\s*\((.*)\)$""")
 
+    /** A "..." line separating consecutive dubs inside the dubbed-info block. */
+    private val DUB_SEPARATOR = Regex("""^[. …]+$""")
+    private const val DUB_SEPARATOR_LINE = "..."
+
     private val PERSIAN_DIGITS = mapOf(
         '۰' to '0', '۱' to '1', '۲' to '2', '۳' to '3', '۴' to '4',
         '۵' to '5', '۶' to '6', '۷' to '7', '۸' to '8', '۹' to '9',
@@ -515,24 +519,26 @@ object DetailExtractor {
             }
         }
 
-    /** Port of `_dub_block`. */
-    private fun dubBlock(paragraph: Element): Dub {
-        // Split on <br>: Jsoup keeps them as <br> nodes, so flatten text manually.
-        val lines = paragraph.select("br").let {
-            paragraph.html()
-                .replace(Regex("""<br\s*/?>"""), "\n")
-                .let(HtmlUtils::parse)
-                .body()
-                .text()
-                .split("\n")
-        }
-        val cleaned = lines.map { it.trim() }.filter { it.isNotEmpty() }
+    /** Lines of a dub paragraph: one per <br>. [Element.text] collapses
+     *  whitespace — including the newlines substituted for the <br>s — so
+     *  re-parse with real newlines and read them back via [Element.wholeText]. */
+    private fun dubLines(paragraph: Element): List<String> =
+        paragraph.html()
+            .replace(Regex("""<br\s*/?>"""), "\n")
+            .let(HtmlUtils::parse)
+            .body()
+            .wholeText()
+            .split("\n")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
 
-        val title = cleaned.firstOrNull()
+    /** Port of `_dub_block`. */
+    private fun dubBlock(lines: List<String>): Dub {
+        val title = lines.firstOrNull()
         val fields = mutableMapOf<String, String>()
         val notes = mutableListOf<String>()
         var voiceActors: List<VoiceActor> = emptyList()
-        for (line in cleaned.drop(1)) {
+        for (line in lines.drop(1)) {
             val idx = line.indexOf(':')
             if (idx < 0) {
                 notes.add(line)
@@ -540,7 +546,12 @@ object DetailExtractor {
             }
             val key = line.substring(0, idx).trim()
             val value = line.substring(idx + 1).trim()
-            if ("گویند" in key) voiceActors = voiceCast(value) else fields[key] = value
+            // "گوینده عنوان" (title narrator) is a credit, not the cast.
+            if ("گویند" in key && "عنوان" !in key) {
+                voiceActors = voiceCast(value)
+            } else {
+                fields[key] = value
+            }
         }
         return Dub(
             title = title,
@@ -553,18 +564,30 @@ object DetailExtractor {
     /** Port of `_dubbing`. */
     fun dubbing(doc: Element): Dubbing? {
         val button = doc.selectFirst("#openDubbedInfo")
-        val infoRoot = doc.selectFirst("#dubbed-info")
+        // The info block ships either as an id or as a class on its root.
+        val infoRoot = doc.selectFirst("#dubbed-info, .dubbed-info")
         if (button == null && infoRoot == null) return null
 
-        val notes = mutableListOf<String>()
-        val container = (button ?: infoRoot)?.closest("div")
-        container?.select("p")?.forEach { p ->
-            HtmlUtils.cleanText(p)?.let { notes.add(it) }
-        }
-
-        val dubs = infoRoot?.select(".dubbed-info > p")
-            ?.map { dubBlock(it) }
+        // Dubs ship either as one <p> per dub or as a single <p> holding
+        // every dub separated by "..." lines. Flatten all paragraphs — a
+        // separator after each keeps per-paragraph dubs apart — then cut
+        // the line stream into one [Dub] per block.
+        val lines = infoRoot?.select("p")
+            ?.flatMap { dubLines(it) + DUB_SEPARATOR_LINE }
             ?: emptyList()
+
+        val dubs = mutableListOf<Dub>()
+        var block = mutableListOf<String>()
+        fun flushBlock() {
+            if (block.isNotEmpty()) {
+                dubs.add(dubBlock(block))
+                block = mutableListOf()
+            }
+        }
+        for (line in lines) {
+            if (DUB_SEPARATOR.matches(line)) flushBlock() else block.add(line)
+        }
+        flushBlock()
 
         return Dubbing(dubs = dubs)
     }
