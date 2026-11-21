@@ -67,7 +67,6 @@ fun SearchField(
     query: String,
     onQueryChange: (String) -> Unit,
     onSubmit: (String) -> Unit,
-    onClearCacheAndRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var isEditing by remember { mutableStateOf(false) }
@@ -90,23 +89,6 @@ fun SearchField(
             // Buttons stretch to the text field's height.
             modifier = Modifier.height(IntrinsicSize.Min)
         ) {
-            Button(
-                onClick = onClearCacheAndRefresh,
-                modifier = Modifier.fillMaxHeight(),
-                shape = ButtonDefaults.shape(shape = SearchControlShape)
-            ) {
-                // The tv button lays its content row out top-start, so the
-                // stretched button needs its own vertical centering.
-                Box(
-                    modifier = Modifier.fillMaxHeight(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = stringResource(R.string.clear_cache_refresh),
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
             Button(
                 onClick = { submit() },
                 modifier = Modifier

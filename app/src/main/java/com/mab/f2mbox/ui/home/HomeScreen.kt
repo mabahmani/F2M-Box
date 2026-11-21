@@ -10,9 +10,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -29,6 +33,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button
 import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.Icon
+import androidx.tv.material3.IconButton
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.mab.f2mbox.R
@@ -37,6 +43,7 @@ import com.mab.f2mbox.data.WatchedManager
 import com.mab.f2mbox.data.remote.HomeData
 import com.mab.f2mbox.data.remote.HomeSection
 import com.mab.f2mbox.scraper.ScraperLog
+import com.mab.f2mbox.ui.common.ScraperLogFeed
 import com.mab.f2mbox.ui.connect.LoadingDots
 import com.mab.f2mbox.ui.connect.describe
 import kotlinx.coroutines.delay
@@ -78,10 +85,12 @@ fun HomeScreen(
     }
 
     // With initialHome the gate already fetched a healthy home page —
-    // render it directly and skip both the loading state and the fetch.
+    // the first composition renders it directly with no loading state.
+    // An explicit refresh (attempt > 0, e.g. the clear-cache button)
+    // goes through Loading so the re-fetch is visible in the log feed.
     LaunchedEffect(attempt, initialHome) {
         if (initialHome != null && attempt == 0) return@LaunchedEffect
-        state = if (initialHome != null && attempt > 0) state else HomeUiState.Loading
+        state = HomeUiState.Loading
         scraper.home().fold(
             onSuccess = { state = HomeUiState.Ready(it) },
             onFailure = { state = HomeUiState.Error(describe(it)) }
@@ -89,11 +98,14 @@ fun HomeScreen(
     }
 
     when (val current = state) {
-        HomeUiState.Loading -> Box(
+        HomeUiState.Loading -> Column(
             modifier = modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             LoadingDots()
+            Spacer(Modifier.height(16.dp))
+            ScraperLogFeed()
         }
 
         is HomeUiState.Error -> Box(
@@ -172,6 +184,45 @@ private fun HomeContent(
         }
 
         LazyColumn(modifier = Modifier.fillMaxSize()) {
+            // Domain badge + clear-cache icon button as the first scroll
+            // item: as a floating overlay it was unreachable with the
+            // arrow keys (directional focus search finds nothing "above"
+            // the hero it overlaps); as a list item it sits in the normal
+            // focus chain — Up from the hero, Down back to it.
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (!activeDomain.isNullOrBlank()) {
+                        Text(
+                            text = activeDomain,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .background(
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                                    MaterialTheme.shapes.small,
+                                )
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = onRefresh,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Refresh,
+                            contentDescription = stringResource(R.string.clear_cache_refresh),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
             if (home.heroSlider.isNotEmpty()) {
                 item {
                     HeroSlider(
@@ -191,8 +242,7 @@ private fun HomeContent(
                         searchQuery = searchQuery,
                         onSearchQueryChange = onSearchQueryChange,
                         onOpenUrl = onOpenUrl,
-                        onSearch = onSearch,
-                        onClearCacheAndRefresh = onRefresh
+                        onSearch = onSearch
                     )
                 }
             }
@@ -208,23 +258,6 @@ private fun HomeContent(
             }
             // Breathing room below the last row so it clears the screen edge.
             item { Spacer(Modifier.height(48.dp)) }
-        }
-
-        // Small active-domain badge, top corner over the scroll content.
-        if (!activeDomain.isNullOrBlank()) {
-            Text(
-                text = activeDomain,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(12.dp)
-                    .background(
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                        MaterialTheme.shapes.small,
-                    )
-                    .padding(horizontal = 8.dp, vertical = 3.dp)
-            )
         }
     }
 }

@@ -48,13 +48,13 @@ class F2MScraper(
     }
 
     /**
-     * The host of the resolved base url — e.g. `www.tejaratban.top` —
-     * for display on the home screen.
+     * The host of the resolved base url — e.g. `tejaratban.top` (the
+     * `www.` prefix is stripped) — for display on the home screen.
      */
     suspend fun activeDomain(): String =
         HtmlUtils.domainOf(
             resolver?.lastHealthyPage?.first ?: baseUrl(),
-        ).orEmpty()
+        ).orEmpty().removePrefix("www.")
 
     /**
      * Fire-and-forget silent bootstrap refresh for app open; failures
