@@ -111,6 +111,10 @@ private fun ConnectGate(scraper: F2MScraper) {
     var state by remember { mutableStateOf<ConnectState>(ConnectState.Connecting) }
     var attempt by remember { mutableIntStateOf(0) }
     var route by remember { mutableStateOf<Route>(Route.Home) }
+    // The logs screen opened from the error screen: the error state sits
+    // outside the route system (it precedes the connected state), so the
+    // logs are shown over the splash until the user backs out.
+    var showingErrorLogs by remember { mutableStateOf(false) }
     // Screens visited before the current one, for the Back key. Home is the
     // root and never sits on the stack.
     val backStack = remember { mutableStateListOf<Route>() }
@@ -264,15 +268,22 @@ private fun ConnectGate(scraper: F2MScraper) {
                 }
             }
         }
-        else -> SplashScreen(
-            state = state,
-            onRetry = { attempt++ },
-            onManualDomain = { domain ->
-                state = ConnectState.Connecting
-                attempt++ // LaunchedEffect re-runs resolve(); step 0 picks the domain up
-                pendingManualDomain = domain
+        else -> {
+            if (showingErrorLogs) {
+                LogsScreen(onNavigateBack = { showingErrorLogs = false })
+            } else {
+                SplashScreen(
+                    state = state,
+                    onRetry = { attempt++ },
+                    onManualDomain = { domain ->
+                        state = ConnectState.Connecting
+                        attempt++ // LaunchedEffect re-runs resolve(); step 0 picks the domain up
+                        pendingManualDomain = domain
+                    },
+                    onOpenLogs = { showingErrorLogs = true }
+                )
             }
-        )
+        }
     }
 }
 

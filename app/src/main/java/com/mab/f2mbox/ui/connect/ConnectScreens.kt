@@ -62,6 +62,7 @@ fun SplashScreen(
     state: ConnectState,
     onRetry: () -> Unit,
     onManualDomain: (String) -> Unit = {},
+    onOpenLogs: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -104,6 +105,9 @@ fun SplashScreen(
                         }
                         Button(onClick = onRetry) {
                             Text(stringResource(R.string.retry))
+                        }
+                        Button(onClick = onOpenLogs) {
+                            Text(stringResource(R.string.view_logs))
                         }
                     }
                     Spacer(Modifier.height(24.dp))
