@@ -16,6 +16,8 @@ data class ListData(
     val description: String? = null,
     val url: String? = null,
     @SerialName("canonical_url") val canonicalUrl: String? = null,
+    /** Domain only of [canonicalUrl], e.g. `www.myf2ms.top`. */
+    @SerialName("canonical_domain") val canonicalDomain: String? = null,
     val items: List<SectionItem> = emptyList(),
     val pagination: Pagination = Pagination(),
 )
@@ -70,6 +72,8 @@ data class PersonData(
     val description: String? = null,
     val url: String? = null,
     @SerialName("canonical_url") val canonicalUrl: String? = null,
+    /** Domain only of [canonicalUrl], e.g. `www.myf2ms.top`. */
+    @SerialName("canonical_domain") val canonicalDomain: String? = null,
     val person: PersonProfile? = null,
     val items: List<SectionItem> = emptyList(),
     val pagination: Pagination = Pagination(),
@@ -96,6 +100,8 @@ data class MovieData(
     @SerialName("content_type") val contentType: String? = null,
     val url: String? = null,
     @SerialName("canonical_url") val canonicalUrl: String? = null,
+    /** Domain only of [canonicalUrl], e.g. `www.myf2ms.top`. */
+    @SerialName("canonical_domain") val canonicalDomain: String? = null,
     val intro: MovieIntro? = null,
     val downloads: Downloads? = null,
     val directors: List<PersonRef> = emptyList(),

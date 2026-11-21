@@ -18,23 +18,39 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.OutlinedTextField
 import androidx.tv.material3.Button
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.mab.f2mbox.R
+import com.mab.f2mbox.scraper.ScraperLog
 import com.mab.f2mbox.ui.theme.F2MBoxTheme
 
 /**
@@ -45,67 +61,120 @@ import com.mab.f2mbox.ui.theme.F2MBoxTheme
 fun SplashScreen(
     state: ConnectState,
     onRetry: () -> Unit,
+    onManualDomain: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier.align(Alignment.Center),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(horizontal = 96.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
+            // Brand on top, everything else below, all centered.
             Text(
                 text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.displayLarge,
                 color = MaterialTheme.colorScheme.primary
             )
-//            Text(
-//                text = stringResource(R.string.tagline),
-//                style = MaterialTheme.typography.titleMedium,
-//                color = MaterialTheme.colorScheme.onSurfaceVariant,
-//                modifier = Modifier.padding(top = 8.dp)
-//            )
-        }
 
-        when (state) {
-            ConnectState.Connecting -> Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 96.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                LoadingDots()
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    text = stringResource(R.string.server_wakeup_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            when (state) {
+                ConnectState.Connecting -> ConnectingLogs()
 
-            is ConnectState.Failed -> Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 72.dp, start = 96.dp, end = 96.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = stringResource(state.messageRes),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(Modifier.height(20.dp))
-                val context = LocalContext.current
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Button(onClick = { (context as? android.app.Activity)?.finish() }) {
-                        Text(stringResource(R.string.back))
+                is ConnectState.Failed -> CompositionLocalProvider(
+                    LocalLayoutDirection provides LayoutDirection.Ltr
+                ) {
+                    Spacer(Modifier.height(24.dp))
+                    Text(
+                        text = stringResource(state.messageRes),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    val context = LocalContext.current
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Button(onClick = { (context as? android.app.Activity)?.finish() }) {
+                            Text(stringResource(R.string.back))
+                        }
+                        Button(onClick = onRetry) {
+                            Text(stringResource(R.string.retry))
+                        }
                     }
-                    Button(onClick = onRetry) {
-                        Text(stringResource(R.string.retry))
-                    }
+                    Spacer(Modifier.height(24.dp))
+                    ManualDomainInput(
+                        enabled = true,
+                        onSubmit = onManualDomain,
+                    )
                 }
-            }
 
-            ConnectState.Ready -> Unit
+                ConnectState.Ready -> Unit
+            }
+        }
+    }
+}
+
+/**
+ * Last-fallback input: the user types the site's current domain (no
+ * scheme). Submission is validated locally and handed to [onSubmit];
+ * [error] shows a local validation failure.
+ */
+@Composable
+internal fun ManualDomainInput(
+    enabled: Boolean,
+    onSubmit: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var text by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf(false) }
+
+    fun submit() {
+        val value = text.trim()
+        if (!value.contains('.') || value.any { it.isWhitespace() }) {
+            error = true
+            return
+        }
+        error = false
+        onSubmit(value.removePrefix("https://").removePrefix("http://").trimEnd('/'))
+    }
+
+    Column(
+        modifier = modifier.widthIn(max = 420.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = stringResource(R.string.error_domain_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(10.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { value ->
+                    text = value
+                    error = false
+                },
+                placeholder = { Text(stringResource(R.string.error_domain_field)) },
+                singleLine = true,
+                isError = error,
+                enabled = enabled,
+                modifier = Modifier.width(260.dp)
+            )
+            if (error) {
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.error_domain_invalid),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Button(onClick = ::submit, enabled = enabled) {
+                Text(stringResource(R.string.error_domain_submit))
+            }
         }
     }
 }
@@ -139,6 +208,43 @@ internal fun LoadingDots(modifier: Modifier = Modifier) {
                     .clip(CircleShape)
                     .background(dotColors[i].copy(alpha = alpha.value))
             )
+        }
+    }
+}
+
+/**
+ * Live engine feed while connecting: the last few scraper log lines
+ * (cached-url hits, config fetch, canonical hops, health checks) so the
+ * user sees what the engine is actually doing instead of a static hint.
+ * The panel is forced LTR (logs are latin/urls while the app is RTL)
+ * and spans most of the screen width for long urls.
+ */
+@Composable
+internal fun ConnectingLogs(modifier: Modifier = Modifier) {
+    val lines by ScraperLog.lines.collectAsState()
+    LoadingDots()
+    Spacer(Modifier.height(12.dp))
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        Column(
+            modifier = modifier
+                .fillMaxWidth(0.82f)
+                .heightIn(max = 200.dp)
+                .verticalScroll(rememberScrollState())
+                .background(
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    shape = MaterialTheme.shapes.small,
+                )
+                .padding(horizontal = 18.dp, vertical = 12.dp),
+        ) {
+            lines.takeLast(7).forEach { line ->
+                Text(
+                    text = line,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }

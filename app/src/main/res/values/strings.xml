@@ -104,4 +104,10 @@
     <string name="error_server">Server error. Please try again.&#x200E;</string>
     <string name="error_unexpected_response">Received an unexpected response from the server.&#x200E;</string>
     <string name="error_unknown">Something went wrong. Please try again.&#x200E;</string>
+
+    <!-- Manual domain entry (last fallback when nothing connects) -->
+    <string name="error_domain_hint">Know the new site address? Enter it below (without https://).&#x200E;</string>
+    <string name="error_domain_field">example.com</string>
+    <string name="error_domain_submit">Connect</string>
+    <string name="error_domain_invalid">Enter a valid domain, e.g. example.com&#x200E;</string>
 </resources>

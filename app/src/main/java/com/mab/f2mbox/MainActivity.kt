@@ -3,6 +3,7 @@
 package com.mab.f2mbox
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,7 +25,12 @@ import androidx.tv.material3.NonInteractiveSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import com.mab.f2mbox.data.F2MRepository
+import com.mab.f2mbox.data.remote.HomeData
 import com.mab.f2mbox.data.remote.ScrapeResult
+import com.mab.f2mbox.scraper.BaseUrlResolver
+import com.mab.f2mbox.scraper.F2MScraper
+import com.mab.f2mbox.scraper.ScraperLog
+import com.mab.f2mbox.scraper.SharedPreferencesStore
 import com.mab.f2mbox.ui.connect.ConnectState
 import com.mab.f2mbox.ui.connect.SplashScreen
 import com.mab.f2mbox.ui.connect.describe
@@ -39,6 +45,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val repository = F2MRepository()
+        val resolver = BaseUrlResolver(BaseUrlResolver.KeyValueStorage(SharedPreferencesStore(this)))
+        val scraper = F2MScraper(resolver = resolver)
         setContent {
             F2MBoxTheme {
                 // The whole app is RTL by default: the content is Persian and
@@ -51,7 +59,7 @@ class MainActivity : ComponentActivity() {
                             containerColor = MaterialTheme.colorScheme.background
                         )
                     ) {
-                        ConnectGate(repository = repository)
+                        ConnectGate(scraper = scraper, repository = repository)
                     }
                 }
             }
@@ -74,12 +82,12 @@ private sealed interface Route {
 }
 
 /**
- * Gates the app on the health check, surfaced through the splash screen:
- * auto-retries a few times (free-tier servers can be asleep), then shows
- * a retry action if the server never comes up.
+ * Gates the app on the local scraper engine: stays loading until a
+ * healthy home page (title + hero slider) has been fetched, auto-retries
+ * a few times, then shows a retry action. Every step is logged.
  */
 @Composable
-private fun ConnectGate(repository: F2MRepository) {
+private fun ConnectGate(scraper: F2MScraper, repository: F2MRepository) {
     var state by remember { mutableStateOf<ConnectState>(ConnectState.Connecting) }
     var attempt by remember { mutableIntStateOf(0) }
     var route by remember { mutableStateOf<Route>(Route.Home) }
@@ -88,6 +96,12 @@ private fun ConnectGate(repository: F2MRepository) {
     val backStack = remember { mutableStateListOf<Route>() }
     // Hoisted so returning from results keeps the typed query.
     var searchQuery by remember { mutableStateOf("") }
+    // Loaded only after the gate passes; null while connecting.
+    var homeData by remember { mutableStateOf<HomeData?>(null) }
+    // Domain the healthy home page was fetched from, shown on home.
+    var activeDomain by remember { mutableStateOf<String?>(null) }
+    // Domain typed on the error screen, consumed by the connect loop.
+    var pendingManualDomain by remember { mutableStateOf<String?>(null) }
 
     val navigate: (Route) -> Unit = { target ->
         backStack.add(route)
@@ -99,15 +113,55 @@ private fun ConnectGate(repository: F2MRepository) {
 
     LaunchedEffect(attempt) {
         state = ConnectState.Connecting
+        ScraperLog.clear()
+        ScraperLog.log("connect attempt $attempt starting")
+        Log.i(TAG, "connect attempt $attempt starting")
+
+        // Silent bootstrap refresh on every open — fire and forget.
+        scraper.launchBootstrapRefresh()
+
+        // A domain typed on the error screen is verified first: reject
+        // it directly (back to Failed) or continue the normal chain.
+        val manual = pendingManualDomain
+        pendingManualDomain = null
+        if (manual != null) {
+            val accepted = scraper.submitManualDomain(manual)
+            ScraperLog.log("connect: manual domain '$manual' accepted=$accepted")
+            Log.i(TAG, "connect: manual domain '$manual' accepted=$accepted")
+            if (!accepted) {
+                state = ConnectState.Failed(R.string.error_domain_invalid)
+                return@LaunchedEffect
+            }
+        }
+
         var lastError: Throwable? = null
         for (i in 0 until MAX_AUTO_RETRIES) {
             if (i > 0) delay(RETRY_DELAY_MS)
-            repository.health().fold(
-                onSuccess = {
-                    state = ConnectState.Ready
-                    return@LaunchedEffect
+            scraper.home().fold(
+                onSuccess = { home ->
+                    // "Success" means a healthy page: parsing alone can
+                    // succeed on an error/parked page. Without the hero
+                    // slider the site is not really reachable.
+                    if (home.heroSlider.isEmpty()) {
+                        ScraperLog.log(
+                            "connect: attempt $i parsed a page with no hero slider → unhealthy",
+                        )
+                        lastError = IllegalStateException("home page has no hero slider")
+                    } else {
+                        ScraperLog.log("connect: attempt $i succeeded ✓")
+                        ScraperLog.log("connect: ready — hero slides: ${home.heroSlider.size}")
+                        Log.i(TAG, "connect attempt $i: home page healthy ✓")
+                        homeData = home
+                        activeDomain = scraper.activeDomain()
+                        state = ConnectState.Ready
+                        return@LaunchedEffect
+                    }
                 },
-                onFailure = { lastError = it }
+                onFailure = { error ->
+                    ScraperLog.log("connect: attempt $i failed — ${error.message}")
+                    Log.w(TAG, "connect attempt $i failed: ${error.message}")
+                    lastError = error
+                }
             )
         }
         state = ConnectState.Failed(describe(lastError))
@@ -117,6 +171,8 @@ private fun ConnectGate(repository: F2MRepository) {
         ConnectState.Ready -> when (val current = route) {
             Route.Home -> HomeScreen(
                 repository = repository,
+                initialHome = homeData,
+                activeDomain = activeDomain,
                 searchQuery = searchQuery,
                 onSearchQueryChange = { searchQuery = it },
                 onOpenUrl = { navigate(Route.Scrape(it)) },
@@ -147,10 +203,16 @@ private fun ConnectGate(repository: F2MRepository) {
         }
         else -> SplashScreen(
             state = state,
-            onRetry = { attempt++ }
+            onRetry = { attempt++ },
+            onManualDomain = { domain ->
+                state = ConnectState.Connecting
+                attempt++ // LaunchedEffect re-runs resolve(); step 0 picks the domain up
+                pendingManualDomain = domain
+            }
         )
     }
 }
 
+private const val TAG = "F2MBox"
 private const val MAX_AUTO_RETRIES = 3
 private const val RETRY_DELAY_MS = 2_500L

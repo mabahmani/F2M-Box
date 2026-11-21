@@ -2,6 +2,7 @@
 
 package com.mab.f2mbox.ui.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -35,6 +37,7 @@ import com.mab.f2mbox.data.WatchedManager
 import com.mab.f2mbox.data.remote.HomeData
 import com.mab.f2mbox.data.remote.HomeSection
 import com.mab.f2mbox.data.remote.clearNetworkCache
+import com.mab.f2mbox.scraper.ScraperLog
 import com.mab.f2mbox.ui.connect.LoadingDots
 import com.mab.f2mbox.ui.connect.describe
 import kotlinx.coroutines.delay
@@ -53,9 +56,15 @@ fun HomeScreen(
     onSearchQueryChange: (String) -> Unit,
     onOpenUrl: (String) -> Unit = {},
     onSearch: (String) -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    initialHome: HomeData? = null,
+    activeDomain: String? = null,
 ) {
-    var state by remember { mutableStateOf<HomeUiState>(HomeUiState.Loading) }
+    var state by remember {
+        mutableStateOf<HomeUiState>(
+            if (initialHome != null) HomeUiState.Ready(initialHome) else HomeUiState.Loading
+        )
+    }
     var attempt by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
     val watchedItems = remember(attempt) { WatchedManager.getWatchedItems(context) }
@@ -69,8 +78,11 @@ fun HomeScreen(
         null
     }
 
-    LaunchedEffect(attempt) {
-        state = HomeUiState.Loading
+    // With initialHome the gate already fetched a healthy home page —
+    // render it directly and skip both the loading state and the fetch.
+    LaunchedEffect(attempt, initialHome) {
+        if (initialHome != null && attempt == 0) return@LaunchedEffect
+        state = if (initialHome != null && attempt > 0) state else HomeUiState.Loading
         repository.home().fold(
             onSuccess = { state = HomeUiState.Ready(it) },
             onFailure = { state = HomeUiState.Error(describe(it)) }
@@ -112,6 +124,7 @@ fun HomeScreen(
         is HomeUiState.Ready -> HomeContent(
             home = current.home,
             watchedSection = watchedSection,
+            activeDomain = activeDomain,
             searchQuery = searchQuery,
             onSearchQueryChange = onSearchQueryChange,
             onOpenUrl = onOpenUrl,
@@ -131,6 +144,7 @@ fun HomeScreen(
 private fun HomeContent(
     home: HomeData,
     watchedSection: HomeSection?,
+    activeDomain: String?,
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     onOpenUrl: (String) -> Unit,
@@ -193,6 +207,23 @@ private fun HomeContent(
             }
             // Breathing room below the last row so it clears the screen edge.
             item { Spacer(Modifier.height(48.dp)) }
+        }
+
+        // Small active-domain badge, top corner over the scroll content.
+        if (!activeDomain.isNullOrBlank()) {
+            Text(
+                text = activeDomain,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(12.dp)
+                    .background(
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                        MaterialTheme.shapes.small,
+                    )
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            )
         }
     }
 }
