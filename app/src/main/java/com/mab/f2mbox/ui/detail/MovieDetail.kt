@@ -273,38 +273,36 @@ fun MovieDetail(
                 .padding(horizontal = ContentMargin),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
+            IntroBlock(
+                intro = intro,
+                reactions = data.reactions,
+                onOpenUrl = onOpenUrl
+            )
+            // Trailer card and the summary text share one row: the card
+            // anchors the section and the summary fills the space beside it.
             val trailer = data.trailer?.takeIf { it.url != null }
-            if (trailer != null) {
+            val excerpt = intro.excerpt?.takeIf { it.isNotBlank() }
+            if (trailer != null || excerpt != null) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(24.dp),
-                    verticalAlignment = Alignment.Top
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IntroBlock(
-                        intro = intro,
-                        reactions = data.reactions,
-                        onOpenUrl = onOpenUrl,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TrailerCard(
-                        trailer = trailer,
-                        title = intro.title.orEmpty(),
-                        onPlay = handlePlay
-                    )
+                    excerpt?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    trailer?.let {
+                        TrailerCard(
+                            trailer = it,
+                            title = intro.title.orEmpty(),
+                            onPlay = handlePlay
+                        )
+                    }
                 }
-            } else {
-                IntroBlock(
-                    intro = intro,
-                    reactions = data.reactions,
-                    onOpenUrl = onOpenUrl
-                )
-            }
-            intro.excerpt?.takeIf { it.isNotBlank() }?.let { excerpt ->
-                Text(
-                    text = excerpt,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
             val people = buildList {
                 addAll(data.directors)
@@ -598,15 +596,20 @@ private fun IntroBlock(
         ) {
             val satisfaction = intro.satisfactionPercent
             if (satisfaction != null || intro.notes.isNotEmpty()) {
-                Row(
+                LazyRow(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     satisfaction?.let {
-                        AccentChip(text = it, color = MaterialTheme.colorScheme.secondary)
+                        item {
+                            AccentChip(text = it, color = MaterialTheme.colorScheme.secondary)
+                        }
                     }
-                    intro.notes.forEach { note ->
-                        AccentChip(text = note, color = MaterialTheme.colorScheme.primary)
+                    items(intro.notes.size) { index ->
+                        AccentChip(
+                            text = intro.notes[index],
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
             }
@@ -631,10 +634,10 @@ private fun IntroBlock(
 
             val formats = intro.formats.distinct()
             if (formats.isNotEmpty()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    formats.forEach { format ->
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(formats.size) { index ->
                         AccentChip(
-                            text = format,
+                            text = formats[index],
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
