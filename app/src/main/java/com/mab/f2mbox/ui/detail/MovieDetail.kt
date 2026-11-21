@@ -23,13 +23,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -243,90 +245,87 @@ fun MovieDetail(
             )
         }
 
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth().weight(1f),
-            contentPadding = PaddingValues(
-                start = ContentMargin,
-                end = ContentMargin,
-                bottom = 32.dp
-            ),
+        // A regular scrolling Column, not a LazyColumn: every section is
+        // always composed and in the focus graph, so the arrow keys can
+        // always reach the next/previous item — with a lazy list, sections
+        // beyond the viewport don't exist for focus search, and pressing
+        // Down silently fails (worse on pages where some sections, like
+        // the cast, are missing and the gaps grow). The content is bounded
+        // (intro + a few rows + one comment page), so eager composition
+        // costs nothing meaningful. Horizontal rows stay lazy.
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = ContentMargin),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            item(key = "intro") {
-                val trailer = data.trailer?.takeIf { it.url != null }
-                if (trailer != null) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(24.dp),
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        IntroBlock(
-                            intro = intro,
-                            reactions = data.reactions,
-                            onOpenUrl = onOpenUrl,
-                            modifier = Modifier.weight(1f)
-                        )
-                        TrailerCard(
-                            trailer = trailer,
-                            title = intro.title.orEmpty(),
-                            onPlay = handlePlay
-                        )
-                    }
-                } else {
+            val trailer = data.trailer?.takeIf { it.url != null }
+            if (trailer != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(24.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
                     IntroBlock(
                         intro = intro,
                         reactions = data.reactions,
-                        onOpenUrl = onOpenUrl
+                        onOpenUrl = onOpenUrl,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TrailerCard(
+                        trailer = trailer,
+                        title = intro.title.orEmpty(),
+                        onPlay = handlePlay
                     )
                 }
+            } else {
+                IntroBlock(
+                    intro = intro,
+                    reactions = data.reactions,
+                    onOpenUrl = onOpenUrl
+                )
             }
             intro.excerpt?.takeIf { it.isNotBlank() }?.let { excerpt ->
-                item(key = "excerpt") {
-                    Text(
-                        text = excerpt,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(
+                    text = excerpt,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             val people = buildList {
                 addAll(data.directors)
                 addAll(data.actors)
             }
             if (people.isNotEmpty()) {
-                item(key = "people-title") {
-                    Text(
-                        text = stringResource(R.string.cast_and_crew),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(top = 12.dp)
-                    )
-                }
-                item(key = "people-row") {
-                    LazyRow(
-                        // Inset so the focus-scaled first/last cards aren't
-                        // clipped at the row's bounds.
-                        contentPadding = PaddingValues(horizontal = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        items(people.size) { index ->
-                            PersonCard(person = people[index], onOpenUrl = onOpenUrl)
-                        }
+                Text(
+                    text = stringResource(R.string.cast_and_crew),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = 12.dp)
+                )
+                LazyRow(
+                    // Inset so the focus-scaled first/last cards aren't
+                    // clipped at the row's bounds.
+                    contentPadding = PaddingValues(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(people.size) { index ->
+                        PersonCard(person = people[index], onOpenUrl = onOpenUrl)
                     }
                 }
             }
             data.dubbing?.takeIf { it.dubs.isNotEmpty() }?.let { dubbing ->
-                item(key = "dubbing-title") {
-                    Text(
-                        text = stringResource(R.string.dubbing),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(top = 12.dp)
-                    )
-                }
+                Text(
+                    text = stringResource(R.string.dubbing),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = 12.dp)
+                )
                 dubbing.dubs.forEachIndexed { dubIndex, dub ->
                     val isExpanded = dubIndex in expandedDubs
-                    item(key = "dub-$dubIndex-title") {
+                    key(dubIndex) {
                         var isFocused by remember { mutableStateOf(false) }
                         Row(
                             modifier = Modifier
@@ -366,44 +365,38 @@ fun MovieDetail(
                         }
                     }
                     if (isExpanded) {
-                        item(key = "dub-$dubIndex-info") {
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                dub.fields.forEach { (label, value) ->
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            dub.fields.forEach { (label, value) ->
+                                Text(
+                                    text = "$label: $value",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            dub.notes
+                                .filter { it.isNotBlank() && it != "..." }
+                                .forEach { note ->
                                     Text(
-                                        text = "$label: $value",
+                                        text = "• $note",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-                                dub.notes
-                                    .filter { it.isNotBlank() && it != "..." }
-                                    .forEach { note ->
-                                        Text(
-                                            text = "• $note",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                            }
                         }
                         if (dub.voiceActors.isNotEmpty()) {
-                            item(key = "dub-$dubIndex-voice-title") {
-                                Text(
-                                    text = stringResource(R.string.voice_actors),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            item(key = "dub-$dubIndex-voice-row") {
-                                LazyRow(
-                                    // Inset so the focus-scaled first/last cards
-                                    // aren't clipped at the row's bounds.
-                                    contentPadding = PaddingValues(horizontal = 8.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                ) {
-                                    items(dub.voiceActors.size) { index ->
-                                        VoiceActorCard(actor = dub.voiceActors[index])
-                                    }
+                            Text(
+                                text = stringResource(R.string.voice_actors),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            LazyRow(
+                                // Inset so the focus-scaled first/last cards
+                                // aren't clipped at the row's bounds.
+                                contentPadding = PaddingValues(horizontal = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                items(dub.voiceActors.size) { index ->
+                                    VoiceActorCard(actor = dub.voiceActors[index])
                                 }
                             }
                         }
@@ -411,39 +404,33 @@ fun MovieDetail(
                 }
             }
             data.downloads?.takeIf { it.variants.isNotEmpty() || it.seasons.isNotEmpty() }?.let {
-                item(key = "downloads-title") {
-                    Text(
-                        text = stringResource(R.string.downloads),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(top = 12.dp)
-                    )
-                }
+                Text(
+                    text = stringResource(R.string.downloads),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = 12.dp)
+                )
             }
             data.downloads?.variants?.forEach { variant ->
-                item(key = "variant-title-${variant.variant}") {
-                    Text(
-                        text = variant.title.orEmpty(),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(top = 12.dp)
-                    )
-                }
-                item(key = "variant-row-${variant.variant}") {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        items(variant.qualities.size) { index ->
-                            QualityCard(
-                                quality = variant.qualities[index],
-                                title = intro.title.orEmpty(),
-                                onPlay = handlePlay
-                            )
-                        }
+                Text(
+                    text = variant.title.orEmpty(),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = 12.dp)
+                )
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    items(variant.qualities.size) { index ->
+                        QualityCard(
+                            quality = variant.qualities[index],
+                            title = intro.title.orEmpty(),
+                            onPlay = handlePlay
+                        )
                     }
                 }
             }
             data.downloads?.seasons?.forEachIndexed { seasonIndex, season ->
                 val isExpanded = seasonIndex in expandedSeasons
-                item(key = "season-$seasonIndex-title") {
+                key(seasonIndex) {
                     var isFocused by remember { mutableStateOf(false) }
                     Row(
                         modifier = Modifier
@@ -487,35 +474,29 @@ fun MovieDetail(
                 }
                 if (isExpanded) {
                     season.variants.forEachIndexed { variantIndex, variant ->
-                        item(key = "season-$seasonIndex-variant-$variantIndex-title") {
-                            Text(
-                                text = variant.title.orEmpty(),
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
+                        Text(
+                            text = variant.title.orEmpty(),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                         variant.qualities.forEachIndexed { qualityIndex, quality ->
-                            item(key = "season-$seasonIndex-variant-$variantIndex-quality-$qualityIndex-title") {
-                                Text(
-                                    text = quality.quality.orEmpty(),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            item(key = "season-$seasonIndex-variant-$variantIndex-quality-$qualityIndex-row") {
-                                LazyRow(
-                                    // Inset so the focus-scaled first/last cards
-                                    // aren't clipped at the row's bounds.
-                                    contentPadding = PaddingValues(horizontal = 8.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                ) {
-                                    items(quality.episodes.size) { index ->
-                                        EpisodeCard(
-                                            episode = quality.episodes[index],
-                                            title = intro.title.orEmpty(),
-                                            onPlay = handlePlay
-                                        )
-                                    }
+                            Text(
+                                text = quality.quality.orEmpty(),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            LazyRow(
+                                // Inset so the focus-scaled first/last cards
+                                // aren't clipped at the row's bounds.
+                                contentPadding = PaddingValues(horizontal = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                items(quality.episodes.size) { index ->
+                                    EpisodeCard(
+                                        episode = quality.episodes[index],
+                                        title = intro.title.orEmpty(),
+                                        onPlay = handlePlay
+                                    )
                                 }
                             }
                         }
@@ -523,58 +504,52 @@ fun MovieDetail(
                 }
             }
             data.suggested?.takeIf { it.items.isNotEmpty() }?.let { suggested ->
-                item(key = "suggested-title") {
-                    Text(
-                        text = suggested.title ?: stringResource(R.string.suggested),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(top = 12.dp)
-                    )
-                }
-                item(key = "suggested-row") {
-                    LazyRow(
-                        // Inset so the focus-scaled first/last cards aren't
-                        // clipped at the row's bounds.
-                        contentPadding = PaddingValues(horizontal = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        items(suggested.items.size) { index ->
-                            PosterCard(
-                                item = suggested.items[index],
-                                onClick = { onOpenUrl(suggested.items[index].url) },
-                                modifier = Modifier.width(SuggestedCardWidth)
-                            )
-                        }
+                Text(
+                    text = suggested.title ?: stringResource(R.string.suggested),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = 12.dp)
+                )
+                LazyRow(
+                    // Inset so the focus-scaled first/last cards aren't
+                    // clipped at the row's bounds.
+                    contentPadding = PaddingValues(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(suggested.items.size) { index ->
+                        PosterCard(
+                            item = suggested.items[index],
+                            onClick = { onOpenUrl(suggested.items[index].url) },
+                            modifier = Modifier.width(SuggestedCardWidth)
+                        )
                     }
                 }
             }
             data.comments?.takeIf { it.items.isNotEmpty() }?.let { comments ->
-                item(key = "comments-title") {
-                    Text(
-                        text = stringResource(
-                            R.string.comments,
-                            comments.total ?: comments.count ?: comments.items.size
-                        ),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(top = 12.dp)
-                    )
+                Text(
+                    text = stringResource(
+                        R.string.comments,
+                        comments.total ?: comments.count ?: comments.items.size
+                    ),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = 12.dp)
+                )
+                comments.items.forEach { comment ->
+                    CommentCard(comment = comment)
                 }
-                items(comments.items.size, key = { "comment-${comments.items[it].id ?: it}" }) { index ->
-                    CommentCard(comment = comments.items[index])
-                }
-                item(key = "comments-pager") {
-                    CommentsPager(
-                        comments = comments,
-                        onLoadNext = { loadNextCommentPage(comments) },
-                        onLoadPrevious = { commentPages = commentPages.dropLast(1) },
-                        canGoBack = commentPages.size > 1,
-                        isLoading = commentLoading,
-                        hasError = commentError,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
+                CommentsPager(
+                    comments = comments,
+                    onLoadNext = { loadNextCommentPage(comments) },
+                    onLoadPrevious = { commentPages = commentPages.dropLast(1) },
+                    canGoBack = commentPages.size > 1,
+                    isLoading = commentLoading,
+                    hasError = commentError,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
             }
+            // Matches the lazy list's old bottom contentPadding.
+            Spacer(Modifier.height(32.dp))
         }
         }
     }
