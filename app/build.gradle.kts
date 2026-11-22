@@ -1,8 +1,17 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
 }
+
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(localPropertiesFile.inputStream())
+}
+val configToken = localProperties.getProperty("CONFIG_TOKEN") ?: ""
 
 android {
     namespace = "com.mab.f2mbox"
@@ -16,7 +25,7 @@ android {
         targetSdk = 37
         versionCode = 3
         versionName = "1.2"
-
+        buildConfigField("String", "CONFIG_TOKEN", "\"$configToken\"")
     }
 
     buildTypes {
@@ -44,6 +53,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

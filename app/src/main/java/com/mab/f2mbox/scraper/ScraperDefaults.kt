@@ -42,8 +42,8 @@ object ScraperDefaults {
     const val CONFIG_URL = "https://api-public.betterconfig.dev/v1/config?project=f2mbox&env=dev"
 
     /** Bearer token for [CONFIG_URL]. */
-    const val CONFIG_TOKEN =
-        "Bearer REDACTED_TOKEN"
+    /** Bearer token for [CONFIG_URL]. */
+    val CONFIG_TOKEN: String = com.mab.f2mbox.BuildConfig.CONFIG_TOKEN
 
     /** Used when the config endpoint fails. */
     const val FALLBACK_BOOTSTRAP_URL = "https://www.tejaratban.top"
