@@ -40,12 +40,12 @@
 - Android SDK (API 37 compile target, min SDK 26)
 
 ### Configuration (BetterConfig)
-To connect to the remote configuration endpoint ([BetterConfig](https://betterconfig.dev/)), create a `local.properties` file in the root directory (if it doesn't already exist) and supply your own BetterConfig credentials (`CONFIG_TOKEN`, `CONFIG_PROJECT`, and `CONFIG_ENV`):
+To connect to the remote configuration endpoint ([BetterConfig](https://betterconfig.dev/)), create a `local.properties` file in the root directory (if it doesn't already exist) and supply your own custom BetterConfig credentials (`CONFIG_TOKEN`, `CONFIG_PROJECT`, and `CONFIG_ENV`):
 
 ```properties
 CONFIG_TOKEN=Bearer your_valid_bearer_token_here
-CONFIG_PROJECT=f2mbox
-CONFIG_ENV=dev
+CONFIG_PROJECT=your_project_name     # (defaults to f2mbox if omitted)
+CONFIG_ENV=your_environment_name     # (defaults to dev if omitted)
 ```
 *(Note: `local.properties` is ignored by Git and will not be checked into version control.)*
 
