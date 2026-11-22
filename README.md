@@ -40,7 +40,7 @@
 - Android SDK (API 37 compile target, min SDK 26)
 
 ### Configuration (API Token)
-To connect to the config endpoint, create a `local.properties` file in the root directory (if it doesn't already exist) and supply your own valid configuration Bearer token:
+To connect to the remote configuration endpoint ([BetterConfig](https://betterconfig.dev/)), create a `local.properties` file in the root directory (if it doesn't already exist) and supply your own valid configuration Bearer token generated from your BetterConfig project/environment:
 
 ```properties
 CONFIG_TOKEN=Bearer your_valid_bearer_token_here
