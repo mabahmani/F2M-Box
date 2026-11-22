@@ -39,6 +39,14 @@
 - JDK 17+
 - Android SDK (API 37 compile target, min SDK 26)
 
+### Configuration (API Token)
+To connect to the config endpoint, create a `local.properties` file in the root directory (if it doesn't already exist) and supply your own valid configuration Bearer token:
+
+```properties
+CONFIG_TOKEN=Bearer your_valid_bearer_token_here
+```
+*(Note: `local.properties` is ignored by Git and will not be checked into version control.)*
+
 ### Build APK
 Run the following Gradle command to assemble the release APK:
 
