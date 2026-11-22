@@ -39,9 +39,9 @@ object ScraperDefaults {
     // ------------------------------------------------------------------
 
     /** Fetched when no bootstrap url is cached. */
-    const val CONFIG_URL = "https://api-public.betterconfig.dev/v1/config?project=f2mbox&env=dev"
+    val CONFIG_URL: String
+        get() = "https://api-public.betterconfig.dev/v1/config?project=${com.mab.f2mbox.BuildConfig.CONFIG_PROJECT}&env=${com.mab.f2mbox.BuildConfig.CONFIG_ENV}"
 
-    /** Bearer token for [CONFIG_URL]. */
     /** Bearer token for [CONFIG_URL]. */
     val CONFIG_TOKEN: String = com.mab.f2mbox.BuildConfig.CONFIG_TOKEN
 

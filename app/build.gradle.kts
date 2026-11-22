@@ -12,6 +12,8 @@ if (localPropertiesFile.exists()) {
     localProperties.load(localPropertiesFile.inputStream())
 }
 val configToken = localProperties.getProperty("CONFIG_TOKEN") ?: ""
+val configProject = localProperties.getProperty("CONFIG_PROJECT") ?: "f2mbox"
+val configEnv = localProperties.getProperty("CONFIG_ENV") ?: "dev"
 
 android {
     namespace = "com.mab.f2mbox"
@@ -26,6 +28,8 @@ android {
         versionCode = 3
         versionName = "1.2"
         buildConfigField("String", "CONFIG_TOKEN", "\"$configToken\"")
+        buildConfigField("String", "CONFIG_PROJECT", "\"$configProject\"")
+        buildConfigField("String", "CONFIG_ENV", "\"$configEnv\"")
     }
 
     buildTypes {
