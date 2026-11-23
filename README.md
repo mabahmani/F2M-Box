@@ -67,7 +67,7 @@ The same Kotlin codebase also ships as a desktop app (branch `desktop-kmp`), bui
 
 Prerequisites for dev-run:
 - JDK 17+ (Android Studio's bundled JBR works for `run`; **packaging needs a full JDK with `jpackage`**, e.g. `brew install openjdk@21` — auto-detected).
-- **The player needs VLC (native libvlc) on the machine** for dev-run: macOS `brew install --cask vlc` or the VLC.app bundle; Linux `apt install vlc`; Windows: install the VLC player. Everything else (browse, search, detail pages) runs without it and shows an install hint instead. Bundling libvlc into the installers is a planned follow-up.
+- **The player needs VLC (native libvlc) on the machine** for dev-run: macOS `brew install --cask vlc` or the VLC.app bundle; Linux `apt install vlc`; Windows: install the VLC player. Everything else (browse, search, detail pages) runs without it — no prerequisites at all. On a machine without VLC the player screen shows an install hint plus a **"Play in system player"** button that hands the video url to the OS default handler (the default browser, which plays the site's direct MP4 links). Bundling libvlc into the installers remains a possible follow-up.
 
 ### Installing the DMG (macOS, unsigned)
 

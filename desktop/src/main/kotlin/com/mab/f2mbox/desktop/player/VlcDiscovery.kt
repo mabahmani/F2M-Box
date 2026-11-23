@@ -46,9 +46,10 @@ object VlcDiscovery {
         }
         return Result.failure(
             IllegalStateException(
-                "libvlc not found. Install VLC (macOS: brew install --cask vlc) " +
-                    "or pass -Dvlcj.log=INFO to see the probed paths. " +
-                    "The player needs the native libvlc; the desktop installers bundle it."
+                "libvlc not found. The player needs the native libvlc — " +
+                    "install VLC (macOS: brew install --cask vlc) and retry, " +
+                    "or use the \"Play in system player\" button on this screen. " +
+                    "Pass -Dvlcj.log=INFO to see the probed paths."
             )
         )
     }
