@@ -10,6 +10,8 @@ kotlin {
 
 dependencies {
     implementation(project(":shared"))
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlinx.coroutines.core)
     implementation(compose.desktop.currentOs)
     implementation(compose.foundation)
     implementation(compose.material3)
