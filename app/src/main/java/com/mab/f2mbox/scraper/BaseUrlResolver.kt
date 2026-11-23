@@ -1,6 +1,7 @@
 package com.mab.f2mbox.scraper
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -14,7 +15,7 @@ import okhttp3.Request
  *    still serves valid HTML.
  * 2. **Cached bootstrap url** — the bootstrap remembered from a
  *    previous config fetch (used only when there is no active url).
- * 3. **Config endpoint** — `values.bootstrapUrl` from BetterConfig;
+ * 3. **Config endpoint** — `bootstrapUrl` from remote config endpoint;
  *    on any error falls back to the hardcoded
  *    [ScraperDefaults.FALLBACK_BOOTSTRAP_URL].
  *
@@ -300,29 +301,47 @@ class BaseUrlResolver(
     }
 
     /**
-     * Fetches `values.bootstrapUrl` from the config endpoint, returning
+     * Fetches `bootstrapUrl` from the config endpoint, returning
      * null on any error so callers fall back to the hardcoded url.
      */
     private suspend fun fetchBootstrapFromConfig(): String? = withContext(Dispatchers.IO) {
         log("config: fetching ${ScraperDefaults.CONFIG_URL}")
-        runCatching {
-            val request = Request.Builder()
-                .url(ScraperDefaults.CONFIG_URL)
-                .header("Authorization", ScraperDefaults.CONFIG_TOKEN)
-                .build()
-            client.httpClient().newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    log("config: HTTP ${response.code} → failing to fallback")
-                    return@use null
+        var lastError: Exception? = null
+        repeat(ScraperDefaults.MAX_RETRIES + 1) { attempt ->
+            try {
+                val request = Request.Builder()
+                    .url(ScraperDefaults.CONFIG_URL)
+                    .header("User-Agent", ScraperDefaults.DEFAULT_USER_AGENT)
+                    .header("Accept", "application/json, text/plain, */*")
+                    .build()
+                client.httpClient().newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        if (response.code in ScraperDefaults.RETRYABLE_STATUSES && attempt < ScraperDefaults.MAX_RETRIES) {
+                            log("config: HTTP ${response.code}, retry ${attempt + 1}")
+                            delay((ScraperDefaults.RETRY_DELAY_SECONDS * (attempt + 1) * 1000).toLong())
+                            return@repeat
+                        }
+                        log("config: HTTP ${response.code} → failing to fallback")
+                        return@withContext null
+                    }
+                    val body = response.body?.string()?.trim() ?: return@withContext null
+                    val bootstrap = json.parseToJsonElement(body)
+                        .jsonObject["bootstrapUrl"]
+                        ?.jsonPrimitive?.content
+                    log("config: bootstrapUrl = $bootstrap")
+                    return@withContext bootstrap
                 }
-                val body = response.body?.string() ?: return@use null
-                val bootstrap = json.parseToJsonElement(body)
-                    .jsonObject["values"]
-                    ?.jsonObject?.get("bootstrapUrl")
-                    ?.jsonPrimitive?.content
-                log("config: bootstrapUrl = $bootstrap")
-                bootstrap
+            } catch (e: Exception) {
+                lastError = e
+                if (attempt < ScraperDefaults.MAX_RETRIES) {
+                    log("config: retry ${attempt + 1} (${e.javaClass.simpleName}: ${e.message})")
+                    delay((ScraperDefaults.RETRY_DELAY_SECONDS * (attempt + 1) * 1000).toLong())
+                }
             }
-        }.onFailure { log("config: failed → ${it.message}") }.getOrNull()
+        }
+        if (lastError != null) {
+            log("config: failed → ${lastError.javaClass.simpleName}: ${lastError.message ?: lastError.cause?.message}")
+        }
+        null
     }
 }

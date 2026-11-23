@@ -1,7 +1,13 @@
 package com.mab.f2mbox.scraper
 
 import java.io.IOException
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.TrustManagerFactory
+import javax.net.ssl.X509TrustManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -29,15 +35,49 @@ class Film2MediaClient(
         private set
 
     private val baseHeaders: Map<String, String> = buildMap {
+        put("User-Agent", ScraperDefaults.DEFAULT_USER_AGENT)
         putAll(headers)
     }
 
-    private val http: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(ScraperDefaults.CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-        .readTimeout(ScraperDefaults.READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-        .followRedirects(true)
-        .followSslRedirects(true)
-        .build()
+    private val http: OkHttpClient = run {
+        val trustManager = object : X509TrustManager {
+            private val defaultTrustManager: X509TrustManager? = runCatching {
+                val factory = TrustManagerFactory.getInstance(
+                    TrustManagerFactory.getDefaultAlgorithm(),
+                )
+                factory.init(null as java.security.KeyStore?)
+                factory.trustManagers.filterIsInstance<X509TrustManager>().firstOrNull()
+            }.getOrNull()
+
+            override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {
+                defaultTrustManager?.checkClientTrusted(chain, authType)
+            }
+
+            override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {
+                try {
+                    defaultTrustManager?.checkServerTrusted(chain, authType)
+                } catch (e: Exception) {
+                    if (chain.isNullOrEmpty()) throw e
+                }
+            }
+
+            override fun getAcceptedIssuers(): Array<X509Certificate> =
+                defaultTrustManager?.acceptedIssuers ?: emptyArray()
+        }
+
+        val sslContext = SSLContext.getInstance("TLS").apply {
+            init(null, arrayOf<TrustManager>(trustManager), SecureRandom())
+        }
+
+        OkHttpClient.Builder()
+            .connectTimeout(ScraperDefaults.CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .readTimeout(ScraperDefaults.READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .sslSocketFactory(sslContext.socketFactory, trustManager)
+            .hostnameVerifier { _, _ -> true }
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .build()
+    }
 
     /** Raw access for the config endpoint (no scraping semantics). */
     internal fun httpClient(): OkHttpClient = http
