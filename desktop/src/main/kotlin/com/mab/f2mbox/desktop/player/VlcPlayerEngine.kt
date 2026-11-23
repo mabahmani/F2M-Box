@@ -1,5 +1,6 @@
 package com.mab.f2mbox.desktop.player
 
+import com.mab.f2mbox.desktop.platform.VazirFonts
 import java.io.File
 import uk.co.caprica.vlcj.factory.MediaPlayerFactory
 import uk.co.caprica.vlcj.media.TrackType
@@ -116,9 +117,13 @@ class VlcPlayerEngine(
     /**
      * The full libvlc global argument list. The style's freetype options
      * ride along here because libvlc only honours them as global
-     * (`--opt=value`) args, not as per-media `:` options.
+     * (`--opt=value`) args, not as per-media `:` options. The app's Vazirmatn
+     * family is registered natively at startup ([VazirFonts]); passing it
+     * makes subtitles use it instead of libvlc's default font.
      */
-    private val factoryArgs = decodeArgs + subtitleStyle.toVlcArgs()
+    private val factoryArgs = decodeArgs + subtitleStyle.toVlcArgs(
+        fontFamily = VazirFonts.registeredFamily()
+    )
 
     private val factory = createFactory(nativeLocation, factoryArgs)
 

@@ -45,8 +45,12 @@ data class SubtitleStyle(
      * `sub-margin` pixels; non-positive heights fall back to 1080. The
      * height is only known once media plays, so callers pass a sensible
      * constant (the player uses 1080).
+     *
+     * [fontFamily] is the libvlc `--freetype-font` family (the app's
+     * Vazirmatn, registered by the platform). Null leaves libvlc's default
+     * font — the safe fallback if the bundled font could not be registered.
      */
-    fun toVlcArgs(videoHeightPx: Int = 1080): List<String> {
+    fun toVlcArgs(videoHeightPx: Int = 1080, fontFamily: String? = null): List<String> {
         val height = if (videoHeightPx > 0) videoHeightPx else 1080
         val edgeArgs = when (edge) {
             Edge.None -> listOf(
@@ -62,7 +66,10 @@ data class SubtitleStyle(
                 "--freetype-outline-opacity=${opacity255(edgeStrengthPercent)}"
             )
         }
-        return listOf(
+        val fontArg = fontFamily?.takeIf { it.isNotBlank() }
+            ?.let { listOf("--freetype-font=$it") }
+            ?: emptyList()
+        return fontArg + listOf(
             "--sub-text-scale=${(textSizeSp / 20f * 100f).roundToInt().coerceIn(10, 500)}",
             // A boolean flag has no "=0" form: it is on as `--freetype-bold`
             // and off as `--no-freetype-bold`.

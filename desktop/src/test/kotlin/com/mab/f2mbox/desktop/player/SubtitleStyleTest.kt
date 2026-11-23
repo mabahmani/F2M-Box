@@ -82,6 +82,18 @@ class SubtitleStyleTest {
     }
 
     @Test
+    fun `font family is emitted as a freetype-font arg`() {
+        val args = SubtitleStyle.Default.toVlcArgs(fontFamily = "Vazirmatn RD")
+        assertEquals("--freetype-font=Vazirmatn RD", args.first())
+    }
+
+    @Test
+    fun `null or blank font family adds no font arg`() {
+        assert(SubtitleStyle.Default.toVlcArgs(fontFamily = null).none { it.startsWith("--freetype-font") })
+        assert(SubtitleStyle.Default.toVlcArgs(fontFamily = "  ").none { it.startsWith("--freetype-font") })
+    }
+
+    @Test
     fun `non-positive video height falls back to 1080`() {
         val args = SubtitleStyle.Default.toVlcArgs(videoHeightPx = 0)
         assertEquals("--sub-margin=22", args.last())

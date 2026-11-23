@@ -14,6 +14,7 @@ import androidx.compose.ui.window.rememberWindowState
 import androidx.compose.ui.unit.dp
 import com.mab.f2mbox.desktop.platform.desktopStores
 import com.mab.f2mbox.desktop.platform.subtitleStyleStore
+import com.mab.f2mbox.desktop.platform.VazirFonts
 import com.mab.f2mbox.desktop.ui.common.LocalSubtitleStyleStore
 import com.mab.f2mbox.desktop.ui.common.LocalWatched
 import com.mab.f2mbox.desktop.ui.theme.F2MBoxTheme
@@ -43,6 +44,13 @@ fun main() {
     // open left behind (the process can survive between launches), same
     // as the Android Activity.onCreate does.
     HtmlCache.clear()
+
+    // Register the bundled Vazirmatn family with the OS font manager before
+    // any libvlc engine is built, so subtitle styling can ask for it by name
+    // (libvlc's freetype renderer resolves families via the platform text
+    // engine, not from a font file). Best effort: if it fails, playback uses
+    // libvlc's default subtitle font.
+    VazirFonts.registeredFamily()
     val (keyValueStore, watchedStorage) = desktopStores()
     val subtitleStyles = subtitleStyleStore()
     // KeyValueStorage adapts the string-map store to the resolver's
