@@ -31,6 +31,7 @@ import com.mab.f2mbox.desktop.ui.connect.isHomeHealthy
 import com.mab.f2mbox.desktop.ui.home.HomeScreen
 import com.mab.f2mbox.desktop.ui.list.ListScreen
 import com.mab.f2mbox.desktop.ui.logs.LogsScreen
+import com.mab.f2mbox.desktop.ui.player.PlayerScreen
 import com.mab.f2mbox.scraper.F2MScraper
 import com.mab.f2mbox.scraper.ScraperLog
 import kotlinx.coroutines.delay
@@ -267,7 +268,12 @@ fun DesktopApp(scraper: F2MScraper) {
                             onPlay = { url, title -> navigate(Route.Player(url, title)) },
                             registerEsc = { escHandler = it }
                         )
-                        is Route.Player -> PlayerPlaceholder(current.title, onNavigateBack = goBack)
+                        is Route.Player -> PlayerScreen(
+                            url = current.url,
+                            title = current.title,
+                            onNavigateBack = goBack,
+                            registerEsc = { escHandler = it }
+                        )
                         Route.Logs -> LogsScreen(onNavigateBack = goBack)
                     }
                 }
@@ -290,18 +296,6 @@ fun DesktopApp(scraper: F2MScraper) {
                 }
             }
         }
-    }
-}
-
-/** Temporary player placeholder until the player screen lands (Task 7). */
-@Composable
-private fun PlayerPlaceholder(title: String, onNavigateBack: () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(
-            text = "Player placeholder: $title",
-            style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
-            color = androidx.compose.material3.MaterialTheme.colorScheme.onBackground
-        )
     }
 }
 

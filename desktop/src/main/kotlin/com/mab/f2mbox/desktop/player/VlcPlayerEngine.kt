@@ -85,6 +85,10 @@ class VlcPlayerEngine(
     /** True once the first `playing` event arrived — see the error-kind KDoc. */
     private var startedPlaying = false
 
+    /** Guards the deferred start against a release before the window showed. */
+    @Volatile
+    private var released = false
+
     init {
         player.events().addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
             override fun playing(mediaPlayer: MediaPlayer) {
@@ -130,7 +134,36 @@ class VlcPlayerEngine(
                 )
             }
         })
-        player.media().play(url)
+        playWhenDisplayable(url)
+    }
+
+    /**
+     * Starts playback, but only once the video surface is displayable —
+     * libvlc refuses to attach to a hidden AWT component ("The video
+     * surface component must be displayable"). The screen composes the
+     * engine before the window's AWT hierarchy is showing, so the start
+     * waits (max 10s) for the surface to become displayable, then plays
+     * on the AWT thread; recreations (retry) find it displayable and
+     * play immediately.
+     */
+    private fun playWhenDisplayable(url: String) {
+        Thread({
+            var waited = 0
+            while (!released && !component.isDisplayable && waited < 10_000) {
+                Thread.sleep(50)
+                waited += 50
+            }
+            if (!released && component.isDisplayable) {
+                javax.swing.SwingUtilities.invokeLater {
+                    if (!released) player.media().play(url)
+                }
+            } else if (!released) {
+                bus.emit(EngineEvent.Error(EngineEvent.ErrorKind.Source))
+            }
+        }, "vlc-start").apply {
+            isDaemon = true
+            start()
+        }
     }
 
     fun play() = player.controls().play()
@@ -163,6 +196,7 @@ class VlcPlayerEngine(
     fun refreshTracks() = emitTracks(player)
 
     fun release() {
+        released = true
         player.release()
         factory.release()
         bus.reset()
