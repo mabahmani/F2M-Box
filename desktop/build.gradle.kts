@@ -12,6 +12,8 @@ dependencies {
     implementation(project(":shared"))
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
     implementation(compose.desktop.currentOs)
     implementation(compose.foundation)
     implementation(compose.material3)

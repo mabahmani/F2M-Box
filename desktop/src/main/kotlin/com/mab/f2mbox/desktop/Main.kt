@@ -13,6 +13,7 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import androidx.compose.ui.unit.dp
 import com.mab.f2mbox.desktop.platform.desktopStores
+import com.mab.f2mbox.desktop.ui.common.LocalWatched
 import com.mab.f2mbox.desktop.ui.theme.F2MBoxTheme
 import com.mab.f2mbox.scraper.BaseUrlResolver
 import com.mab.f2mbox.scraper.F2MScraper
@@ -56,11 +57,13 @@ fun main() {
                 // The whole app is RTL by default: the content is Persian and
                 // every layout mirrors (rows flow right-to-left, start = right).
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                    Surface(
-                        modifier = Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.background
-                    ) {
-                        DesktopApp(scraper = scraper)
+                    CompositionLocalProvider(LocalWatched provides watchedStorage) {
+                        Surface(
+                            modifier = Modifier.fillMaxSize(),
+                            color = MaterialTheme.colorScheme.background
+                        ) {
+                            DesktopApp(scraper = scraper)
+                        }
                     }
                 }
             }

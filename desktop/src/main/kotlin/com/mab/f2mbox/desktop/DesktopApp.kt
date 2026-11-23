@@ -28,6 +28,8 @@ import com.mab.f2mbox.desktop.ui.connect.ConnectState
 import com.mab.f2mbox.desktop.ui.connect.SplashScreen
 import com.mab.f2mbox.desktop.ui.connect.describe
 import com.mab.f2mbox.desktop.ui.connect.isHomeHealthy
+import com.mab.f2mbox.desktop.ui.home.HomeScreen
+import com.mab.f2mbox.desktop.ui.list.ListScreen
 import com.mab.f2mbox.desktop.ui.logs.LogsScreen
 import com.mab.f2mbox.scraper.F2MScraper
 import com.mab.f2mbox.scraper.ScraperLog
@@ -163,6 +165,9 @@ fun DesktopApp(scraper: F2MScraper) {
     // Parsed pages of this session, so Back renders the screen we left with
     // the data it already had instead of re-fetching it.
     val pageCache = remember { PageCache() }
+    // The visible screen's own Back/ESC handler — a listing screen pops one
+    // page per ESC before the route goes back. Null = plain route back.
+    var escHandler by remember { mutableStateOf<(() -> Unit)?>(null) }
     // The screen that was just popped; its saved state is dropped once the
     // new route is on screen.
     var poppedStateKey by remember { mutableStateOf<String?>(null) }
@@ -205,7 +210,7 @@ fun DesktopApp(scraper: F2MScraper) {
 
     Box(modifier = rootModifier.onPreviewKeyEvent { event ->
         if (event.type == KeyEventType.KeyDown && event.key == Key.Escape && state == ConnectState.Ready) {
-            goBack()
+            (escHandler ?: goBack).invoke()
             true
         } else {
             false
@@ -218,16 +223,49 @@ fun DesktopApp(scraper: F2MScraper) {
                 // screen and gets them back when the user returns to it.
                 stateHolder.SaveableStateProvider(route.stateKey()) {
                     when (val current = route) {
-                        Route.Home -> HomePlaceholder(
-                            searchQuery = searchQuery,
+                        Route.Home -> HomeScreen(
+                            scraper = scraper,
+                            initialHome = homeData,
                             activeDomain = activeDomain,
+                            searchQuery = searchQuery,
+                            onSearchQueryChange = { searchQuery = it },
+                            onOpenUrl = { navigate(Route.Scrape(it)) },
                             onSearch = { navigate(Route.Results(it)) },
-                            onOpenLogs = { navigate(Route.Logs) }
+                            // The home page the screen has loaded, kept here so
+                            // the home screen comes back with the same data
+                            // after a refresh.
+                            onHomeLoaded = { homeData = it },
+                            // Clearing the cache drops the cached pages too.
+                            onClearCache = {
+                                scraper.clearCache()
+                                pageCache.clear()
+                            },
+                            onOpenLogs = { navigate(Route.Logs) },
+                            onQuit = { exitProcessZero() }
                         )
-                        is Route.Scrape -> ListPlaceholder(current.url, onNavigateBack = goBack)
-                        is Route.Results -> ListPlaceholder(
-                            "search:${current.query}",
-                            onNavigateBack = goBack
+                        is Route.Scrape -> ListScreen(
+                            routeKey = current.url,
+                            fetchPage = { pageUrl -> scraper.scrape(pageUrl ?: current.url) },
+                            pageCache = pageCache,
+                            onNavigateBack = goBack,
+                            onOpenUrl = { navigate(Route.Scrape(it)) },
+                            onPlay = { url, title -> navigate(Route.Player(url, title)) },
+                            registerEsc = { escHandler = it }
+                        )
+                        is Route.Results -> ListScreen(
+                            routeKey = "search:${current.query}",
+                            fetchPage = { pageUrl ->
+                                // Pagination links carry the ?s= query, so they
+                                // classify as list pages; the first page uses the
+                                // search builder.
+                                pageUrl?.let { scraper.scrape(it) } ?: scraper.searchList(current.query)
+                                    .map { com.mab.f2mbox.data.remote.ScrapeResult.Listing(it) }
+                            },
+                            pageCache = pageCache,
+                            onNavigateBack = goBack,
+                            onOpenUrl = { navigate(Route.Scrape(it)) },
+                            onPlay = { url, title -> navigate(Route.Player(url, title)) },
+                            registerEsc = { escHandler = it }
                         )
                         is Route.Player -> PlayerPlaceholder(current.title, onNavigateBack = goBack)
                         Route.Logs -> LogsScreen(onNavigateBack = goBack)
@@ -255,42 +293,7 @@ fun DesktopApp(scraper: F2MScraper) {
     }
 }
 
-/** Temporary route placeholders until the browse screens land (Task 5/7). */
-@Composable
-private fun HomePlaceholder(
-    searchQuery: String,
-    activeDomain: String?,
-    onSearch: (String) -> Unit,
-    onOpenLogs: () -> Unit
-) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "Home placeholder${activeDomain?.let { " — $it" } ?: ""}",
-                style = androidx.compose.material3.MaterialTheme.typography.headlineMedium,
-                color = androidx.compose.material3.MaterialTheme.colorScheme.onBackground
-            )
-            if (searchQuery.isNotEmpty()) {
-                Text(
-                    text = "query: $searchQuery",
-                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ListPlaceholder(key: String, onNavigateBack: () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(
-            text = "List placeholder: $key (ESC to go back)",
-            style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
-            color = androidx.compose.material3.MaterialTheme.colorScheme.onBackground
-        )
-    }
-}
-
+/** Temporary player placeholder until the player screen lands (Task 7). */
 @Composable
 private fun PlayerPlaceholder(title: String, onNavigateBack: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
