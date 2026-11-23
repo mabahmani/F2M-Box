@@ -1,7 +1,9 @@
 package com.mab.f2mbox.scraper
 
-import android.text.format.DateFormat
+import java.text.SimpleDateFormat
 import java.util.ArrayDeque
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -9,8 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
  * Tiny in-memory log shared by the scraper engine and the connect
  * screen: every engine event (config fetch, cached-url hits, canonical
  * hops, health checks) is buffered with a timestamp so the UI can show
- * live progress instead of a static hint. Everything is mirrored to
- * logcat under `F2MScraper`.
+ * live progress instead of a static hint.
  */
 object ScraperLog {
 
@@ -18,19 +19,19 @@ object ScraperLog {
 
     private val buffer = ArrayDeque<String>()
 
+    private val stampFormat =
+        SimpleDateFormat("HH:mm:ss", Locale.US)
+
     private val _lines = MutableStateFlow<List<String>>(emptyList())
 
     /** Newest last; UI shows the tail of this list. */
     val lines: StateFlow<List<String>> = _lines
 
-    /** Appends [message] to the buffer and logcat. */
+    /** Appends [message] to the buffer. */
     fun log(message: String) {
-        val now = System.currentTimeMillis()
-        val stamp = DateFormat.format("HH:mm:ss", now).toString()
-        val line = "$stamp  $message"
-        android.util.Log.d("F2MScraper", message)
         synchronized(buffer) {
-            buffer.addLast(line)
+            val stamp = stampFormat.format(Date(System.currentTimeMillis()))
+            buffer.addLast("$stamp  $message")
             while (buffer.size > MAX_ENTRIES) buffer.removeFirst()
             _lines.value = buffer.toList()
         }

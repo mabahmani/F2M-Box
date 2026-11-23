@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "F2M Box"
 include(":app")
+include(":shared")

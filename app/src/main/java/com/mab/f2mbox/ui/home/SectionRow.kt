@@ -108,9 +108,9 @@ fun SectionRow(
                         .width(PosterCardWidth)
                 )
             }
-            section.url?.let {
+            section.url?.let { url ->
                 item(key = "see-more-${section.id}") {
-                    SeeMoreCard(onClick = { onOpenUrl(section.url) })
+                    SeeMoreCard(onClick = { onOpenUrl(url) })
                 }
             }
         }
