@@ -4,8 +4,6 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-import java.io.File
-
 kotlin {
     jvmToolchain(17)
 }
@@ -23,6 +21,7 @@ dependencies {
     implementation(libs.cmp.material.icons.extended)
     implementation(libs.cmp.components.resources)
     testImplementation(libs.junit)
+    testImplementation(libs.cmp.ui.test.junit4)
 }
 
 compose.desktop {

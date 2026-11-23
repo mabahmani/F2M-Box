@@ -24,6 +24,8 @@ import androidx.compose.ui.input.key.type
 import com.mab.f2mbox.data.PageCache
 import com.mab.f2mbox.data.remote.HomeData
 import com.mab.f2mbox.desktop.platform.Strings
+import com.mab.f2mbox.desktop.ui.common.arrowKeyFocusNavigation
+import com.mab.f2mbox.desktop.ui.common.backKeyHandler
 import com.mab.f2mbox.desktop.ui.connect.ConnectState
 import com.mab.f2mbox.desktop.ui.connect.SplashScreen
 import com.mab.f2mbox.desktop.ui.connect.describe
@@ -40,9 +42,9 @@ import kotlinx.coroutines.delay
  * Route structure and connect gate, ported one-to-one from the Android
  * `MainActivity`: the back stack, the saved-state scopes per route and the
  * retry/health loop are identical. Desktop differences: no Android Log
- * mirrors (ScraperLog is the source of truth), ESC handles Back, and the
- * connect gate treats a home page without a hero slider as unhealthy
- * ([com.mab.f2mbox.desktop.ui.connect.isHomeHealthy]).
+ * mirrors (ScraperLog is the source of truth), ESC/Backspace/Delete handle
+ * Back, and the connect gate treats a home page without a hero slider as
+ * unhealthy ([com.mab.f2mbox.desktop.ui.connect.isHomeHealthy]).
  */
 
 /** Destinations reachable from the connected state. */
@@ -138,8 +140,8 @@ suspend fun connectFlow(
  */
 @Composable
 fun DesktopApp(scraper: F2MScraper) {
-    // ESC goes Back anywhere inside the connected app; the splash handles
-    // its own actions and ignores it here (state != Ready).
+    // ESC/Backspace/Delete go Back anywhere inside the connected app; the
+    // splash handles its own actions and ignores them here (state != Ready).
     val rootModifier = Modifier.fillMaxSize()
 
     var state by remember { mutableStateOf<ConnectState>(ConnectState.Connecting) }
@@ -209,14 +211,26 @@ fun DesktopApp(scraper: F2MScraper) {
 
     LaunchedEffect(attempt) { connect() }
 
-    Box(modifier = rootModifier.onPreviewKeyEvent { event ->
-        if (event.type == KeyEventType.KeyDown && event.key == Key.Escape && state == ConnectState.Ready) {
-            (escHandler ?: goBack).invoke()
-            true
-        } else {
-            false
-        }
-    }) {
+    Box(
+        modifier = rootModifier
+            // Unconsumed arrow presses move the focus — the desktop
+            // equivalent of Android's built-in D-pad focus search (see
+            // [arrowKeyFocusNavigation]).
+            .arrowKeyFocusNavigation()
+            // Backspace/Delete go Back for presses no focused element
+            // consumed (see [backKeyHandler]).
+            .backKeyHandler(enabled = state == ConnectState.Ready) {
+                (escHandler ?: goBack).invoke()
+            }
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown && event.key == Key.Escape && state == ConnectState.Ready) {
+                    (escHandler ?: goBack).invoke()
+                    true
+                } else {
+                    false
+                }
+            }
+    ) {
         when (state) {
             ConnectState.Ready -> {
                 // Every route gets its own saved-state scope, so a screen keeps
