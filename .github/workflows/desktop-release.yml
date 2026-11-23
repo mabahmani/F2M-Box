@@ -1,0 +1,103 @@
+name: Desktop Release
+
+# Builds the native desktop installers on each OS and (for tags) attaches them
+# to a GitHub Release. libVLC is bundled automatically by :desktop:prepareVlc
+# for macOS (arm64/intel64) and Windows (x64); Linux uses the system libVLC.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Package (${{ matrix.artifact }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14          # Apple Silicon (arm64) -> dmg
+            artifact: macos-arm64
+          - os: macos-13          # Intel (x64) -> dmg; swap to macos-15-intel if retired
+            artifact: macos-x64
+          - os: windows-latest    # x64 -> msi + exe
+            artifact: windows-x64
+          - os: ubuntu-latest     # x64 -> deb (needs system libVLC at runtime)
+            artifact: linux-x64
+    steps:
+      - uses: actions/checkout@v4
+
+      # JDK 21 runs Gradle and supplies jpackage. Kotlin/Java compile against
+      # toolchain 17, auto-provisioned via the foojay resolver in settings.
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Cache downloaded libVLC
+        uses: actions/cache@v4
+        with:
+          path: desktop/build/vlc-cache
+          key: vlc-3.0.23-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Install packaging deps (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y fakeroot
+
+      - name: Install WiX (Windows, needed by jpackage for msi/exe)
+        if: runner.os == 'Windows'
+        run: choco install wixtoolset -y --no-progress
+
+      - name: Package
+        shell: bash
+        run: ./gradlew :desktop:packageDistributionForCurrentOS --console=plain --stacktrace
+
+      - name: Collect installers
+        shell: bash
+        run: |
+          mkdir -p dist
+          find desktop/build/compose/binaries/main/{dmg,msi,exe,deb} \
+            -maxdepth 1 -type f -exec cp {} dist/ \; 2>/dev/null || true
+          echo "Collected:"; ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Attach installers to Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List download
+        run: ls -la dist
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          fail_on_unmatched_files: false
