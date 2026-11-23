@@ -1178,6 +1178,7 @@ private fun SubtitleSettingsPanel(
             1 -> 1
             2 -> SubtitleStyle.ColorOptions.lastIndex
             4 -> SubtitleEdgeChoices.lastIndex
+            buttonRow -> 1 // Cancel (0) / Save (1)
             else -> 0
         }
     }
