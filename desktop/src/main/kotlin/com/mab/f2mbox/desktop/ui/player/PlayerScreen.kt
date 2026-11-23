@@ -76,6 +76,7 @@ import androidx.compose.ui.awt.SwingPanel
 import com.mab.f2mbox.desktop.platform.Strings
 import com.mab.f2mbox.desktop.player.EngineEvent
 import com.mab.f2mbox.desktop.player.TrackInfo
+import com.mab.f2mbox.desktop.player.ExternalPlay
 import com.mab.f2mbox.desktop.player.VlcDiscovery
 import com.mab.f2mbox.desktop.player.VlcPlayerEngine
 import java.util.Locale
@@ -123,6 +124,8 @@ fun PlayerScreen(
     if (discovery.isFailure) {
         VlcSetupCard(
             message = discovery.exceptionOrNull()?.message ?: Strings.playerError,
+            url = url,
+            onPlayExternally = { ExternalPlay.open(url) },
             onNavigateBack = onNavigateBack,
             modifier = modifier
         )
@@ -1007,11 +1010,15 @@ private fun PlayerError(
 /**
  * The no-VLC machine path: the player can't run without the native
  * libvlc, so instead of a cryptic crash the user gets the discovery
- * message (with the install hint) and a way back out.
+ * message (with the install hint), a way back out, and the instant
+ * fallback — hand the url to the system player. The card stays on
+ * screen after the hand-off; Back remains the way out.
  */
 @Composable
-private fun VlcSetupCard(
+internal fun VlcSetupCard(
     message: String,
+    url: String,
+    onPlayExternally: () -> Unit,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1027,8 +1034,13 @@ private fun VlcSetupCard(
                 )
             }
             Spacer(Modifier.height(20.dp))
-            Button(onClick = onNavigateBack) {
-                Text(Strings.back)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = onPlayExternally) {
+                    Text(Strings.playExternally)
+                }
+                Button(onClick = onNavigateBack) {
+                    Text(Strings.back)
+                }
             }
         }
     }

@@ -19,6 +19,7 @@ object Strings {
     // Connect / splash
     const val serverWakeupHint = "The server may take up to 2 minutes to wake up"
     const val retry = "Retry"
+    const val playExternally = "Play in system player"
 
     // Home
     const val loading = "Loading…\u200E"
