@@ -12,6 +12,7 @@ activityCompose = "1.8.0"
 kotlinxSerializationJson = "1.9.0"
 okhttp = "4.12.0"
 coil = "3.2.0"
+vlcj = "4.8.3"
 jsoup = "1.18.3"
 coroutines = "1.10.2"
 composeDesktop = "1.12.2"
@@ -43,6 +44,7 @@ cmp-components-resources = { group = "org.jetbrains.compose.components", name = 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
+vlcj = { group = "uk.co.caprica", name = "vlcj", version.ref = "vlcj" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
