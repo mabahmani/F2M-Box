@@ -78,8 +78,10 @@ class VlcPlayerEngine(
     listener: (EngineEvent) -> Unit,
     /** Extra libvlc args; used by the diagnostic harnesses to get native logs. */
     extraArgs: List<String> = emptyList(),
-    /** Subtitle look applied to this playback; libvlc reads it when the media opens. */
+    /** Subtitle look applied to this playback; libvlc reads it when the engine's factory is built. */
     subtitleStyle: SubtitleStyle = SubtitleStyle.Default,
+    /** Where playback resumes (used when a style change rebuilds the engine mid-watch). */
+    startPositionMs: Long = 0L,
     /**
      * The native libVLC location chosen by [VlcDiscovery]. When present its
      * directory becomes the top `jna.library.path` entry, so a packaged app
@@ -111,7 +113,14 @@ class VlcPlayerEngine(
      */
     private val decodeArgs = listOf("--codec=avcodec", "--avcodec-hw=none") + extraArgs
 
-    private val factory = createFactory(nativeLocation, decodeArgs)
+    /**
+     * The full libvlc global argument list. The style's freetype options
+     * ride along here because libvlc only honours them as global
+     * (`--opt=value`) args, not as per-media `:` options.
+     */
+    private val factoryArgs = decodeArgs + subtitleStyle.toVlcArgs()
+
+    private val factory = createFactory(nativeLocation, factoryArgs)
 
     /**
      * Puts [location]'s directory at the front of `jna.library.path` so
@@ -141,11 +150,11 @@ class VlcPlayerEngine(
      * The embedded (native) component would render subtitles for free, but a
      * heavyweight AWT surface always paints above lightweight/Compose content
      * and would hide the controls, so we keep the callback surface and force
-     * software decoding instead (see [decodeArgs]) so libVLC can blend the
+     * software decoding instead (see [factoryArgs]) so libVLC can blend the
      * subtitles into those frames itself.
      */
     val component: CallbackMediaPlayerComponent =
-        CallbackMediaPlayerComponent(*decodeArgs.toTypedArray())
+        CallbackMediaPlayerComponent(*factoryArgs.toTypedArray())
 
     val componentSurface: JComponent = component.videoSurfaceComponent()
 
@@ -154,8 +163,8 @@ class VlcPlayerEngine(
     /** True once the first `playing` event arrived — see the error-kind KDoc. */
     private var startedPlaying = false
 
-    /** The media currently loaded, so a style change can re-open it. */
-    private var currentMrl: String? = null
+    /** Applies [startPositionMs] once, on the first `playing` event. */
+    private var startApplied = false
 
     /** Guards the deferred start against a release before the window showed. */
     @Volatile
@@ -165,6 +174,12 @@ class VlcPlayerEngine(
         player.events().addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
             override fun playing(mediaPlayer: MediaPlayer) {
                 startedPlaying = true
+                // Resume where a style change interrupted playback (the
+                // engine is rebuilt to re-read the global freetype args).
+                if (!startApplied) {
+                    startApplied = true
+                    if (startPositionMs > 0) mediaPlayer.controls().setTime(startPositionMs)
+                }
                 bus.emit(EngineEvent.Playing)
                 emitTracks(mediaPlayer)
             }
@@ -206,7 +221,7 @@ class VlcPlayerEngine(
                 )
             }
         })
-        playWhenDisplayable(url, subtitleStyle.toMediaOptions(videoHeight()))
+        playWhenDisplayable(url)
     }
 
     /**
@@ -218,8 +233,7 @@ class VlcPlayerEngine(
      * on the AWT thread; recreations (retry) find it displayable and
      * play immediately.
      */
-    private fun playWhenDisplayable(url: String, options: List<String> = emptyList()) {
-        currentMrl = url
+    private fun playWhenDisplayable(url: String) {
         Thread({
             var waited = 0
             while (!released && !componentSurface.isDisplayable && waited < 10_000) {
@@ -228,7 +242,7 @@ class VlcPlayerEngine(
             }
             if (!released && componentSurface.isDisplayable) {
                 javax.swing.SwingUtilities.invokeLater {
-                    if (!released) player.media().play(url, *options.toTypedArray())
+                    if (!released) player.media().play(url)
                 }
             } else if (!released) {
                 bus.emit(EngineEvent.Error(EngineEvent.ErrorKind.Source))
@@ -238,36 +252,6 @@ class VlcPlayerEngine(
             start()
         }
     }
-
-    /**
-     * Re-opens the current media with [style]'s subtitle options, resuming
-     * at the position (and rate) it had. libvlc reads subtitle styling only
-     * when the media opens, so this is the only way to apply a change
-     * mid-playback — the brief hiccup approach A accepted. Best-effort: if
-     * nothing is playing, it does nothing.
-     */
-    fun applySubtitleStyle(style: SubtitleStyle) {
-        val mrl = currentMrl ?: return
-        val time = player.status().time()
-        val rate = player.status().rate()
-        val wasPlaying = player.status().isPlaying()
-        val options = style.toMediaOptions(videoHeight())
-        javax.swing.SwingUtilities.invokeLater {
-            if (released) return@invokeLater
-            if (!player.media().prepare(mrl, *options.toTypedArray())) return@invokeLater
-            player.controls().play()
-            player.controls().setTime(time.coerceAtLeast(0))
-            player.controls().setRate(rate)
-            if (!wasPlaying) player.controls().pause()
-        }
-    }
-
-    private fun videoHeight(): Int =
-        try {
-            player.video().videoDimension()?.height ?: 1080
-        } catch (_: Exception) {
-            1080
-        }
 
     fun play() = player.controls().play()
 

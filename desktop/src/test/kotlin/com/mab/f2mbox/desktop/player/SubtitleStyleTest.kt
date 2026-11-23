@@ -8,25 +8,26 @@ import org.junit.Test
  * against the installed VLC 3 (`--full-help`): sub-text-scale 10..500,
  * freetype-bold, freetype-color (RGB int), freetype-background-opacity
  * and outline/shadow opacity 0..255, freetype-outline-thickness
- * {0,2,4,6}, sub-margin in pixels. Options carry the ":" prefix libvlc
- * media options require.
+ * {0,2,4,6}, sub-margin in pixels. They are emitted as *global* libvlc
+ * arguments ("--opt=value"), the only form the freetype renderer honours
+ * (per-media ":" options are ignored — verified with a frame capture).
  */
 class SubtitleStyleTest {
 
     @Test
     fun `default style maps to libvlc defaults`() {
-        val options = SubtitleStyle.Default.toMediaOptions(videoHeightPx = 1080)
+        val args = SubtitleStyle.Default.toVlcArgs(videoHeightPx = 1080)
         assertEquals(
             listOf(
-                ":sub-text-scale=100",
-                ":freetype-bold=0",
-                ":freetype-color=16777215",
-                ":freetype-background-opacity=0",
-                ":freetype-outline-thickness=0",
-                ":freetype-shadow-opacity=0",
-                ":sub-margin=22"
+                "--sub-text-scale=100",
+                "--no-freetype-bold",
+                "--freetype-color=16777215",
+                "--freetype-background-opacity=0",
+                "--freetype-outline-thickness=0",
+                "--freetype-shadow-opacity=0",
+                "--sub-margin=22"
             ),
-            options
+            args
         )
     }
 
@@ -43,15 +44,15 @@ class SubtitleStyleTest {
         )
         assertEquals(
             listOf(
-                ":sub-text-scale=160",
-                ":freetype-bold=1",
-                ":freetype-color=58879",
-                ":freetype-background-opacity=102",
-                ":freetype-outline-thickness=4",
-                ":freetype-outline-opacity=153",
-                ":sub-margin=108"
+                "--sub-text-scale=160",
+                "--freetype-bold",
+                "--freetype-color=58879",
+                "--freetype-background-opacity=102",
+                "--freetype-outline-thickness=4",
+                "--freetype-outline-opacity=153",
+                "--sub-margin=108"
             ),
-            style.toMediaOptions(videoHeightPx = 720)
+            style.toVlcArgs(videoHeightPx = 720)
         )
     }
 
@@ -61,15 +62,29 @@ class SubtitleStyleTest {
             edge = SubtitleStyle.Edge.Shadow,
             edgeStrengthPercent = 50
         )
-        val options = style.toMediaOptions(videoHeightPx = 1080)
-        assertEquals(":freetype-outline-thickness=0", options[4])
-        assertEquals(":freetype-shadow-opacity=127", options[5])
+        val args = style.toVlcArgs(videoHeightPx = 1080)
+        assertEquals("--freetype-outline-thickness=0", args[4])
+        assertEquals("--freetype-shadow-opacity=127", args[5])
+    }
+
+    @Test
+    fun `bold false emits the no-freetype-bold flag`() {
+        val args = SubtitleStyle.Default.copy(bold = false).toVlcArgs()
+        assertEquals("--no-freetype-bold", args[1])
+    }
+
+    @Test
+    fun `every argument is a global libvlc flag`() {
+        // A stray ":" (per-media option) would be silently ignored by libvlc.
+        SubtitleStyle.Default.toVlcArgs().forEach { arg ->
+            assert(arg.startsWith("--")) { "expected a global arg, got: $arg" }
+        }
     }
 
     @Test
     fun `non-positive video height falls back to 1080`() {
-        val options = SubtitleStyle.Default.toMediaOptions(videoHeightPx = 0)
-        assertEquals(":sub-margin=22", options.last())
+        val args = SubtitleStyle.Default.toVlcArgs(videoHeightPx = 0)
+        assertEquals("--sub-margin=22", args.last())
     }
 
     @Test

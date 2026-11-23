@@ -7,6 +7,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -42,6 +44,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -75,10 +78,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.awt.SwingPanel
 import com.mab.f2mbox.desktop.platform.Strings
 import com.mab.f2mbox.desktop.player.EngineEvent
+import com.mab.f2mbox.desktop.player.SubtitleStyle
 import com.mab.f2mbox.desktop.player.TrackInfo
 import com.mab.f2mbox.desktop.player.ExternalPlay
 import com.mab.f2mbox.desktop.player.VlcDiscovery
 import com.mab.f2mbox.desktop.player.VlcPlayerEngine
+import com.mab.f2mbox.desktop.ui.common.LocalSubtitleStyleStore
 import java.util.Locale
 import kotlinx.coroutines.delay
 
@@ -101,15 +106,16 @@ private const val TrackOff = -1
 
 /**
  * In-app player, desktop: the Android TV chrome (top scrim, transport row,
- * seek bar, speed/track menus, seek OSD, error card) drives a
- * [VlcPlayerEngine] whose video surface is an AWT component under a
- * [SwingPanel]; the Compose overlay draws on top of it.
+ * seek bar, speed/track menus, subtitle-customize panel, seek OSD, error
+ * card) drives a [VlcPlayerEngine] whose video surface is an AWT component
+ * under a [SwingPanel]; the Compose overlay draws on top of it.
  *
- * Parity cut (plan Task 7): the subtitle-styling panel and the custom
- * SubtitleView layer are not ported — libvlc renders the selected subtitle
- * track itself. Everything else is carried over, including the layered
- * Back behavior: Backspace/ESC cancel a menu, then hide the controls, then
- * leave the screen.
+ * Subtitles are rendered by libvlc itself (both embedded text tracks and
+ * styling), so there is no custom SubtitleView layer as on Android. The
+ * subtitle look is applied as global freetype args when the engine is built
+ * — see [SubtitleStyle] and the customize panel; saving a change rebuilds
+ * the engine at the current position. Backspace/ESC walk the same layered
+ * Back chain: cancel a menu/panel, hide the controls, then leave the screen.
  */
 @Composable
 fun PlayerScreen(
@@ -151,10 +157,26 @@ fun PlayerScreen(
     var retryNonce by remember { mutableIntStateOf(0) }
     var playbackSpeed by remember { mutableFloatStateOf(1f) }
 
-    DisposableEffect(url, retryNonce) {
+    // Subtitle look. The saved style is loaded from the desktop store; the
+    // panel edits a draft; Save persists it and bumps [styleRevision] so the
+    // engine is rebuilt with the new global freetype args, resuming at the
+    // current position. (libvlc only reads subtitle styling from global
+    // factory args, not per-media options — see SubtitleStyle.)
+    val styleStore = LocalSubtitleStyleStore.current
+    var subtitleStyle by remember { mutableStateOf(styleStore.load()) }
+    var subtitleDraft by remember { mutableStateOf(subtitleStyle) }
+    var subtitlePanelVisible by remember { mutableStateOf(false) }
+    // Position to resume at when an engine rebuild interrupts playback.
+    var resumeAtMs by remember { mutableLongStateOf(0L) }
+    var styleRevision by remember { mutableIntStateOf(0) }
+
+    DisposableEffect(url, retryNonce, styleRevision) {
+        val startAt = resumeAtMs
         val created = VlcPlayerEngine(
             url = url,
             extraArgs = emptyList(),
+            subtitleStyle = subtitleStyle,
+            startPositionMs = startAt,
             nativeLocation = discovery.getOrNull(),
             listener = { event ->
                 when (event) {
@@ -205,6 +227,11 @@ fun PlayerScreen(
 
     val layeredBack: () -> Unit = {
         when {
+            subtitlePanelVisible -> {
+                // Cancel the panel: discard the draft.
+                subtitleDraft = subtitleStyle
+                subtitlePanelVisible = false
+            }
             speedMenuVisible || subtitleMenuVisible || audioMenuVisible -> {
                 speedMenuVisible = false
                 subtitleMenuVisible = false
@@ -219,6 +246,29 @@ fun PlayerScreen(
         onDispose { registerEsc(null) }
     }
 
+    // Panel actions. Save persists the draft and rebuilds the engine (at the
+    // current position) so the new global freetype args take effect; Cancel
+    // drops the draft.
+    val openSubtitleSettings: () -> Unit = {
+        subtitleDraft = subtitleStyle
+        subtitleMenuVisible = false
+        subtitlePanelVisible = true
+        interaction++
+    }
+    val saveSubtitlePanel: () -> Unit = {
+        styleStore.save(subtitleDraft)
+        subtitleStyle = subtitleDraft
+        resumeAtMs = positionMs
+        subtitlePanelVisible = false
+        styleRevision++
+        interaction++
+    }
+    val cancelSubtitlePanel: () -> Unit = {
+        subtitleDraft = subtitleStyle
+        subtitlePanelVisible = false
+        interaction++
+    }
+
     val playPauseFocus = remember { FocusRequester() }
     val surfaceFocus = remember { FocusRequester() }
     val speedButtonFocus = remember { FocusRequester() }
@@ -229,8 +279,8 @@ fun PlayerScreen(
     // it (guarded so the initial composition doesn't steal focus).
     var wasMenuOpen by remember { mutableStateOf(false) }
     var menuReturnFocus by remember { mutableStateOf<FocusRequester?>(null) }
-    LaunchedEffect(speedMenuVisible, subtitleMenuVisible, audioMenuVisible) {
-        val anyOpen = speedMenuVisible || subtitleMenuVisible || audioMenuVisible
+    LaunchedEffect(speedMenuVisible, subtitleMenuVisible, audioMenuVisible, subtitlePanelVisible) {
+        val anyOpen = speedMenuVisible || subtitleMenuVisible || audioMenuVisible || subtitlePanelVisible
         if (anyOpen && !wasMenuOpen) {
             menuReturnFocus = when {
                 speedMenuVisible -> speedButtonFocus
@@ -261,7 +311,7 @@ fun PlayerScreen(
     LaunchedEffect(interaction) {
         if (controlsVisible) {
             delay(ControlsHideDelayMs)
-            if (!speedMenuVisible && !subtitleMenuVisible && !audioMenuVisible) {
+            if (!speedMenuVisible && !subtitleMenuVisible && !audioMenuVisible && !subtitlePanelVisible) {
                 controlsVisible = false
             }
         }
@@ -360,31 +410,33 @@ fun PlayerScreen(
             // listener on the surface — not Compose pointerInput — is the
             // reliable path to reveal/toggle the controls.
             currentEngine?.let { e ->
-                SwingPanel(
-                    factory = {
-                        e.componentSurface.apply {
-                            isFocusable = false
-                            val wake = object : java.awt.event.MouseAdapter() {
-                                override fun mouseMoved(event: java.awt.event.MouseEvent) {
-                                    mouseWake()
-                                }
-
-                                override fun mouseClicked(event: java.awt.event.MouseEvent) {
-                                    // Single click reveals (or keeps up) the
-                                    // overlay; double click leaves the screen.
-                                    if (event.clickCount == 2) {
-                                        layeredBack()
-                                    } else {
+                key(e) {
+                    SwingPanel(
+                        factory = {
+                            e.componentSurface.apply {
+                                isFocusable = false
+                                val wake = object : java.awt.event.MouseAdapter() {
+                                    override fun mouseMoved(event: java.awt.event.MouseEvent) {
                                         mouseWake()
                                     }
+
+                                    override fun mouseClicked(event: java.awt.event.MouseEvent) {
+                                        // Single click reveals (or keeps up) the
+                                        // overlay; double click leaves the screen.
+                                        if (event.clickCount == 2) {
+                                            layeredBack()
+                                        } else {
+                                            mouseWake()
+                                        }
+                                    }
                                 }
+                                addMouseListener(wake)
+                                addMouseMotionListener(wake)
                             }
-                            addMouseListener(wake)
-                            addMouseMotionListener(wake)
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
 
             if (!everPlayed && errorKind == null) {
@@ -401,6 +453,7 @@ fun PlayerScreen(
                         errorKind = null
                         everPlayed = false
                         positionMs = 0
+                        resumeAtMs = 0
                         retryNonce++
                     },
                     modifier = Modifier.align(Alignment.Center)
@@ -444,6 +497,7 @@ fun PlayerScreen(
                     subtitleMenuVisible = false
                     interaction++
                 },
+                onOpenSubtitleSettings = openSubtitleSettings,
                 audioTracks = audioTracks,
                 currentAudioId = currentAudioId,
                 audioMenuVisible = audioMenuVisible,
@@ -474,6 +528,22 @@ fun PlayerScreen(
                     .fillMaxSize()
                     .alpha(if (controlsVisible) 1f else 0f)
             )
+
+            if (subtitlePanelVisible) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.5f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    SubtitleSettingsPanel(
+                        style = subtitleDraft,
+                        onChange = { subtitleDraft = it },
+                        onSave = saveSubtitlePanel,
+                        onCancel = cancelSubtitlePanel
+                    )
+                }
+            }
 
             if (!controlsVisible && seekOsdVisible) {
                 Box(
@@ -523,6 +593,7 @@ private fun PlayerControls(
     subtitleMenuVisible: Boolean,
     onToggleSubtitleMenu: () -> Unit,
     onSubtitleSelect: (Int) -> Unit,
+    onOpenSubtitleSettings: () -> Unit,
     audioTracks: List<TrackInfo>,
     currentAudioId: Int,
     audioMenuVisible: Boolean,
@@ -605,15 +676,19 @@ private fun PlayerControls(
                 val options = buildList {
                     add(Strings.playerSubtitlesOff)
                     subtitleTracks.forEach { add(it.label) }
+                    add(Strings.playerSubtitleCustomize)
                 }
                 val selected = subtitleTracks.indexOfFirst { it.id == currentSubtitleId }
                 ChoiceMenu(
                     options = options,
                     selectedIndex = if (selected >= 0) selected + 1 else 0,
                     onSelect = { index ->
-                        onSubtitleSelect(
-                            if (index == 0) TrackOff else subtitleTracks[index - 1].id
-                        )
+                        when (index) {
+                            options.lastIndex -> onOpenSubtitleSettings()
+                            else -> onSubtitleSelect(
+                                if (index == 0) TrackOff else subtitleTracks[index - 1].id
+                            )
+                        }
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1062,3 +1137,298 @@ private fun formatTime(ms: Long, showHours: Boolean = false): String {
 
 private fun speedLabel(speed: Float): String =
     if (speed == speed.toInt().toFloat()) "${speed.toInt()}x" else "${speed}x"
+
+// ---- Subtitle customize panel (desktop port of Android's SubtitleSettingsPanel) ----
+
+/** Subtitle size choices, matching Android's set (see [SubtitleStyle.SizeOptions]). */
+private val SubtitleSizeChoices = SubtitleStyle.SizeOptions
+
+/** The three edge treatments in display order. */
+private val SubtitleEdgeChoices = SubtitleStyle.Edge.entries
+
+/**
+ * Modal editor for the player's subtitle look. Edits a [style] draft via
+ * [onChange]; [onSave] persists it (and rebuilds playback) and [onCancel]
+ * discards. Keyboard: Up/Down move between rows, Left/Right adjust a slider
+ * or move between chips, Enter/Center pick the highlighted chip or a
+ * Cancel/Save button. Mouse clicks pick directly. The panel grabs focus so
+ * the chrome behind it stays inert while it is open.
+ */
+@Composable
+private fun SubtitleSettingsPanel(
+    style: SubtitleStyle,
+    onChange: (SubtitleStyle) -> Unit,
+    onSave: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // Rows: 0 size, 1 weight, 2 color, 3 background, 4 edge, 5 strength,
+    // 6 offset; 7 = Cancel/Save buttons.
+    val buttonRow = 7
+    var row by remember { mutableIntStateOf(0) }
+    var col by remember { mutableIntStateOf(0) }
+    val panelFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        while (!panelFocus.requestFocus()) delay(50)
+    }
+
+    val maxCol: (Int) -> Int = { r ->
+        when (r) {
+            0 -> SubtitleSizeChoices.lastIndex
+            1 -> 1
+            2 -> SubtitleStyle.ColorOptions.lastIndex
+            4 -> SubtitleEdgeChoices.lastIndex
+            else -> 0
+        }
+    }
+    val stepFor: (Int) -> Int = { r -> if (r == 6) 1 else 5 }
+    val adjustSlider: (Int, Int) -> Unit = { r, delta ->
+        when (r) {
+            3 -> onChange(style.copy(backgroundOpacityPercent = (style.backgroundOpacityPercent + delta).coerceIn(0, 100)))
+            5 -> onChange(style.copy(edgeStrengthPercent = (style.edgeStrengthPercent + delta).coerceIn(0, 100)))
+            6 -> onChange(style.copy(bottomOffsetPercent = (style.bottomOffsetPercent + delta).coerceIn(0, 30)))
+        }
+    }
+    val activate: (Int, Int) -> Unit = { r, c ->
+        when (r) {
+            0 -> onChange(style.copy(textSizeSp = SubtitleSizeChoices[c.coerceIn(0, SubtitleSizeChoices.lastIndex)]))
+            1 -> onChange(style.copy(bold = c == 1))
+            2 -> onChange(style.copy(colorRgb = SubtitleStyle.ColorOptions[c.coerceIn(0, SubtitleStyle.ColorOptions.lastIndex)]))
+            4 -> onChange(style.copy(edge = SubtitleEdgeChoices[c.coerceIn(0, SubtitleEdgeChoices.lastIndex)]))
+            // Sliders scrub with Left/Right only.
+            else -> {}
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .width(620.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.Black.copy(alpha = 0.92f))
+            .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
+            .padding(20.dp)
+            .focusRequester(panelFocus)
+            .focusable()
+            .onKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                when (event.key) {
+                    Key.DirectionUp -> {
+                        row = (row - 1).coerceAtLeast(0)
+                        col = col.coerceIn(0, maxCol(row))
+                        true
+                    }
+                    Key.DirectionDown -> {
+                        row = (row + 1).coerceAtMost(buttonRow)
+                        col = col.coerceIn(0, maxCol(row))
+                        true
+                    }
+                    Key.DirectionLeft -> {
+                        if (row in 3..6) adjustSlider(row, -stepFor(row))
+                        else col = (col - 1).coerceAtLeast(0)
+                        true
+                    }
+                    Key.DirectionRight -> {
+                        if (row in 3..6) adjustSlider(row, stepFor(row))
+                        else col = (col + 1).coerceAtMost(maxCol(row))
+                        true
+                    }
+                    Key.DirectionCenter, Key.Enter, Key.Spacebar -> {
+                        if (row == buttonRow) {
+                            if (col == 0) onCancel() else onSave()
+                        } else {
+                            activate(row, col)
+                        }
+                        true
+                    }
+                    // Backspace is handled by the screen (cancels the panel);
+                    // let it through.
+                    Key.Backspace -> false
+                    else -> true
+                }
+            }
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SubtitleChipsPanelRow(
+                label = Strings.playerSubtitleSize,
+                options = listOf(
+                    Strings.playerSubtitleOptSmall,
+                    Strings.playerSubtitleOptNormal,
+                    Strings.playerSubtitleOptLarge,
+                    Strings.playerSubtitleOptXl
+                ),
+                selectedIndex = SubtitleSizeChoices.indexOf(style.textSizeSp).coerceAtLeast(0),
+                highlightedIndex = if (row == 0) col else -1,
+                onPick = { onChange(style.copy(textSizeSp = SubtitleSizeChoices[it])) }
+            )
+            SubtitleChipsPanelRow(
+                label = Strings.playerSubtitleWeight,
+                options = listOf(Strings.playerSubtitleOptNormal, Strings.playerSubtitleOptBold),
+                selectedIndex = if (style.bold) 1 else 0,
+                highlightedIndex = if (row == 1) col else -1,
+                onPick = { onChange(style.copy(bold = it == 1)) }
+            )
+            SubtitleChipsPanelRow(
+                label = Strings.playerSubtitleColor,
+                options = listOf(
+                    Strings.playerSubtitleOptWhite,
+                    Strings.playerSubtitleOptYellow,
+                    Strings.playerSubtitleOptCyan,
+                    Strings.playerSubtitleOptGreen,
+                    Strings.playerSubtitleOptOrange,
+                    Strings.playerSubtitleOptPink,
+                    Strings.playerSubtitleOptLightBlue
+                ),
+                selectedIndex = SubtitleStyle.ColorOptions.indexOf(style.colorRgb).coerceAtLeast(0),
+                highlightedIndex = if (row == 2) col else -1,
+                onPick = { onChange(style.copy(colorRgb = SubtitleStyle.ColorOptions[it])) }
+            )
+            SubtitleSliderPanelRow(
+                label = Strings.playerSubtitleBackground,
+                valuePercent = style.backgroundOpacityPercent,
+                highlighted = row == 3
+            )
+            SubtitleChipsPanelRow(
+                label = Strings.playerSubtitleEdge,
+                options = listOf(
+                    Strings.playerSubtitleOptNone,
+                    Strings.playerSubtitleOptShadow,
+                    Strings.playerSubtitleOptOutline
+                ),
+                selectedIndex = SubtitleEdgeChoices.indexOf(style.edge).coerceAtLeast(0),
+                highlightedIndex = if (row == 4) col else -1,
+                onPick = { onChange(style.copy(edge = SubtitleEdgeChoices[it])) }
+            )
+            SubtitleSliderPanelRow(
+                // Only meaningful for Shadow/Outline; show it regardless.
+                label = Strings.playerSubtitleStrength,
+                valuePercent = style.edgeStrengthPercent,
+                highlighted = row == 5
+            )
+            SubtitleSliderPanelRow(
+                label = Strings.playerSubtitleOffset,
+                // Offset is 0..30% of height; show it on a 0..100 slider.
+                valuePercent = (style.bottomOffsetPercent * 100 / 30).coerceIn(0, 100),
+                highlighted = row == 6
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SubtitlePanelChip(
+                    label = Strings.playerSubtitleCancel,
+                    highlighted = row == buttonRow && col == 0,
+                    onClick = onCancel
+                )
+                SubtitlePanelChip(
+                    label = Strings.playerSubtitleSave,
+                    highlighted = row == buttonRow && col == 1,
+                    onClick = onSave
+                )
+            }
+        }
+    }
+}
+
+/** One label + horizontally-scrollable chip row of the subtitle panel. */
+@Composable
+private fun SubtitleChipsPanelRow(
+    label: String,
+    options: List<String>,
+    selectedIndex: Int,
+    highlightedIndex: Int,
+    onPick: (Int) -> Unit
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall,
+            color = Color.White.copy(alpha = 0.7f),
+            modifier = Modifier.width(110.dp)
+        )
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            options.forEachIndexed { index, option ->
+                val highlighted = index == highlightedIndex
+                val current = index == selectedIndex
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            when {
+                                highlighted -> MaterialTheme.colorScheme.primary
+                                current -> Color.White.copy(alpha = 0.25f)
+                                else -> Color.White.copy(alpha = 0.15f)
+                            }
+                        )
+                        .clickable { onPick(index) }
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = option,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Color.White,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** One percent slider row of the subtitle panel (scrubbed with Left/Right). */
+@Composable
+private fun SubtitleSliderPanelRow(
+    label: String,
+    valuePercent: Int,
+    highlighted: Boolean
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall,
+            color = Color.White.copy(alpha = 0.7f),
+            modifier = Modifier.width(110.dp)
+        )
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(6.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(Color.White.copy(alpha = 0.25f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(valuePercent / 100f)
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(if (highlighted) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.6f))
+            )
+        }
+        Text(
+            text = "$valuePercent%",
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White,
+            textAlign = TextAlign.End,
+            modifier = Modifier.width(44.dp)
+        )
+    }
+}
+
+/** A Cancel/Save chip of the subtitle panel. */
+@Composable
+private fun SubtitlePanelChip(
+    label: String,
+    highlighted: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (highlighted) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.15f))
+            .clickable { onClick() }
+            .padding(horizontal = 18.dp, vertical = 8.dp)
+    ) {
+        Text(text = label, style = MaterialTheme.typography.titleSmall, color = Color.White, maxLines = 1)
+    }
+}

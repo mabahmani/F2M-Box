@@ -13,6 +13,8 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import androidx.compose.ui.unit.dp
 import com.mab.f2mbox.desktop.platform.desktopStores
+import com.mab.f2mbox.desktop.platform.subtitleStyleStore
+import com.mab.f2mbox.desktop.ui.common.LocalSubtitleStyleStore
 import com.mab.f2mbox.desktop.ui.common.LocalWatched
 import com.mab.f2mbox.desktop.ui.theme.F2MBoxTheme
 import com.mab.f2mbox.scraper.BaseUrlResolver
@@ -42,6 +44,7 @@ fun main() {
     // as the Android Activity.onCreate does.
     HtmlCache.clear()
     val (keyValueStore, watchedStorage) = desktopStores()
+    val subtitleStyles = subtitleStyleStore()
     // KeyValueStorage adapts the string-map store to the resolver's
     // Storage contract, exactly like MainActivity does on Android.
     val resolver = BaseUrlResolver(BaseUrlResolver.KeyValueStorage(keyValueStore))
@@ -66,11 +69,13 @@ fun main() {
                 // every layout mirrors (rows flow right-to-left, start = right).
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     CompositionLocalProvider(LocalWatched provides watchedStorage) {
-                        Surface(
-                            modifier = Modifier.fillMaxSize(),
-                            color = MaterialTheme.colorScheme.background
-                        ) {
-                            DesktopApp(scraper = scraper)
+                        CompositionLocalProvider(LocalSubtitleStyleStore provides subtitleStyles) {
+                            Surface(
+                                modifier = Modifier.fillMaxSize(),
+                                color = MaterialTheme.colorScheme.background
+                            ) {
+                                DesktopApp(scraper = scraper)
+                            }
                         }
                     }
                 }

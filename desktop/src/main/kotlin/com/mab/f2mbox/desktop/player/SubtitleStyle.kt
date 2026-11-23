@@ -7,11 +7,16 @@ import kotlin.math.roundToInt
  * player's `SubtitleSettings`. Persisted through the desktop key-value
  * store (the SharedPreferences counterpart) as one encoded string.
  *
- * libvlc renders subtitles itself and reads its styling when the media
- * opens, so applying a style means re-preparing the media — see
- * [toMediaOptions] and `VlcPlayerEngine.applySubtitleStyle`. Styling
- * reaches plain-text subtitles; image-based tracks (PGS/ASS-rendered)
- * keep their own styling, same as VLC itself.
+ * libvlc's freetype text renderer reads its styling from the **global**
+ * libvlc configuration, not from per-media input options: passing these
+ * as `:opt=value` media options is silently ignored (verified with a
+ * paused on/off frame capture — the subtitle footprint was byte-identical
+ * with and without them). They only take effect as `--opt=value` process
+ * arguments handed to `libvlc_new` (the [VlcPlayerEngine]'s factory). So a
+ * style change means rebuilding the engine — see `VlcPlayerEngine` and the
+ * player screen's panel. Styling reaches plain-text subtitles;
+ * image-based tracks (PGS/ASS-rendered) keep their own styling, same as
+ * VLC itself.
  *
  * Option names/values verified against VLC 3 (`--full-help`):
  * `sub-text-scale` 10..500, `freetype-bold`, `freetype-color` (RGB int),
@@ -33,33 +38,39 @@ data class SubtitleStyle(
     enum class Edge { None, Shadow, Outline }
 
     /**
-     * The libvlc media options for this style. [videoHeightPx] scales the
-     * bottom offset (a fraction of the video height, as on Android) into
-     * `sub-margin` pixels; non-positive heights fall back to 1080.
+     * The libvlc **global** arguments for this style — the `--opt=value`
+     * form libvlc reads for the freetype renderer (per-media `:` options
+     * are ignored; see the class KDoc). [videoHeightPx] scales the bottom
+     * offset (a fraction of the video height, as on Android) into
+     * `sub-margin` pixels; non-positive heights fall back to 1080. The
+     * height is only known once media plays, so callers pass a sensible
+     * constant (the player uses 1080).
      */
-    fun toMediaOptions(videoHeightPx: Int): List<String> {
+    fun toVlcArgs(videoHeightPx: Int = 1080): List<String> {
         val height = if (videoHeightPx > 0) videoHeightPx else 1080
-        val edgeOptions = when (edge) {
+        val edgeArgs = when (edge) {
             Edge.None -> listOf(
-                ":freetype-outline-thickness=0",
-                ":freetype-shadow-opacity=0"
+                "--freetype-outline-thickness=0",
+                "--freetype-shadow-opacity=0"
             )
             Edge.Shadow -> listOf(
-                ":freetype-outline-thickness=0",
-                ":freetype-shadow-opacity=${opacity255(edgeStrengthPercent)}"
+                "--freetype-outline-thickness=0",
+                "--freetype-shadow-opacity=${opacity255(edgeStrengthPercent)}"
             )
             Edge.Outline -> listOf(
-                ":freetype-outline-thickness=4",
-                ":freetype-outline-opacity=${opacity255(edgeStrengthPercent)}"
+                "--freetype-outline-thickness=4",
+                "--freetype-outline-opacity=${opacity255(edgeStrengthPercent)}"
             )
         }
         return listOf(
-            ":sub-text-scale=${(textSizeSp / 20f * 100f).roundToInt().coerceIn(10, 500)}",
-            ":freetype-bold=${if (bold) 1 else 0}",
-            ":freetype-color=${colorRgb and 0xFFFFFF}",
-            ":freetype-background-opacity=${opacity255(backgroundOpacityPercent)}"
-        ) + edgeOptions + listOf(
-            ":sub-margin=${(bottomOffsetPercent / 100f * height).roundToInt()}"
+            "--sub-text-scale=${(textSizeSp / 20f * 100f).roundToInt().coerceIn(10, 500)}",
+            // A boolean flag has no "=0" form: it is on as `--freetype-bold`
+            // and off as `--no-freetype-bold`.
+            if (bold) "--freetype-bold" else "--no-freetype-bold",
+            "--freetype-color=${colorRgb and 0xFFFFFF}",
+            "--freetype-background-opacity=${opacity255(backgroundOpacityPercent)}"
+        ) + edgeArgs + listOf(
+            "--sub-margin=${(bottomOffsetPercent / 100f * height).roundToInt()}"
         )
     }
 
