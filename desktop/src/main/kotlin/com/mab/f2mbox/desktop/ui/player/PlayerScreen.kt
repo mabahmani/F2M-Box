@@ -191,6 +191,14 @@ fun PlayerScreen(
     // Layered Back: cancel a menu, then hide the controls, then leave —
     // the desktop port of the Android BackHandler chain. ESC reaches it
     // through the app root's escHandler; Backspace is handled in-screen.
+    // Mouse behavior over the video surface: movement/click reveals the
+    // overlay (and resets the auto-hide timer). Read/written from the AWT
+    // dispatch thread — the surface's listener calls this.
+    val mouseWake: () -> Unit = {
+        controlsVisible = true
+        interaction++
+    }
+
     val layeredBack: () -> Unit = {
         when {
             speedMenuVisible || subtitleMenuVisible || audioMenuVisible -> {
@@ -240,6 +248,18 @@ fun PlayerScreen(
             while (!playPauseFocus.requestFocus()) delay(50)
         } else {
             while (!surfaceFocus.requestFocus()) delay(50)
+        }
+    }
+
+    // Auto-hide: the overlay goes away after [ControlsHideDelayMs] without
+    // interaction (the Android port's cadence). Every interaction bumps
+    // [interaction], restarting this timer.
+    LaunchedEffect(interaction) {
+        if (controlsVisible) {
+            delay(ControlsHideDelayMs)
+            if (!speedMenuVisible && !subtitleMenuVisible && !audioMenuVisible) {
+                controlsVisible = false
+            }
         }
     }
 
@@ -331,10 +351,33 @@ fun PlayerScreen(
         ) {
             // The libvlc video surface (callback renderer's JComponent).
             // Non-focusable so key events stay in the Compose focus system.
+            // Mouse wake: with interop blending the interop view catches
+            // the mouse events first (macOS/Windows), so a plain AWT
+            // listener on the surface — not Compose pointerInput — is the
+            // reliable path to reveal/toggle the controls.
             currentEngine?.let { e ->
                 SwingPanel(
                     factory = {
-                        e.componentSurface.apply { isFocusable = false }
+                        e.componentSurface.apply {
+                            isFocusable = false
+                            val wake = object : java.awt.event.MouseAdapter() {
+                                override fun mouseMoved(event: java.awt.event.MouseEvent) {
+                                    mouseWake()
+                                }
+
+                                override fun mouseClicked(event: java.awt.event.MouseEvent) {
+                                    // Single click reveals (or keeps up) the
+                                    // overlay; double click leaves the screen.
+                                    if (event.clickCount == 2) {
+                                        layeredBack()
+                                    } else {
+                                        mouseWake()
+                                    }
+                                }
+                            }
+                            addMouseListener(wake)
+                            addMouseMotionListener(wake)
+                        }
                     },
                     modifier = Modifier.fillMaxSize()
                 )

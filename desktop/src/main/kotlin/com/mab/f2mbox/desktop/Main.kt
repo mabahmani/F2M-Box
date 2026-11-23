@@ -25,6 +25,14 @@ import com.mab.f2mbox.scraper.ScraperLog
  * is RTL end to end, exactly like the TV build.
  */
 fun main() {
+    // Compose elements must draw ABOVE Swing interop content (the video
+    // surface's SwingPanel) — without this the video sits on top of the
+    // entire Compose layer and the player controls are invisible under it.
+    // macOS caveat (per CMP docs): the interop view may still catch mouse
+    // events even when visually below Compose content; the player screen
+    // handles that by keeping key/wheel interaction paths authoritative.
+    System.setProperty("compose.interop.blending", "true")
+
     // Console mirror of the scraper log: the desktop equivalent of the
     // Android build's logcat mirroring in ScraperLog.log.
     ScraperLog.mirror = { message -> println("[F2MScraper] $message") }
