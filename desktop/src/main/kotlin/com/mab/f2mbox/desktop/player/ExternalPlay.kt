@@ -1,7 +1,5 @@
 package com.mab.f2mbox.desktop.player
 
-import java.io.IOException
-
 /**
  * Hands a media url to the OS's default handler — the instant playback
  * path for machines without VLC, offered from the player screen's setup
@@ -22,15 +20,19 @@ object ExternalPlay {
     /**
      * The per-OS open command for [url], or `null` when [osName] is not
      * recognized (open then does nothing).
+     *
+     * No branch routes through a shell: `ProcessBuilder` quotes arguments
+     * but does not escape shell metacharacters, and a target that re-parses
+     * the joined command line (`cmd /c start …`) would split a url bearing
+     * `&` — ordinary in query strings — and let a hostile url execute
+     * commands. Windows therefore goes through `rundll32`, the standard
+     * non-shell way to invoke the ShellExecute handler.
      */
     fun commandFor(osName: String, url: String): List<String>? {
         val os = osName.lowercase()
         return when {
             os.contains("mac") -> listOf("open", url)
-            os.contains("win") ->
-                // `start` treats its first quoted argument as a window
-                // title, hence the empty title before the url.
-                listOf("cmd", "/c", "start", "", url)
+            os.contains("win") -> listOf("rundll32", "url.dll,FileProtocolHandler", url)
             os.contains("linux") || os.contains("nix") || os.contains("nux") ->
                 listOf("xdg-open", url)
             else -> null
@@ -49,11 +51,11 @@ object ExternalPlay {
         commandFor(osName, url)?.let(run)
     }
 
-    /** Starts the command, swallowing [IOException] (missing command, …). */
+    /** Starts the command, swallowing any failure (missing command, security manager, …). */
     fun defaultRun(command: List<String>) {
         try {
             ProcessBuilder(command).start()
-        } catch (_: IOException) {
+        } catch (_: Exception) {
             // Best-effort hand-off; the setup card stays on screen.
         }
     }
