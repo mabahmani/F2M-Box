@@ -53,6 +53,39 @@ app/build/outputs/apk/release/F2MBox-TV-release.apk
 
 ---
 
+## 🖥 Desktop (macOS / Windows / Linux)
+
+The same Kotlin codebase also ships as a desktop app (branch `desktop-kmp`), built with **Compose Multiplatform** on the shared scraper core (`:shared`). UI is RTL, mouse and keyboard both work (ESC = Back), and playback runs on **libVLC (vlcj)** instead of ExoPlayer.
+
+### Build & run (dev)
+
+| Task | Command |
+| --- | --- |
+| Run from source | `./gradlew :desktop:run` |
+| Tests | `./gradlew :desktop:test` |
+| Package for the current OS (DMG/MSI/EXE/DEB) | `./gradlew :desktop:packageDistributionForCurrentOS` |
+
+Prerequisites for dev-run:
+- JDK 17+ (Android Studio's bundled JBR works for `run`; **packaging needs a full JDK with `jpackage`**, e.g. `brew install openjdk@21` — auto-detected).
+- **The player needs VLC (native libvlc) on the machine** for dev-run: macOS `brew install --cask vlc` or the VLC.app bundle; Linux `apt install vlc`; Windows: install the VLC player. Everything else (browse, search, detail pages) runs without it and shows an install hint instead. Bundling libvlc into the installers is a planned follow-up.
+
+### Installing the DMG (macOS, unsigned)
+
+The macOS build is **unsigned** (no Apple Developer account), so Gatekeeper complains on first launch. Either:
+
+- **Terminal (simplest):** `xattr -cr /Applications/F2MBox.app` (or point it at the app wherever you moved it), or
+- **System Settings → Privacy & Security**, scroll to the blocked-app notice, and click **Open Anyway**.
+
+On Windows the SmartScreen prompt works the same way: *More info → Run anyway*.
+
+### Desktop parity notes
+
+- Full parity: home, search, listings, detail, person, logs, and in-app playback (video in-window with seek/speed/audio/subtitle-track menus).
+- Cut for desktop v1: the subtitle **styling** panel (libvlc renders the chosen subtitle track itself); Android-specific crash log viewer.
+- State lives under `~/Library/Application Support/F2MBox` (macOS), `%APPDATA%\F2MBox` (Windows), `~/.local/share/F2MBox` (Linux).
+
+---
+
 ## 📦 Release & Tagging Guide
 
 ### 1. Update Version in Gradle

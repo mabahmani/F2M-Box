@@ -16,6 +16,7 @@ vlcj = "4.8.3"
 jsoup = "1.18.3"
 coroutines = "1.10.2"
 composeDesktop = "1.12.2"
+cmpMaterial3 = "1.9.0"
 junit = "4.13.2"
 
 [libraries]
@@ -41,6 +42,9 @@ okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhtt
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 cmp-components-resources = { group = "org.jetbrains.compose.components", name = "components-resources", version.ref = "composeDesktop" }
+cmp-foundation = { group = "org.jetbrains.compose.foundation", name = "foundation", version.ref = "composeDesktop" }
+cmp-material3 = { group = "org.jetbrains.compose.material3", name = "material3", version.ref = "cmpMaterial3" }
+cmp-material-icons-extended = { group = "org.jetbrains.compose.material", name = "material-icons-extended", version = "1.7.3" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
