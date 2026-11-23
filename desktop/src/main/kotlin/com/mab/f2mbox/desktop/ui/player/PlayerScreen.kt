@@ -44,7 +44,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -84,7 +83,10 @@ import com.mab.f2mbox.desktop.player.ExternalPlay
 import com.mab.f2mbox.desktop.player.VlcDiscovery
 import com.mab.f2mbox.desktop.player.VlcPlayerEngine
 import com.mab.f2mbox.desktop.ui.common.LocalSubtitleStyleStore
+import java.awt.BorderLayout
 import java.util.Locale
+import javax.swing.JPanel
+import javax.swing.SwingUtilities
 import kotlinx.coroutines.delay
 
 private const val SeekStepMs = 10_000L
@@ -170,6 +172,13 @@ fun PlayerScreen(
     var resumeAtMs by remember { mutableLongStateOf(0L) }
     var styleRevision by remember { mutableIntStateOf(0) }
 
+    // One persistent AWT host for the libvlc video surface. Tearing down and
+    // recreating the Compose<->AWT interop (as keying a SwingPanel by engine
+    // does) leaves a black frame and can strand playback; instead we mount
+    // this host once and swap the engine's surface inside it when the engine
+    // is rebuilt (e.g. after saving subtitle styling).
+    val videoHost = remember { JPanel(BorderLayout()) }
+
     DisposableEffect(url, retryNonce, styleRevision) {
         val startAt = resumeAtMs
         val created = VlcPlayerEngine(
@@ -201,7 +210,20 @@ fun PlayerScreen(
             },
         )
         engine = created
-        onDispose { created.release() }
+        onDispose {
+            // Detach this engine's surface from the host before releasing it,
+            // so a style-change rebuild never shows (or releases under) a
+            // surface that is still mounted.
+            val surface = created.componentSurface
+            SwingUtilities.invokeLater {
+                if (surface.parent === videoHost) {
+                    videoHost.remove(surface)
+                    videoHost.revalidate()
+                    videoHost.repaint()
+                }
+            }
+            created.release()
+        }
     }
 
     var controlsVisible by remember { mutableStateOf(true) }
@@ -244,6 +266,41 @@ fun PlayerScreen(
     DisposableEffect(Unit) {
         registerEsc(layeredBack)
         onDispose { registerEsc(null) }
+    }
+
+    // Mount the current engine's surface into the stable host and keep it in
+    // sync as the engine is rebuilt. Interop is created once (below); only
+    // the child AWT component swaps here.
+    DisposableEffect(engine) {
+        val surface = engine?.componentSurface
+        val wake: java.awt.event.MouseAdapter? = surface?.let {
+            object : java.awt.event.MouseAdapter() {
+                override fun mouseMoved(event: java.awt.event.MouseEvent) = mouseWake()
+
+                override fun mouseClicked(event: java.awt.event.MouseEvent) {
+                    // Single click reveals (or keeps up) the overlay; double
+                    // click leaves the screen.
+                    if (event.clickCount == 2) layeredBack() else mouseWake()
+                }
+            }
+        }
+        if (surface != null && wake != null) {
+            surface.isFocusable = false
+            surface.addMouseListener(wake)
+            surface.addMouseMotionListener(wake)
+            SwingUtilities.invokeLater {
+                videoHost.removeAll()
+                videoHost.add(surface, BorderLayout.CENTER)
+                videoHost.revalidate()
+                videoHost.repaint()
+            }
+        }
+        onDispose {
+            if (surface != null && wake != null) {
+                surface.removeMouseListener(wake)
+                surface.removeMouseMotionListener(wake)
+            }
+        }
     }
 
     // Panel actions. Save persists the draft and rebuilds the engine (at the
@@ -403,41 +460,17 @@ fun PlayerScreen(
                     false
                 }
         ) {
-            // The libvlc video surface (callback renderer's JComponent).
-            // Non-focusable so key events stay in the Compose focus system.
-            // Mouse wake: with interop blending the interop view catches
-            // the mouse events first (macOS/Windows), so a plain AWT
-            // listener on the surface — not Compose pointerInput — is the
-            // reliable path to reveal/toggle the controls.
-            currentEngine?.let { e ->
-                key(e) {
-                    SwingPanel(
-                        factory = {
-                            e.componentSurface.apply {
-                                isFocusable = false
-                                val wake = object : java.awt.event.MouseAdapter() {
-                                    override fun mouseMoved(event: java.awt.event.MouseEvent) {
-                                        mouseWake()
-                                    }
-
-                                    override fun mouseClicked(event: java.awt.event.MouseEvent) {
-                                        // Single click reveals (or keeps up) the
-                                        // overlay; double click leaves the screen.
-                                        if (event.clickCount == 2) {
-                                            layeredBack()
-                                        } else {
-                                            mouseWake()
-                                        }
-                                    }
-                                }
-                                addMouseListener(wake)
-                                addMouseMotionListener(wake)
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            }
+            // One persistent AWT host for the libvlc video surface. It is
+            // mounted once (compose interop is stable across engine
+            // rebuilds); the engine's surface is added/swapped inside it by
+            // the DisposableEffect above. Mouse handling lives on the
+            // surface itself (with interop blending the interop view catches
+            // mouse events first, so an AWT listener — not Compose
+            // pointerInput — is the reliable path).
+            SwingPanel(
+                factory = { videoHost },
+                modifier = Modifier.fillMaxSize()
+            )
 
             if (!everPlayed && errorKind == null) {
                 CircularProgressIndicator(
