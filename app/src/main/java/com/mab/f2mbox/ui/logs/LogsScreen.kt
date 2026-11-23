@@ -3,6 +3,7 @@
 package com.mab.f2mbox.ui.logs
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,7 +25,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
@@ -52,9 +53,8 @@ import com.mab.f2mbox.scraper.ScraperLog
 /**
  * Full-screen viewer of the scraper engine's log ([ScraperLog]): every
  * connect attempt, fetch, cache hit and parse event of this session with
- * its timestamp. Follows the tail while the user sits at the bottom;
- * scrolling up to inspect older lines pauses the follow. Reached from the
- * logs icon button beside the home screen's clear-cache button.
+ * its timestamp. Auto-scrolls to the latest log line when updated, and allows
+ * D-Pad / touch scrolling through all historical log items.
  */
 @Composable
 fun LogsScreen(
@@ -69,16 +69,11 @@ fun LogsScreen(
     // until the user clears it — the TV's answer to logcat.
     var lastCrash by remember { mutableStateOf(CrashReporter.pending(context)) }
 
-    // True while the end of the log is on screen, so new lines keep the
-    // view pinned to the tail unless the user scrolled up to read.
-    val atTail by remember {
-        derivedStateOf {
-            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()
-            last == null || last.index >= lines.lastIndex - 1
-        }
-    }
+    // Auto-scroll to the bottom (last log) whenever new lines are added
     LaunchedEffect(lines.size) {
-        if (atTail && lines.isNotEmpty()) listState.scrollToItem(lines.lastIndex)
+        if (lines.isNotEmpty()) {
+            listState.scrollToItem(lines.lastIndex)
+        }
     }
     LaunchedEffect(Unit) {
         backFocus.requestFocus()
@@ -135,6 +130,7 @@ fun LogsScreen(
                         .padding(12.dp)
                         .heightIn(max = 280.dp)
                         .verticalScroll(rememberScrollState())
+                        .focusable()
                 ) {
                     Text(
                         text = stringResource(R.string.logs_last_crash),
@@ -168,16 +164,21 @@ fun LogsScreen(
                         .padding(horizontal = 24.dp, vertical = 8.dp)
                 ) {
                     itemsIndexed(lines) { index, line ->
+                        var isFocused by remember { mutableStateOf(false) }
                         Text(
                             text = line,
                             style = MaterialTheme.typography.labelSmall,
                             fontFamily = FontFamily.Monospace,
-                            color = if (index == lines.lastIndex) {
+                            color = if (isFocused || index == lines.lastIndex) {
                                 MaterialTheme.colorScheme.onSurface
                             } else {
                                 MaterialTheme.colorScheme.onSurfaceVariant
                             },
-                            modifier = Modifier.padding(vertical = 2.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onFocusChanged { isFocused = it.isFocused }
+                                .focusable()
+                                .padding(vertical = 2.dp)
                         )
                     }
                 }
