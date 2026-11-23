@@ -149,27 +149,31 @@ fun PlayerScreen(
     var playbackSpeed by remember { mutableFloatStateOf(1f) }
 
     DisposableEffect(url, retryNonce) {
-        val created = VlcPlayerEngine(url) { event ->
-            when (event) {
-                is EngineEvent.Playing -> {
-                    isPlaying = true
-                    everPlayed = true
+        val created = VlcPlayerEngine(
+            url = url,
+            extraArgs = emptyList(),
+            listener = { event ->
+                when (event) {
+                    is EngineEvent.Playing -> {
+                        isPlaying = true
+                        everPlayed = true
+                    }
+                    is EngineEvent.Paused -> isPlaying = false
+                    is EngineEvent.Position -> {
+                        positionMs = event.ms.coerceAtLeast(0L)
+                        durationMs = event.durationMs.takeIf { it > 0 } ?: 0L
+                    }
+                    is EngineEvent.Rate -> playbackSpeed = event.rate
+                    is EngineEvent.TracksReady -> {
+                        audioTracks = event.audio.filter { it.id >= 0 }
+                        subtitleTracks = event.subtitles.filter { it.id >= 0 }
+                        currentAudioId = event.currentAudio
+                        currentSubtitleId = event.currentSubtitle
+                    }
+                    is EngineEvent.Error -> errorKind = event.kind
                 }
-                is EngineEvent.Paused -> isPlaying = false
-                is EngineEvent.Position -> {
-                    positionMs = event.ms.coerceAtLeast(0L)
-                    durationMs = event.durationMs.takeIf { it > 0 } ?: 0L
-                }
-                is EngineEvent.Rate -> playbackSpeed = event.rate
-                is EngineEvent.TracksReady -> {
-                    audioTracks = event.audio.filter { it.id >= 0 }
-                    subtitleTracks = event.subtitles.filter { it.id >= 0 }
-                    currentAudioId = event.currentAudio
-                    currentSubtitleId = event.currentSubtitle
-                }
-                is EngineEvent.Error -> errorKind = event.kind
-            }
-        }
+            },
+        )
         engine = created
         onDispose { created.release() }
     }
@@ -325,12 +329,12 @@ fun PlayerScreen(
                     false
                 }
         ) {
-            // The libvlc video surface. Non-focusable so key events stay
-            // in the Compose focus system.
+            // The libvlc video surface (callback renderer's JComponent).
+            // Non-focusable so key events stay in the Compose focus system.
             currentEngine?.let { e ->
                 SwingPanel(
                     factory = {
-                        e.component.apply { isFocusable = false }
+                        e.componentSurface.apply { isFocusable = false }
                     },
                     modifier = Modifier.fillMaxSize()
                 )

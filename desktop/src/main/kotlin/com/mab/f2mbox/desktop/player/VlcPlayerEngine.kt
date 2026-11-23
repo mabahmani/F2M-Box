@@ -5,8 +5,9 @@ import uk.co.caprica.vlcj.media.TrackType
 import uk.co.caprica.vlcj.player.base.MediaPlayer
 import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
 import uk.co.caprica.vlcj.player.base.TrackDescription
-import uk.co.caprica.vlcj.player.component.EmbeddedMediaPlayerComponent
+import uk.co.caprica.vlcj.player.component.CallbackMediaPlayerComponent
 import uk.co.caprica.vlcj.player.embedded.EmbeddedMediaPlayer
+import javax.swing.JComponent
 
 /** One selectable audio/subtitle track of the playing media. */
 data class TrackInfo(val id: Int, val label: String)
@@ -72,13 +73,28 @@ internal class EngineEventBus(private val listener: (EngineEvent) -> Unit) {
 class VlcPlayerEngine(
     url: String,
     listener: (EngineEvent) -> Unit,
+    /** Extra libvlc args; used by the diagnostic harnesses to get native logs. */
+    extraArgs: List<String> = emptyList(),
 ) {
 
     private val bus = EngineEventBus(listener)
 
-    private val factory = MediaPlayerFactory("--avcodec-hw=any")
+    private val factory = MediaPlayerFactory(
+        *(listOf("--avcodec-hw=any") + extraArgs).toTypedArray(),
+    )
 
-    val component: EmbeddedMediaPlayerComponent = EmbeddedMediaPlayerComponent()
+    /**
+     * Callback rendering (memory-video): libvlc delivers decoded frames to
+     * a [CallbackMediaPlayerComponent] that vlcj paints with Java2D — no
+     * native-surface attachment. The alternative (the embedded component's
+     * NSView attachment via `OsxComponentId`) is broken on modern JDKs:
+     * the reflection chain asks the AWT peer for `getViewPtr`, which
+     * `sun.lwawt` peers no longer expose, so libvlc renders nowhere and
+     * the window stays black while audio plays.
+     */
+    val component: CallbackMediaPlayerComponent = CallbackMediaPlayerComponent()
+
+    val componentSurface: JComponent = component.videoSurfaceComponent()
 
     private val player: EmbeddedMediaPlayer = component.mediaPlayer()
 
@@ -149,11 +165,11 @@ class VlcPlayerEngine(
     private fun playWhenDisplayable(url: String) {
         Thread({
             var waited = 0
-            while (!released && !component.isDisplayable && waited < 10_000) {
+            while (!released && !componentSurface.isDisplayable && waited < 10_000) {
                 Thread.sleep(50)
                 waited += 50
             }
-            if (!released && component.isDisplayable) {
+            if (!released && componentSurface.isDisplayable) {
                 javax.swing.SwingUtilities.invokeLater {
                     if (!released) player.media().play(url)
                 }
