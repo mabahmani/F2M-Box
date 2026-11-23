@@ -24,6 +24,13 @@ object ScraperLog {
 
     private val _lines = MutableStateFlow<List<String>>(emptyList())
 
+    /**
+     * Optional console mirror for every line: desktop points this at
+     * `println` (its logcat equivalent), Android leaves it null so the
+     * Logcat mirror stays the only sink.
+     */
+    var mirror: ((String) -> Unit)? = null
+
     /** Newest last; UI shows the tail of this list. */
     val lines: StateFlow<List<String>> = _lines
 
@@ -35,6 +42,7 @@ object ScraperLog {
             while (buffer.size > MAX_ENTRIES) buffer.removeFirst()
             _lines.value = buffer.toList()
         }
+        mirror?.invoke(message)
     }
 
     /** Drops the buffer; called when a new connect attempt starts. */
