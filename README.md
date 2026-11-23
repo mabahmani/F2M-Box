@@ -74,6 +74,10 @@ Prerequisites for dev-run:
 
 `prepareVlc` downloads VideoLAN's official VLC **3.0.23** build for the host OS and architecture (macOS arm64 / intel64, Windows x64), verifies its SHA-256, and stages only `lib` + `plugins` (plus the LGPL license) into the app image. At runtime the app points `jna.library.path` at that copy, so **no system VLC is required**. Because packaging re-signs the native dylibs, libVLC rebuilds its plugin cache on the first launch only (roughly 5–15 s); later launches are instant. Linux packages currently use the system libVLC (no official relocatable build is bundled). libVLC is LGPL-2.1-or-later — attribution and license text ship in `resources/vlc/` (`NOTICE.txt`, `COPYING.LGPL-2.1`).
 
+### Subtitles
+
+Text subtitle tracks embedded in the media (the same tracks the Android build renders) show in-app; the CC button in the player opens the Off/track menu. This requires **software decoding**: libVLC's memory (callback) video output can only blend subtitle bitmaps onto a software I420 picture, not the decoder-native CVPX/NV12 frames that VideoToolbox/D3D11VA produce (VLC logs `no matching alpha blending routine (chroma: YUVA -> CVPN)` and silently drops them). The app therefore forces the avcodec decoder (`--codec=avcodec --avcodec-hw=none`), trading GPU decoding for working subtitles while keeping the lightweight video surface the Compose controls draw on top of. Image-based subtitle tracks (PGS/VobSub) are not rendered on this path.
+
 ### Installing the DMG (macOS, unsigned)
 
 The macOS build is **unsigned** (no Apple Developer account), so Gatekeeper complains on first launch. Either:

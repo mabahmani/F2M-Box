@@ -56,9 +56,11 @@ internal class EngineEventBus(private val listener: (EngineEvent) -> Unit) {
  * The desktop playback engine: vlcj (libVLC) behind the [EngineEvent]
  * vocabulary the player screen consumes.
  *
- * Runs the media directly — no RTSP indirection — with hardware decoding
- * left to libvlc (`avcodec-hw=any`), mirroring the Android player's
- * `ExoPlayer`-defaults stance.
+ * Runs the media directly — no RTSP indirection. Decoding is forced to
+ * software so libVLC can composite subtitles into the memory (callback)
+ * frames — see [decodeArgs]; the hardware decoders hand libVLC
+ * decoder-native (CVPX/NV12) frames that its subtitle blender cannot draw
+ * onto, so subtitles would silently disappear.
  *
  * Error classification is heuristic: libvlc reports a bare error event
  * with no kind. An error before the first `playing` event means the
@@ -89,7 +91,27 @@ class VlcPlayerEngine(
 
     private val bus = EngineEventBus(listener)
 
-    private val factory = createFactory(nativeLocation, listOf("--avcodec-hw=any") + extraArgs)
+    /**
+     * libVLC must decode in software for subtitles to reach the callback
+     * surface.
+     *
+     * On the hardware path (VideoToolbox on macOS, D3D11VA/DXVA2 on Windows)
+     * libVLC hands the subtitle bitmap (a YUVA subpicture) to its alpha-blend
+     * filter against the decoder's native CVPX/NV12 picture, which has no
+     * blend routine — it logs
+     * `no matching alpha blending routine (chroma: YUVA -> CVPN)` and the
+     * subtitle never reaches the frame (verified with a paused A/B capture:
+     * with hardware decode the subtitle region is pixel-identical with the
+     * track on or off). The software avcodec decoder produces an I420
+     * picture, which *does* have a YUVA->I420 blender, so subtitles composite
+     * into the callback frame. Forcing it globally (`--codec=avcodec` also
+     * overrides macOS's separate `videotoolbox` module) costs CPU decoding,
+     * but it is the only way to show subtitles without a native video surface
+     * that would sit above — and hide — the Compose overlay controls.
+     */
+    private val decodeArgs = listOf("--codec=avcodec", "--avcodec-hw=none") + extraArgs
+
+    private val factory = createFactory(nativeLocation, decodeArgs)
 
     /**
      * Puts [location]'s directory at the front of `jna.library.path` so
@@ -114,14 +136,16 @@ class VlcPlayerEngine(
 
     /**
      * Callback rendering (memory-video): libvlc delivers decoded frames to
-     * a [CallbackMediaPlayerComponent] that vlcj paints with Java2D — no
-     * native-surface attachment. The alternative (the embedded component's
-     * NSView attachment via `OsxComponentId`) is broken on modern JDKs:
-     * the reflection chain asks the AWT peer for `getViewPtr`, which
-     * `sun.lwawt` peers no longer expose, so libvlc renders nowhere and
-     * the window stays black while audio plays.
+     * a [CallbackMediaPlayerComponent] that vlcj paints with Java2D — a
+     * *lightweight* surface, so the Compose chrome can draw on top of it.
+     * The embedded (native) component would render subtitles for free, but a
+     * heavyweight AWT surface always paints above lightweight/Compose content
+     * and would hide the controls, so we keep the callback surface and force
+     * software decoding instead (see [decodeArgs]) so libVLC can blend the
+     * subtitles into those frames itself.
      */
-    val component: CallbackMediaPlayerComponent = CallbackMediaPlayerComponent()
+    val component: CallbackMediaPlayerComponent =
+        CallbackMediaPlayerComponent(*decodeArgs.toTypedArray())
 
     val componentSurface: JComponent = component.videoSurfaceComponent()
 
@@ -276,7 +300,9 @@ class VlcPlayerEngine(
 
     fun release() {
         released = true
-        player.release()
+        // Releases both the media player and the component's own factory;
+        // [factory] is the separate instance created for native discovery.
+        component.release()
         factory.release()
         bus.reset()
     }
