@@ -3,7 +3,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Android%20TV%20%7C%20Mobile-green.svg)](https://developer.android.com/tv)
 [![Language](https://img.shields.io/badge/Language-Kotlin-blue.svg)](https://kotlinlang.org/)
 [![UI Toolkit](https://img.shields.io/badge/UI-Jetpack%20Compose-brightgreen.svg)](https://developer.android.com/jetpack/compose)
-[![Version](https://img.shields.io/badge/Release-v1.2-orange.svg)](https://github.com/mabahmani/F2MBox/releases)
+[![Version](https://img.shields.io/badge/Release-v1.3-orange.svg)](https://github.com/mabahmani/F2MBox/releases)
 
 **F2M Box** is a modern Android TV and mobile application built with Jetpack Compose for streaming movies, series, trailers, and cast information. Designed with focus-friendly D-Pad navigation for Smart TVs and Leanback devices, as well as touch support for mobile screens.
 
