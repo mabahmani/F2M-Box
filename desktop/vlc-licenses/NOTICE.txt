@@ -1,0 +1,30 @@
+F2M Box — bundled libVLC notice
+================================
+
+F2M Box's desktop player uses libVLC, the native playback engine of the VLC
+media player, through the vlcj Java bindings.
+
+libVLC is Copyright (C) the VideoLAN project and its contributors, and is
+distributed under the GNU Lesser General Public License, version 2.1 or later
+(LGPL-2.1-or-later). The full license text is in the accompanying file
+COPYING.LGPL-2.1.
+
+The unmodified libVLC binaries and their plugins bundled in this application
+are built and published by the VideoLAN project:
+
+    https://www.videolan.org/
+    https://download.videolan.org/pub/videolan/vlc/
+
+This application statically links no libVLC code and makes no modifications to
+the libVLC library. It loads the bundled binaries at runtime and configures
+VLC_PLUGIN_PATH to point at the bundled plugins directory; the library source
+is otherwise unmodified.
+
+Corresponding libVLC source code is available from VideoLAN at the URL above
+(for the exact version, see the application's release notes). VideoLAN's own
+written offer to provide source applies to the binaries as published there.
+If you need the source corresponding to the binaries bundled here, contact the
+F2M Box maintainers and it will be provided.
+
+VLC and libVLC are trademarks of the VideoLAN project. F2M Box is not
+affiliated with or endorsed by VideoLAN.

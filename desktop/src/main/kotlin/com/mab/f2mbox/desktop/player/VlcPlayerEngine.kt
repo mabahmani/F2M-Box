@@ -1,5 +1,6 @@
 package com.mab.f2mbox.desktop.player
 
+import java.io.File
 import uk.co.caprica.vlcj.factory.MediaPlayerFactory
 import uk.co.caprica.vlcj.media.TrackType
 import uk.co.caprica.vlcj.player.base.MediaPlayer
@@ -77,13 +78,39 @@ class VlcPlayerEngine(
     extraArgs: List<String> = emptyList(),
     /** Subtitle look applied to this playback; libvlc reads it when the media opens. */
     subtitleStyle: SubtitleStyle = SubtitleStyle.Default,
+    /**
+     * The native libVLC location chosen by [VlcDiscovery]. When present its
+     * directory becomes the top `jna.library.path` entry, so a packaged app
+     * loads the bundled libVLC (and vlcj derives VLC_PLUGIN_PATH from it);
+     * `null` keeps the legacy addSearchPath behaviour.
+     */
+    nativeLocation: VlcLocation? = null,
 ) {
 
     private val bus = EngineEventBus(listener)
 
-    private val factory = MediaPlayerFactory(
-        *(listOf("--avcodec-hw=any") + extraArgs).toTypedArray(),
-    )
+    private val factory = createFactory(nativeLocation, listOf("--avcodec-hw=any") + extraArgs)
+
+    /**
+     * Puts [location]'s directory at the front of `jna.library.path` so
+     * vlcj's native discovery loads this libVLC (bundled or system) and
+     * force-loads libvlccore first — the latter is what lets the rpath-less
+     * macOS dylibs resolve. Plugins come along via VLC_PLUGIN_PATH, which
+     * vlcj sets from the discovered lib directory.
+     */
+    private fun createFactory(location: VlcLocation?, args: List<String>): MediaPlayerFactory {
+        if (location != null) {
+            val dir = location.libDir.toString()
+            val existing = System.getProperty("jna.library.path")
+            System.setProperty(
+                "jna.library.path",
+                if (existing.isNullOrBlank()) dir else "$dir${File.pathSeparator}$existing",
+            )
+            com.sun.jna.NativeLibrary.addSearchPath("libvlc", dir)
+            com.sun.jna.NativeLibrary.addSearchPath("libvlccore", dir)
+        }
+        return MediaPlayerFactory(*args.toTypedArray())
+    }
 
     /**
      * Callback rendering (memory-video): libvlc delivers decoded frames to

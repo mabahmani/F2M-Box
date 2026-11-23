@@ -67,7 +67,12 @@ The same Kotlin codebase also ships as a desktop app (branch `desktop-kmp`), bui
 
 Prerequisites for dev-run:
 - JDK 17+ (Android Studio's bundled JBR works for `run`; **packaging needs a full JDK with `jpackage`**, e.g. `brew install openjdk@21` — auto-detected).
-- **The player needs VLC (native libvlc) on the machine** for dev-run: macOS `brew install --cask vlc` or the VLC.app bundle; Linux `apt install vlc`; Windows: install the VLC player. Everything else (browse, search, detail pages) runs without it — no prerequisites at all. On a machine without VLC the player screen shows an install hint plus a **"Play in system player"** button that hands the video url to the OS default handler (the default browser, which plays the site's direct MP4 links). Bundling libvlc into the installers remains a possible follow-up.
+- Packaging also downloads the official libVLC build for the host OS/arch (~50–80 MB; cached under `desktop/build/vlc-cache`) and needs network access.
+- The **packaged installers bundle libVLC**, so end users need nothing. A source run (`:desktop:run`) uses your installed VLC as before; run `./gradlew :desktop:prepareVlc` first if you want to exercise the bundled copy in dev. With no libVLC at all, the player screen still offers a **"Play in system player/browser"** fallback that hands the url to the OS default handler.
+
+### Bundled libVLC
+
+`prepareVlc` downloads VideoLAN's official VLC **3.0.23** build for the host OS and architecture (macOS arm64 / intel64, Windows x64), verifies its SHA-256, and stages only `lib` + `plugins` (plus the LGPL license) into the app image. At runtime the app points `jna.library.path` at that copy, so **no system VLC is required**. Because packaging re-signs the native dylibs, libVLC rebuilds its plugin cache on the first launch only (roughly 5–15 s); later launches are instant. Linux packages currently use the system libVLC (no official relocatable build is bundled). libVLC is LGPL-2.1-or-later — attribution and license text ship in `resources/vlc/` (`NOTICE.txt`, `COPYING.LGPL-2.1`).
 
 ### Installing the DMG (macOS, unsigned)
 

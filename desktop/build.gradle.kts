@@ -1,3 +1,8 @@
+import java.io.File
+import java.net.URI
+import java.security.MessageDigest
+import java.util.zip.ZipFile
+
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.jetbrains.compose)
@@ -43,6 +48,10 @@ compose.desktop {
         // Self-contained installers per OS. Unsigned: users on macOS must
         // clear the quarantine flag once (see README's desktop section).
         nativeDistributions {
+            // `prepareVlc` stages libVLC into build/appResources/vlc; this
+            // makes it part of the app image, reachable at runtime through
+            // the `compose.application.resources.dir` system property.
+            appResourcesRootDir.set(project.layout.buildDirectory.dir("appResources"))
             targetFormats(
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg,
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
@@ -71,4 +80,175 @@ compose {
     resources {
         packageOfResClass = "com.mab.f2mbox.desktop.res"
     }
+}
+
+// ---------------------------------------------------------------------------
+// Bundled libVLC
+//
+// Downloads the official VideoLAN build for the host OS/arch, verifies its
+// SHA-256, and stages only the runtime pieces (libs + plugins) into
+// build/appResources/vlc so the packaged app needs no system VLC. The
+// download is cached under build/vlc-cache; nothing binary is committed.
+//
+// Layout matters: vlcj discovers the libs through `jna.library.path` and then
+// derives VLC_PLUGIN_PATH from the discovery format per OS:
+//   macOS : <libdir>/../plugins   -> vlc/lib/{libvlc,libvlccore}.dylib + vlc/plugins
+//   Linux : <libdir>/vlc/plugins  (Linux is not bundled; system VLC is used)
+//   Windows: <libdir>/plugins     -> vlc/{libvlc,libvlccore}.dll + vlc/plugins
+// ---------------------------------------------------------------------------
+
+val vlcVersion = "3.0.23"
+
+class VlcArchive(val fileName: String, val url: String, val sha256: String)
+
+fun hostVlcArchive(): VlcArchive? {
+    val os = System.getProperty("os.name").lowercase()
+    val arch = System.getProperty("os.arch").lowercase()
+    val base = "https://download.videolan.org/pub/videolan/vlc/$vlcVersion"
+    return when {
+        os.contains("mac") ->
+            if (arch.contains("aarch64") || arch.contains("arm64")) {
+                VlcArchive(
+                    "vlc-$vlcVersion-arm64.dmg",
+                    "$base/macosx/vlc-$vlcVersion-arm64.dmg",
+                    "fc6fac08d87f538517d44aca0c5e7a244b67c8c4cb589bf478363a7315fd5e0d",
+                )
+            } else {
+                VlcArchive(
+                    "vlc-$vlcVersion-intel64.dmg",
+                    "$base/macosx/vlc-$vlcVersion-intel64.dmg",
+                    "ec01530ce69d849dd057fba8876e68ac39bf279dc28de4e9c04e4aec11fc98db",
+                )
+            }
+        os.contains("win") ->
+            VlcArchive(
+                "vlc-$vlcVersion-win64.zip",
+                "$base/win64/vlc-$vlcVersion-win64.zip",
+                "992d19dbd0b8a7cde9167d2f7780b1ef6f92acc8a71acfa736101a21f35181e1",
+            )
+        // Linux: no official relocatable build; fall back to the system libVLC.
+        else -> null
+    }
+}
+
+fun sha256Of(file: File): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    file.inputStream().use { input ->
+        val buffer = ByteArray(1 shl 16)
+        while (true) {
+            val read = input.read(buffer)
+            if (read < 0) break
+            digest.update(buffer, 0, read)
+        }
+    }
+    return digest.digest().joinToString("") { "%02x".format(it) }
+}
+
+/** Runs a native command, streaming its output, and fails the build on non-zero. */
+fun runCommand(command: List<String>) {
+    val process = ProcessBuilder(command).redirectErrorStream(true).start()
+    process.inputStream.copyTo(System.out)
+    val code = process.waitFor()
+    check(code == 0) { "Command failed ($code): ${command.joinToString(" ")}" }
+}
+
+/** Extracts lib/ + plugins/ from a macOS VLC dmg via ditto (preserves mtimes/symlinks). */
+fun stageFromDmg(dmg: File, stage: File) {
+    val mount = File(stage.parentFile, "vlc-dmg-mnt").apply { deleteRecursively(); mkdirs() }
+    try {
+        runCommand(listOf("hdiutil", "attach", "-nobrowse", "-readonly", "-mountpoint", mount.absolutePath, dmg.absolutePath))
+        val appMacOs = File(mount, "VLC.app/Contents/MacOS")
+        check(File(appMacOs, "lib").isDirectory) { "VLC.app layout unexpected in ${dmg.name}" }
+        // ditto keeps symlinks (libvlc.dylib -> libvlc.5.dylib) and mtimes.
+        // Note: jpackage re-signs the dylibs at package time, so VLC rebuilds
+        // its plugin cache once on first launch — expected and harmless.
+        runCommand(listOf("ditto", File(appMacOs, "lib").absolutePath, File(stage, "lib").absolutePath))
+        runCommand(listOf("ditto", File(appMacOs, "plugins").absolutePath, File(stage, "plugins").absolutePath))
+    } finally {
+        runCatching { runCommand(listOf("hdiutil", "detach", mount.absolutePath, "-quiet")) }
+        mount.deleteRecursively()
+    }
+}
+
+/** Extracts the two VLC DLLs + plugins/ from the Windows zip, preserving mtimes. */
+fun stageFromZip(zip: File, stage: File) {
+    ZipFile(zip).use { zf ->
+        val entries = zf.entries().asSequence().toList()
+        val libEntry = entries.firstOrNull {
+            !it.isDirectory && it.name.substringAfterLast('/').equals("libvlc.dll", ignoreCase = true)
+        } ?: error("libvlc.dll not found inside ${zip.name}")
+        // Everything may be nested under a single top-level folder.
+        val prefix = libEntry.name.substringBeforeLast('/', "")
+        entries.forEach { entry ->
+            if (entry.isDirectory) return@forEach
+            val rel = entry.name.removePrefix(if (prefix.isEmpty()) "" else "$prefix/")
+            val dest = when {
+                rel.equals("libvlc.dll", ignoreCase = true) -> File(stage, "libvlc.dll")
+                rel.equals("libvlccore.dll", ignoreCase = true) -> File(stage, "libvlccore.dll")
+                rel.startsWith("plugins/") -> File(stage, rel)
+                else -> null
+            } ?: return@forEach
+            dest.parentFile.mkdirs()
+            zf.getInputStream(entry).use { input -> dest.outputStream().use { input.copyTo(it) } }
+            dest.setLastModified(entry.time)
+        }
+    }
+}
+
+fun copyVlcLicenses(stage: File) {
+    val licenses = project.file("vlc-licenses")
+    if (licenses.isDirectory) {
+        licenses.listFiles()?.forEach { it.copyTo(File(stage, it.name), overwrite = true) }
+    }
+}
+
+val vlcStagingDir = layout.buildDirectory.dir(
+    "appResources/" + when {
+        System.getProperty("os.name").lowercase().contains("mac") -> "macos"
+        System.getProperty("os.name").lowercase().contains("win") -> "windows"
+        else -> "linux"
+    } + "/vlc",
+)
+val vlcCacheDir = layout.buildDirectory.dir("vlc-cache")
+
+val prepareVlc = tasks.register("prepareVlc") {
+    group = "distribution"
+    description = "Stages libVLC binaries and plugins for the host OS/arch into the app resources."
+    val archive = hostVlcArchive()
+    outputs.dir(vlcStagingDir)
+    onlyIf { archive != null }
+    doLast {
+        val arc = archive ?: return@doLast
+        val cache = vlcCacheDir.get().asFile.apply { mkdirs() }
+        val downloaded = File(cache, arc.fileName)
+        if (!downloaded.exists() || sha256Of(downloaded) != arc.sha256) {
+            downloaded.delete()
+            logger.lifecycle("Downloading libVLC ${vlcVersion}: ${arc.url}")
+            URI(arc.url).toURL().openStream().use { input ->
+                downloaded.outputStream().use { input.copyTo(it) }
+            }
+            val actual = sha256Of(downloaded)
+            check(actual == arc.sha256) {
+                "SHA-256 mismatch for ${arc.fileName}: expected ${arc.sha256}, got $actual"
+            }
+        }
+        val stage = vlcStagingDir.get().asFile.apply { deleteRecursively(); mkdirs() }
+        if (arc.fileName.endsWith(".dmg")) stageFromDmg(downloaded, stage) else stageFromZip(downloaded, stage)
+        copyVlcLicenses(stage)
+        logger.lifecycle("libVLC staged at ${stage.absolutePath}")
+    }
+}
+
+// Bundle the staged natives into every packaged image (and its installer).
+listOf(
+    "prepareAppResources",
+    "createDistributable",
+    "packageDmg",
+    "packageMsi",
+    "packageExe",
+    "packageDeb",
+    "packageDistributionForCurrentOS",
+    "runDistributable",
+).forEach { taskName ->
+    tasks.matching { it.name == taskName }.configureEach { dependsOn(prepareVlc) }
 }

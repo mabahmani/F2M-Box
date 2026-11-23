@@ -155,6 +155,7 @@ fun PlayerScreen(
         val created = VlcPlayerEngine(
             url = url,
             extraArgs = emptyList(),
+            nativeLocation = discovery.getOrNull(),
             listener = { event ->
                 when (event) {
                     is EngineEvent.Playing -> {
