@@ -617,7 +617,7 @@ fun PlayerScreen(
                     interaction++
                 },
                 onInteraction = { interaction++ },
-                onBack = { controlsVisible = false },
+                onBack = onNavigateBack,
                 playPauseFocus = playPauseFocus,
                 speedButtonFocus = speedButtonFocus,
                 subtitleButtonFocus = subtitleButtonFocus,
@@ -832,7 +832,7 @@ private fun PlayerControls(
                         isPlaying -> Strings.playerPause
                         else -> Strings.playerPlay
                     },
-                    modifier = Modifier.focusRequester(playPauseFocus),
+                    focusRequester = playPauseFocus,
                     emphasized = true,
                     enabled = visible
                 ) {
@@ -857,7 +857,7 @@ private fun PlayerControls(
                 PlayerButton(
                     onClick = onToggleSpeedMenu,
                     description = Strings.playerSpeed,
-                    modifier = Modifier.focusRequester(speedButtonFocus),
+                    focusRequester = speedButtonFocus,
                     enabled = visible
                 ) {
                     Text(
@@ -872,7 +872,7 @@ private fun PlayerControls(
                     PlayerButton(
                         onClick = onToggleSubtitleMenu,
                         description = Strings.playerSubtitles,
-                        modifier = Modifier.focusRequester(subtitleButtonFocus),
+                        focusRequester = subtitleButtonFocus,
                         enabled = visible
                     ) {
                         Icon(
@@ -891,7 +891,7 @@ private fun PlayerControls(
                     PlayerButton(
                         onClick = onToggleAudioMenu,
                         description = Strings.playerAudio,
-                        modifier = Modifier.focusRequester(audioButtonFocus),
+                        focusRequester = audioButtonFocus,
                         enabled = visible
                     ) {
                         Icon(Icons.Default.Audiotrack, null, tint = Color.White)
@@ -1042,8 +1042,8 @@ private fun SeekBar(
 
 /**
  * A circular transport button with the app's standard focus treatment:
- * scale up on focus and fill with the primary color. Activates on a mouse
- * click or on the Center/Enter KeyDown; one-shot buttons debounce the
+ * scale up on focus and fill with the primary color. A mouse click focuses
+ * the button then runs the action. Activates on the Center/Enter KeyDown; one-shot buttons debounce the
  * auto-repeat key-downs (desktop has no repeat count, so a timestamp guards
  * them). [enabled] is false while the overlay is hidden, so the invisible
  * chrome does not swallow clicks meant to reveal it.
@@ -1053,6 +1053,7 @@ private fun PlayerButton(
     onClick: () -> Unit,
     description: String,
     modifier: Modifier = Modifier,
+    focusRequester: FocusRequester? = null,
     emphasized: Boolean = false,
     repeatable: Boolean = false,
     enabled: Boolean = true,
@@ -1060,6 +1061,8 @@ private fun PlayerButton(
 ) {
     var isFocused by remember { mutableStateOf(false) }
     var lastActivationAt by remember { mutableLongStateOf(0L) }
+    val localFocus = remember { FocusRequester() }
+    val focusTarget = focusRequester ?: localFocus
     // Keep the tap handler on a stable coroutine while always invoking the
     // latest action (the lambda captures playback state that changes often).
     val currentOnClick by rememberUpdatedState(onClick)
@@ -1083,6 +1086,7 @@ private fun PlayerButton(
                 }
             )
             .semantics { contentDescription = description }
+            .focusRequester(focusTarget)
             .onFocusChanged { isFocused = it.isFocused }
             .focusable()
             .onKeyEvent { event ->
@@ -1099,8 +1103,13 @@ private fun PlayerButton(
                 onClick()
                 true
             }
-            .pointerInput(enabled) {
-                if (enabled) detectTapGestures { currentOnClick() }
+            .pointerInput(enabled, focusTarget) {
+                if (enabled) {
+                    detectTapGestures {
+                        focusTarget.requestFocus()
+                        currentOnClick()
+                    }
+                }
             },
         contentAlignment = Alignment.Center
     ) {
