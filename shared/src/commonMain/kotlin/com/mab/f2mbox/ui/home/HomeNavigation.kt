@@ -47,6 +47,7 @@ import com.mab.f2mbox.data.remote.GenreLink
 import com.mab.f2mbox.data.remote.HomeNavigation
 import com.mab.f2mbox.data.remote.NavSection
 import com.mab.f2mbox.ui.common.FocusTracker
+import com.mab.f2mbox.ui.common.LocalUsesTouchInput
 import com.mab.f2mbox.ui.common.rememberCardHighlight
 import com.mab.f2mbox.ui.common.IntStateSaver
 import kotlinx.coroutines.delay
@@ -59,9 +60,9 @@ private val ChipShape = RoundedCornerShape(50)
  * The home payload's navigation block: a row of quick links (movies, series,
  * top charts) with a genre-filter row underneath that follows the focused
  * link — movie genres under "فیلم ها", series genres under "سریال ها", and
- * nothing under the top charts, which have no genre facet. On TV the
- * selection follows focus, so browsing the links previews their genres;
- * pressing OK on a chip opens its listing through [onOpenUrl]. Down on a
+ * nothing under the top charts, which have no genre facet. On TV, focus
+ * previews genres and OK opens the listing. On touch, hover or tap a category
+ * once to preview genres; tap again while selected to open it. Down on a
  * quick link lands on its genre row when the section has one, so the search
  * field below is only reached by pressing Down again. A search field sits
  * under the filter rows; submitting a query calls [onSearch].
@@ -212,6 +213,7 @@ private fun SectionChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val touch = LocalUsesTouchInput.current
     val highlight = rememberCardHighlight(onFocus = onFocus)
     val scale by animateFloatAsState(
         targetValue = if (highlight.highlighted) 1.08f else 1f,
@@ -224,7 +226,13 @@ private fun SectionChip(
             .then(highlight.modifier)
             .clickable(
                 interactionSource = highlight.interactionSource,
-                onClick = onClick,
+                onClick = {
+                    if (touch) {
+                        if (isSelected) onClick() else onFocus()
+                    } else {
+                        onClick()
+                    }
+                },
             )
             // Inside the focusable node so the focus bounds stay at the
             // layout size while the chip animates — see PosterCard.

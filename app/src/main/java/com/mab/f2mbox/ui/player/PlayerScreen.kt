@@ -10,7 +10,9 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -82,6 +84,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
+import com.mab.f2mbox.ui.common.LocalUsesTouchInput
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -279,6 +283,7 @@ fun PlayerScreen(
     var controlsVisible by remember { mutableStateOf(true) }
     // Bumped on every interaction so the auto-hide timer restarts.
     var interaction by remember { mutableIntStateOf(0) }
+    val touchInput = LocalUsesTouchInput.current
 
     // Playback speed and its selector menu. Hoisted here so the auto-hide
     // timer can pause while the menu is open.
@@ -413,6 +418,7 @@ fun PlayerScreen(
     // surface takes it back when they hide, so key events always land
     // somewhere that handles them.
     LaunchedEffect(controlsVisible) {
+        if (touchInput) return@LaunchedEffect
         if (controlsVisible) {
             while (!playPauseFocus.requestFocus()) delay(50)
         } else {
@@ -622,6 +628,21 @@ fun PlayerScreen(
                     .fillMaxSize()
                     .alpha(if (controlsVisible) 1f else 0f)
             )
+
+            if (touchInput && !controlsVisible) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .zIndex(1f)
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() },
+                        ) {
+                            controlsVisible = true
+                            interaction++
+                        },
+                )
+            }
 
             if (!controlsVisible && seekOsdVisible) {
                 Box(
@@ -1089,11 +1110,13 @@ private fun ChoiceMenu(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val touch = LocalUsesTouchInput.current
     var highlighted by remember(selectedIndex) {
         mutableIntStateOf(selectedIndex.coerceIn(0, options.lastIndex))
     }
     val menuFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
+        if (touch) return@LaunchedEffect
         while (!menuFocus.requestFocus()) delay(50)
     }
     Row(
@@ -1138,6 +1161,16 @@ private fun ChoiceMenu(
                             isCurrent -> Color.White.copy(alpha = 0.25f)
                             else -> Color.White.copy(alpha = 0.15f)
                         }
+                    )
+                    .then(
+                        if (touch) {
+                            Modifier.clickable {
+                                highlighted = index
+                                onSelect(index)
+                            }
+                        } else {
+                            Modifier
+                        },
                     )
                     .padding(horizontal = 14.dp, vertical = 8.dp)
             ) {
@@ -1269,8 +1302,10 @@ private fun SubtitleSettingsPanel(
             else -> 0
         }
     }
+    val touch = LocalUsesTouchInput.current
     val panelFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
+        if (touch) return@LaunchedEffect
         while (!panelFocus.requestFocus()) delay(50)
     }
     Column(
@@ -1371,6 +1406,17 @@ private fun SubtitleSettingsPanel(
                                                 else -> Color.White.copy(alpha = 0.15f)
                                             }
                                         )
+                                        .then(
+                                            if (touch) {
+                                                Modifier.clickable {
+                                                    row = rowIndex
+                                                    col = optionIndex
+                                                    panelRow.apply(optionIndex)
+                                                }
+                                            } else {
+                                                Modifier
+                                            },
+                                        )
                                         .padding(horizontal = 14.dp, vertical = 8.dp)
                                 ) {
                                     Text(
@@ -1387,7 +1433,25 @@ private fun SubtitleSettingsPanel(
                 is SubtitleSliderRow -> SubtitlePercentSlider(
                     label = panelRow.label,
                     valuePercent = panelRow.valuePercent,
-                    highlighted = rowIndex == row
+                    highlighted = rowIndex == row,
+                    onDecrease = if (touch) {
+                        {
+                            panelRow.apply(
+                                (panelRow.valuePercent - panelRow.stepPercent).coerceAtLeast(0),
+                            )
+                        }
+                    } else {
+                        null
+                    },
+                    onIncrease = if (touch) {
+                        {
+                            panelRow.apply(
+                                (panelRow.valuePercent + panelRow.stepPercent).coerceAtMost(100),
+                            )
+                        }
+                    } else {
+                        null
+                    },
                 )
             }
         }
@@ -1398,11 +1462,13 @@ private fun SubtitleSettingsPanel(
         ) {
             SubtitlePanelButton(
                 label = stringResource(R.string.player_subtitle_cancel),
-                highlighted = row == buttonRow && col == 0
+                highlighted = row == buttonRow && col == 0,
+                onClick = if (touch) onCancel else null,
             )
             SubtitlePanelButton(
                 label = stringResource(R.string.player_subtitle_save),
-                highlighted = row == buttonRow && col == 1
+                highlighted = row == buttonRow && col == 1,
+                onClick = if (touch) onSave else null,
             )
         }
     }
@@ -1413,6 +1479,7 @@ private fun SubtitleSettingsPanel(
 private fun SubtitlePanelButton(
     label: String,
     highlighted: Boolean,
+    onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -1421,6 +1488,9 @@ private fun SubtitlePanelButton(
             .background(
                 if (highlighted) MaterialTheme.colorScheme.primary
                 else Color.White.copy(alpha = 0.15f)
+            )
+            .then(
+                if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
             )
             .padding(horizontal = 14.dp, vertical = 8.dp)
     ) {
@@ -1443,6 +1513,8 @@ private fun SubtitlePercentSlider(
     label: String,
     valuePercent: Int,
     highlighted: Boolean,
+    onDecrease: (() -> Unit)? = null,
+    onIncrease: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -1456,6 +1528,9 @@ private fun SubtitlePercentSlider(
             color = Color.White.copy(alpha = 0.7f),
             modifier = Modifier.width(110.dp)
         )
+        if (onDecrease != null) {
+            SubtitlePanelButton(label = "−", highlighted = false, onClick = onDecrease)
+        }
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -1481,6 +1556,9 @@ private fun SubtitlePercentSlider(
             textAlign = TextAlign.End,
             modifier = Modifier.width(40.dp)
         )
+        if (onIncrease != null) {
+            SubtitlePanelButton(label = "+", highlighted = false, onClick = onIncrease)
+        }
     }
 }
 
