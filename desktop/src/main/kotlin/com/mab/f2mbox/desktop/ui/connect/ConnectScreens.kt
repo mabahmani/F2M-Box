@@ -20,7 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Button
+import com.mab.f2mbox.desktop.ui.common.AppButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -89,13 +89,13 @@ fun SplashScreen(
                     )
                     Spacer(Modifier.height(20.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Button(onClick = onQuit) {
+                        AppButton(onClick = onQuit) {
                             Text(Strings.back)
                         }
-                        Button(onClick = onRetry) {
+                        AppButton(onClick = onRetry) {
                             Text(Strings.retry)
                         }
-                        Button(onClick = onOpenLogs) {
+                        AppButton(onClick = onOpenLogs) {
                             Text(Strings.viewLogs)
                         }
                     }
@@ -169,7 +169,7 @@ internal fun ManualDomainInput(
                 )
             }
             Spacer(Modifier.width(12.dp))
-            Button(onClick = ::submit, enabled = enabled) {
+            AppButton(onClick = ::submit, enabled = enabled) {
                 Text(Strings.errorDomainSubmit)
             }
         }

@@ -34,7 +34,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.material3.Button
+import com.mab.f2mbox.desktop.ui.common.AppButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import com.mab.f2mbox.desktop.platform.Strings
@@ -83,7 +83,7 @@ fun SearchField(
             // Buttons stretch to the text field's height.
             modifier = Modifier.height(IntrinsicSize.Min)
         ) {
-            Button(
+            AppButton(
                 onClick = { submit() },
                 modifier = Modifier
                     .width(SearchButtonWidth)

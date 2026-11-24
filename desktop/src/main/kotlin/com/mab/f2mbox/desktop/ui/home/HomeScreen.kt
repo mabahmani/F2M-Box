@@ -31,9 +31,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.material3.Button
+import com.mab.f2mbox.desktop.ui.common.AppButton
+import com.mab.f2mbox.desktop.ui.common.AppIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import com.mab.f2mbox.scraper.F2MScraper
@@ -145,10 +145,10 @@ fun HomeScreen(
                 Spacer(Modifier.height(20.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     // Quit on desktop = the android build's activity finish.
-                    Button(onClick = onQuit) {
+                    AppButton(onClick = onQuit) {
                         Text(Strings.back)
                     }
-                    Button(onClick = { fetchToken++ }) {
+                    AppButton(onClick = { fetchToken++ }) {
                         Text(Strings.retry)
                     }
                 }
@@ -239,7 +239,7 @@ private fun HomeContent(
                                 .padding(horizontal = 8.dp, vertical = 3.dp)
                         )
                     }
-                    IconButton(
+                    AppIconButton(
                         onClick = onRefresh,
                         modifier = Modifier.size(36.dp)
                     ) {
@@ -250,7 +250,7 @@ private fun HomeContent(
                             modifier = Modifier.size(18.dp)
                         )
                     }
-                    IconButton(
+                    AppIconButton(
                         onClick = onOpenLogs,
                         modifier = Modifier.size(36.dp)
                     ) {

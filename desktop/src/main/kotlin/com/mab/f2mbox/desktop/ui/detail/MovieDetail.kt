@@ -54,14 +54,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import coil3.compose.AsyncImage
 import com.mab.f2mbox.data.WatchedItem
 import com.mab.f2mbox.storage.WatchedHistory
+import com.mab.f2mbox.desktop.ui.common.AppButton
 import com.mab.f2mbox.desktop.ui.common.LocalWatched
 import com.mab.f2mbox.desktop.ui.common.FocusTracker
 import com.mab.f2mbox.desktop.ui.common.rememberFocusTracker
@@ -242,7 +241,7 @@ fun MovieDetail(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-            Button(
+            AppButton(
                 onClick = onNavigateBack,
                 modifier = Modifier
                     .focusRequester(focusTracker.requesterFor(backFocusId))
@@ -937,10 +936,10 @@ private fun CommentsPager(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally)
         ) {
-            Button(onClick = onLoadPrevious, enabled = canGoBack && !isLoading) {
+            AppButton(onClick = onLoadPrevious, enabled = canGoBack && !isLoading) {
                 Text(Strings.previous)
             }
-            Button(onClick = onLoadNext, enabled = !isLoading && comments.pagination.next != null) {
+            AppButton(onClick = onLoadNext, enabled = !isLoading && comments.pagination.next != null) {
                 Text(
                     text = if (isLoading) {
                         Strings.loading
@@ -957,22 +956,20 @@ private fun CommentsPager(
  * The play button on a quality/episode card: a rounded play bar with a
  * glyph, styled for a TV screen. At rest it is a quiet tint of the brand
  * color so a row of cards stays calm; when the D-pad lands on it, it fills
- * with the brand color, lifts slightly and casts a glow.
+ * The play button on a quality/episode card: a rounded play bar, styled for
+ * a TV screen. At rest it is an outline-only bar (transparent background) so
+ * a row of cards stays calm; when the D-pad lands on it, the shared
+ * [AppButton] focus treatment fills it with the brand color.
  */
 @Composable
 private fun PlayButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val scheme = MaterialTheme.colorScheme
-    Button(
+    AppButton(
         onClick = onClick,
         modifier = modifier.height(46.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = scheme.primary.copy(alpha = 0.22f),
-            contentColor = scheme.primary
-        )
+        shape = RoundedCornerShape(12.dp)
     ) {
         // The label fills the button and centers itself in it.
         Text(
@@ -1125,7 +1122,7 @@ private fun TrailerCard(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Button(onClick = { trailer.url?.let { onPlay(it, title) } }) {
+            AppButton(onClick = { trailer.url?.let { onPlay(it, title) } }) {
                 Text(Strings.watchTrailer)
             }
         }

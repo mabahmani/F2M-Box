@@ -36,7 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.material3.Button
+import com.mab.f2mbox.desktop.ui.common.AppButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import com.mab.f2mbox.data.PageCache
@@ -186,10 +186,10 @@ fun ListScreen(
                 )
                 Spacer(Modifier.height(20.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Button(onClick = onNavigateBack) {
+                    AppButton(onClick = onNavigateBack) {
                         Text(Strings.back)
                     }
-                    Button(onClick = { attempt++ }) {
+                    AppButton(onClick = { attempt++ }) {
                         Text(Strings.retry)
                     }
                 }
@@ -326,7 +326,7 @@ private fun ListHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Button(onClick = onNavigateBack) {
+        AppButton(onClick = onNavigateBack) {
             Text(Strings.back)
         }
         Text(
@@ -369,14 +369,14 @@ internal fun PagerControls(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally)
     ) {
-        Button(
+        AppButton(
             onClick = onPrevious,
             enabled = hasPrevious,
             modifier = pagerButtonModifier(focusTracker, PagerPreviousId)
         ) {
             Text(Strings.previous)
         }
-        Button(
+        AppButton(
             onClick = onNext,
             enabled = hasNext,
             modifier = pagerButtonModifier(focusTracker, PagerNextId)

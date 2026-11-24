@@ -34,7 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.material3.Button
+import com.mab.f2mbox.desktop.ui.common.AppButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import coil3.compose.AsyncImage
@@ -151,7 +151,7 @@ private fun PersonHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Button(onClick = onNavigateBack) {
+        AppButton(onClick = onNavigateBack) {
             Text(Strings.back)
         }
         person?.photo?.url?.let { photoUrl ->

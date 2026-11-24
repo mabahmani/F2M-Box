@@ -15,9 +15,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material3.Button
+import com.mab.f2mbox.desktop.ui.common.AppButton
+import com.mab.f2mbox.desktop.ui.common.AppIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -79,7 +79,7 @@ fun LogsScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Button(
+                AppButton(
                     onClick = onNavigateBack,
                     modifier = Modifier.focusRequester(backFocus)
                 ) {
@@ -91,7 +91,7 @@ fun LogsScreen(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.weight(1f))
-                IconButton(
+                AppIconButton(
                     onClick = { ScraperLog.clear() },
                     modifier = Modifier.size(36.dp)
                 ) {
