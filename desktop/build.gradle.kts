@@ -43,6 +43,14 @@ compose.desktop {
     application {
         mainClass = "com.mab.f2mbox.desktop.MainKt"
 
+        buildTypes {
+            release {
+                proguard {
+                    configurationFiles.from(project.file("proguard-rules.pro"))
+                }
+            }
+        }
+
         // jpackage (bundled with full JDKs, absent from Android Studio's
         // JBR) is only needed for packaging, not for run/test. Probe the
         // usual Homebrew locations and fall back to the Gradle JVM.
