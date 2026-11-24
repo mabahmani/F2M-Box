@@ -31,9 +31,11 @@ fun main() {
     // Compose elements must draw ABOVE Swing interop content (the video
     // surface's SwingPanel) — without this the video sits on top of the
     // entire Compose layer and the player controls are invisible under it.
-    // macOS caveat (per CMP docs): the interop view may still catch mouse
-    // events even when visually below Compose content; the player screen
-    // handles that by keeping key/wheel interaction paths authoritative.
+    // On macOS the interop view still wins AWT mouse dispatch when it carries
+    // its own listeners, so the video surface must stay listener-free
+    // (VlcPlayerEngine uses InputEvents.NONE and the player installs no AWT
+    // mouse listeners). That lets Compose's interop event forwarding deliver
+    // clicks over the video to the Compose overlay controls.
     System.setProperty("compose.interop.blending", "true")
 
     // Console mirror of the scraper log: the desktop equivalent of the

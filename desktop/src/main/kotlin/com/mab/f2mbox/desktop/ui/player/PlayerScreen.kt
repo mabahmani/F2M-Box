@@ -50,6 +50,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,6 +68,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.contentDescription
@@ -265,8 +267,10 @@ fun PlayerScreen(
     // the desktop port of the Android BackHandler chain. ESC reaches it
     // through the app root's escHandler; Backspace is handled in-screen.
     // Mouse behavior over the video surface: movement/click reveals the
-    // overlay (and resets the auto-hide timer). Read/written from the AWT
-    // dispatch thread — the surface's listener calls this.
+    // overlay (and resets the auto-hide timer). This runs on the Compose
+    // side — with interop blending the AWT surface forwards its mouse
+    // events into the Compose scene, so the root pointer handlers below
+    // (not an AWT listener) wake the controls.
     val mouseWake: () -> Unit = {
         controlsVisible = true
         interaction++
@@ -301,25 +305,16 @@ fun PlayerScreen(
     DisposableEffect(engine) {
         val boundEngine = engine
         val surface = boundEngine?.componentSurface
-        val wake: java.awt.event.MouseAdapter? = surface?.let {
-            object : java.awt.event.MouseAdapter() {
-                override fun mouseMoved(event: java.awt.event.MouseEvent) = mouseWake()
-
-                override fun mouseClicked(event: java.awt.event.MouseEvent) {
-                    // Single click reveals (or keeps up) the overlay; double
-                    // click leaves the screen.
-                    if (event.clickCount == 2) layeredBack() else mouseWake()
-                }
-            }
-        }
-        if (surface != null && wake != null) {
+        // Deliberately no AWT mouse listeners here: the surface must stay
+        // listener-free so Compose's interop event forwarding can deliver
+        // clicks over the video to the overlay controls. All mouse handling
+        // lives on the Compose side (see mouseWake / root pointer handlers).
+        if (surface != null) {
             surface.isFocusable = false
             // Match the dark host so the brief gap before the first frame is
             // black rather than the component's default light background.
             surface.isOpaque = true
             surface.background = java.awt.Color.BLACK
-            surface.addMouseListener(wake)
-            surface.addMouseMotionListener(wake)
             SwingUtilities.invokeLater {
                 videoHost.removeAll()
                 videoHost.add(surface, BorderLayout.CENTER)
@@ -328,10 +323,6 @@ fun PlayerScreen(
             }
         }
         onDispose {
-            if (surface != null && wake != null) {
-                surface.removeMouseListener(wake)
-                surface.removeMouseMotionListener(wake)
-            }
             if (boundEngine != null) {
                 // Detach this engine's surface before releasing it, so a
                 // style-change rebuild never shows (or releases under) a
@@ -504,14 +495,39 @@ fun PlayerScreen(
                     if (event.type == KeyEventType.KeyDown) interaction++
                     false
                 }
+                // Mouse movement over the video wakes the overlay. Compose
+                // receives these events because the AWT video surface has no
+                // mouse listeners of its own (see VlcPlayerEngine /
+                // DisposableEffect above), so interop forwarding hands them to
+                // the scene.
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            if (event.type == PointerEventType.Move) mouseWake()
+                        }
+                    }
+                }
+                // Single click (press) reveals/keeps the overlay; a double
+                // click walks the Back chain (hide controls, then leave).
+                // Interactive controls consume their own presses first, so
+                // their clicks never reach this background handler.
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onPress = {
+                            mouseWake()
+                            tryAwaitRelease()
+                        },
+                        onDoubleTap = { layeredBack() }
+                    )
+                }
         ) {
             // One persistent AWT host for the libvlc video surface. It is
             // mounted once (compose interop is stable across engine
             // rebuilds); the engine's surface is added/swapped inside it by
-            // the DisposableEffect above. Mouse handling lives on the
-            // surface itself (with interop blending the interop view catches
-            // mouse events first, so an AWT listener — not Compose
-            // pointerInput — is the reliable path).
+            // the DisposableEffect above. The surface is deliberately
+            // listener-free so Compose's interop forwarding keeps delivering
+            // mouse events to the overlay controls above it.
             SwingPanel(
                 factory = { videoHost },
                 modifier = Modifier.fillMaxSize()
@@ -716,7 +732,7 @@ private fun PlayerControls(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            PlayerButton(onClick = onBack, description = Strings.back) {
+            PlayerButton(onClick = onBack, description = Strings.back, enabled = visible) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
             }
             Text(
@@ -798,7 +814,8 @@ private fun PlayerControls(
                 PlayerButton(
                     onClick = { onSeek(-SeekStepMs) },
                     description = Strings.playerSkipBack,
-                    repeatable = true
+                    repeatable = true,
+                    enabled = visible
                 ) {
                     Icon(Icons.Default.Replay10, null, tint = Color.White)
                 }
@@ -810,7 +827,8 @@ private fun PlayerControls(
                         else -> Strings.playerPlay
                     },
                     modifier = Modifier.focusRequester(playPauseFocus),
-                    emphasized = true
+                    emphasized = true,
+                    enabled = visible
                 ) {
                     Icon(
                         when {
@@ -825,14 +843,16 @@ private fun PlayerControls(
                 PlayerButton(
                     onClick = { onSeek(SeekStepMs) },
                     description = Strings.playerSkipForward,
-                    repeatable = true
+                    repeatable = true,
+                    enabled = visible
                 ) {
                     Icon(Icons.Default.Forward10, null, tint = Color.White)
                 }
                 PlayerButton(
                     onClick = onToggleSpeedMenu,
                     description = Strings.playerSpeed,
-                    modifier = Modifier.focusRequester(speedButtonFocus)
+                    modifier = Modifier.focusRequester(speedButtonFocus),
+                    enabled = visible
                 ) {
                     Text(
                         text = speedLabel(playbackSpeed),
@@ -846,7 +866,8 @@ private fun PlayerControls(
                     PlayerButton(
                         onClick = onToggleSubtitleMenu,
                         description = Strings.playerSubtitles,
-                        modifier = Modifier.focusRequester(subtitleButtonFocus)
+                        modifier = Modifier.focusRequester(subtitleButtonFocus),
+                        enabled = visible
                     ) {
                         Icon(
                             if (subtitlesOn) {
@@ -864,7 +885,8 @@ private fun PlayerControls(
                     PlayerButton(
                         onClick = onToggleAudioMenu,
                         description = Strings.playerAudio,
-                        modifier = Modifier.focusRequester(audioButtonFocus)
+                        modifier = Modifier.focusRequester(audioButtonFocus),
+                        enabled = visible
                     ) {
                         Icon(Icons.Default.Audiotrack, null, tint = Color.White)
                     }
@@ -877,7 +899,8 @@ private fun PlayerControls(
                 durationMs = durationMs,
                 onSeek = onSeek,
                 onTogglePlayPause = togglePlayPause,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                enabled = visible
             )
         }
     }
@@ -887,7 +910,8 @@ private fun PlayerControls(
  * The seek bar. Focusable in the controls mode: Left/Right scrub ±10s per
  * key press (auto-repeat keeps scrubbing), Up/Down fall through so focus
  * returns to the transport row, and Center toggles play/pause. Also
- * tap-to-seek for mouse users.
+ * tap-to-seek for mouse users. [enabled] is false while the overlay is
+ * hidden so the invisible bar does not swallow clicks meant to reveal it.
  */
 @Composable
 private fun SeekBar(
@@ -895,9 +919,11 @@ private fun SeekBar(
     durationMs: Long,
     onSeek: (Long) -> Unit,
     onTogglePlayPause: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    val currentOnSeek by rememberUpdatedState(onSeek)
     val fraction = if (durationMs > 0) {
         (positionMs.toFloat() / durationMs).coerceIn(0f, 1f)
     } else {
@@ -951,10 +977,12 @@ private fun SeekBar(
                         else -> false
                     }
                 }
-                .pointerInput(durationMs) {
-                    detectTapGestures { offset ->
-                        if (durationMs > 0) {
-                            onSeek((offset.x / size.width.toFloat() * durationMs).toLong())
+                .pointerInput(durationMs, enabled) {
+                    if (enabled) {
+                        detectTapGestures { offset ->
+                            if (durationMs > 0) {
+                                currentOnSeek((offset.x / size.width.toFloat() * durationMs).toLong())
+                            }
                         }
                     }
                 }
@@ -1001,9 +1029,11 @@ private fun SeekBar(
 
 /**
  * A circular transport button with the app's standard focus treatment:
- * scale up on focus and fill with the primary color. Activates on the
- * Center/Enter KeyDown; one-shot buttons debounce the auto-repeat
- * key-downs (desktop has no repeat count, so a timestamp guards them).
+ * scale up on focus and fill with the primary color. Activates on a mouse
+ * click or on the Center/Enter KeyDown; one-shot buttons debounce the
+ * auto-repeat key-downs (desktop has no repeat count, so a timestamp guards
+ * them). [enabled] is false while the overlay is hidden, so the invisible
+ * chrome does not swallow clicks meant to reveal it.
  */
 @Composable
 private fun PlayerButton(
@@ -1012,10 +1042,14 @@ private fun PlayerButton(
     modifier: Modifier = Modifier,
     emphasized: Boolean = false,
     repeatable: Boolean = false,
+    enabled: Boolean = true,
     content: @Composable () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
     var lastActivationAt by remember { mutableLongStateOf(0L) }
+    // Keep the tap handler on a stable coroutine while always invoking the
+    // latest action (the lambda captures playback state that changes often).
+    val currentOnClick by rememberUpdatedState(onClick)
     val scale by animateFloatAsState(
         targetValue = if (isFocused) 1.15f else 1f,
         animationSpec = tween(150)
@@ -1052,7 +1086,9 @@ private fun PlayerButton(
                 onClick()
                 true
             }
-            .pointerInput(Unit) { detectTapGestures { onClick() } },
+            .pointerInput(enabled) {
+                if (enabled) detectTapGestures { currentOnClick() }
+            },
         contentAlignment = Alignment.Center
     ) {
         content()

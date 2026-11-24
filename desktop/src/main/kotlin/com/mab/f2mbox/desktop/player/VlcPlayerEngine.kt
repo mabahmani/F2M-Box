@@ -8,6 +8,7 @@ import uk.co.caprica.vlcj.player.base.MediaPlayer
 import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
 import uk.co.caprica.vlcj.player.base.TrackDescription
 import uk.co.caprica.vlcj.player.component.CallbackMediaPlayerComponent
+import uk.co.caprica.vlcj.player.component.InputEvents
 import uk.co.caprica.vlcj.player.embedded.EmbeddedMediaPlayer
 import javax.swing.JComponent
 
@@ -151,9 +152,24 @@ class VlcPlayerEngine(
      * and would hide the controls, so we keep the callback surface and force
      * software decoding instead (see [factoryArgs]) so libVLC can blend the
      * subtitles into those frames itself.
+     *
+     * [InputEvents.NONE] is essential on macOS: with the default input
+     * handling vlcj registers AWT mouse/key listeners on the video surface,
+     * which becomes the deepest Swing listener for every click over the
+     * video. AWT routes mouse events to that listener instead of letting
+     * Compose's interop event forwarding reach the overlay, so the player
+     * controls would be keyboard-only. Keeping the surface listener-free
+     * lets the overlay's Compose pointer handlers receive real clicks.
+     * Playback itself needs no AWT input handling (no DVD menus).
      */
     val component: CallbackMediaPlayerComponent =
-        CallbackMediaPlayerComponent(*factoryArgs.toTypedArray())
+        CallbackMediaPlayerComponent(
+            factory,
+            null, // full-screen strategy: the player screen handles fullscreen itself
+            InputEvents.NONE,
+            true, // lock buffers, matching vlcj's default callback surface
+            null, // default (scaled) image painter
+        )
 
     val componentSurface: JComponent = component.videoSurfaceComponent()
 
@@ -334,8 +350,9 @@ class VlcPlayerEngine(
 
     fun release() {
         released = true
-        // Releases both the media player and the component's own factory;
-        // [factory] is the separate instance created for native discovery.
+        // The component was built from [factory] and does not own it, so
+        // releasing the component frees the media player while [factory]
+        // itself is released explicitly here (once).
         component.release()
         factory.release()
         bus.reset()
