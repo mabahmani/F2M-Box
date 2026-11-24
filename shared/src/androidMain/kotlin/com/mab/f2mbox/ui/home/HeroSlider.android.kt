@@ -204,15 +204,17 @@ private fun TouchHeroSlider(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .pointerInput(items.size, isRtl) {
+            .pointerInput(items.size) {
                 var dragX = 0f
                 detectHorizontalDragGestures(
                     onHorizontalDrag = { _, delta -> dragX += delta },
                     onDragEnd = {
                         val threshold = size.width * HERO_DRAG_FRACTION
                         when {
-                            dragX < -threshold -> if (isRtl) goToPrevious() else goToNext()
-                            dragX > threshold -> if (isRtl) goToNext() else goToPrevious()
+                            // Physical swipe: content follows the finger (same as
+                            // the LTR edge hit targets), not mirrored for layout RTL.
+                            dragX < -threshold -> goToNext()
+                            dragX > threshold -> goToPrevious()
                         }
                         dragX = 0f
                     },

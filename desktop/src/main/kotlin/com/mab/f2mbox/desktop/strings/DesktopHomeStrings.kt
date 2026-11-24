@@ -7,6 +7,7 @@ fun desktopHomeStrings(): HomeStrings = HomeStrings(
     back = Strings.back,
     retry = Strings.retry,
     clearCacheRefresh = Strings.clearCacheRefresh,
+    topMenu = Strings.topMenu,
     viewLogs = Strings.viewLogs,
     seeMore = Strings.seeMore,
     ratingFormat = Strings.ratingFormat,

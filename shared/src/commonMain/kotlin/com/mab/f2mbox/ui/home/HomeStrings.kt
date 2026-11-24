@@ -7,6 +7,7 @@ data class HomeStrings(
     val back: String,
     val retry: String,
     val clearCacheRefresh: String,
+    val topMenu: String,
     val viewLogs: String,
     val seeMore: String,
     val ratingFormat: String,
@@ -35,6 +36,7 @@ object HomeText {
     const val back = "Back"
     const val retry = "Retry"
     const val clearCacheRefresh = "Clear cache & refresh\u200E"
+    const val topMenu = "Home menu"
     const val viewLogs = "Logs"
     const val seeMore = "See more"
     const val ratingFormat = "★ %1\$s"
@@ -62,6 +64,7 @@ fun defaultHomeStrings(): HomeStrings = HomeStrings(
     back = HomeText.back,
     retry = HomeText.retry,
     clearCacheRefresh = HomeText.clearCacheRefresh,
+    topMenu = HomeText.topMenu,
     viewLogs = HomeText.viewLogs,
     seeMore = HomeText.seeMore,
     ratingFormat = HomeText.ratingFormat,

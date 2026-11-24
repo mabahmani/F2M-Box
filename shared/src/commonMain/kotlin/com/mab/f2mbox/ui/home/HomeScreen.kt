@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material3.Icon
@@ -165,14 +166,17 @@ private fun HomeContent(
     modifier: Modifier = Modifier,
 ) {
     val homeStrings = LocalHomeStrings.current
+    val touch = LocalUsesTouchInput.current
+    var topMenuExpanded by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val usesTouch = LocalUsesTouchInput.current
-        val heroHeight = if (usesTouch) {
-            (maxHeight * 0.45f).coerceAtMost(420.dp)
-        } else {
-            maxHeight
-        }
+        val heroHeight = maxHeight
         val listState = rememberLazyListState()
+
+        LaunchedEffect(listState.isScrollInProgress) {
+            if (touch && listState.isScrollInProgress && topMenuExpanded) {
+                topMenuExpanded = false
+            }
+        }
 
         val heroFocus = focusTracker.requesterFor(HeroFocusId)
         RestoreFocusOnEnter(home) {
@@ -180,51 +184,15 @@ private fun HomeContent(
         }
 
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (!activeDomain.isNullOrBlank()) {
-                        Text(
-                            text = activeDomain,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .background(
-                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                                    MaterialTheme.shapes.small,
-                                )
-                                .padding(horizontal = 8.dp, vertical = 3.dp),
-                        )
-                    }
-                    F2mIconButton(
-                        onClick = onRefresh,
-                        modifier = Modifier.size(36.dp),
-                        showRestingOutline = false,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Refresh,
-                            contentDescription = homeStrings.clearCacheRefresh,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                    F2mIconButton(
-                        onClick = onOpenLogs,
-                        modifier = Modifier.size(36.dp),
-                        showRestingOutline = false,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Terminal,
-                            contentDescription = homeStrings.viewLogs,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
+            if (!touch) {
+                item {
+                    HomeTopToolbar(
+                        modifier = Modifier.fillMaxWidth(),
+                        activeDomain = activeDomain,
+                        homeStrings = homeStrings,
+                        onRefresh = onRefresh,
+                        onOpenLogs = onOpenLogs,
+                    )
                 }
             }
             if (home.heroSlider.isNotEmpty()) {
@@ -273,6 +241,108 @@ private fun HomeContent(
                 }
             }
             item { Spacer(Modifier.height(48.dp)) }
+        }
+
+        if (touch) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .then(
+                        if (topMenuExpanded) {
+                            Modifier.background(
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                                MaterialTheme.shapes.medium,
+                            )
+                        } else {
+                            Modifier
+                        },
+                    )
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (topMenuExpanded) {
+                    HomeTopToolbar(
+                        modifier = Modifier,
+                        activeDomain = activeDomain,
+                        homeStrings = homeStrings,
+                        onRefresh = {
+                            onRefresh()
+                            topMenuExpanded = false
+                        },
+                        onOpenLogs = {
+                            onOpenLogs()
+                            topMenuExpanded = false
+                        },
+                    )
+                }
+                F2mIconButton(
+                    onClick = { topMenuExpanded = !topMenuExpanded },
+                    modifier = Modifier.size(36.dp),
+                    showRestingOutline = false,
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.MoreVert,
+                        contentDescription = homeStrings.topMenu,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeTopToolbar(
+    activeDomain: String?,
+    homeStrings: HomeStrings,
+    onRefresh: () -> Unit,
+    onOpenLogs: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (!activeDomain.isNullOrBlank()) {
+            Text(
+                text = activeDomain,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .background(
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                        MaterialTheme.shapes.small,
+                    )
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+            )
+        }
+        F2mIconButton(
+            onClick = onRefresh,
+            modifier = Modifier.size(36.dp),
+            showRestingOutline = false,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Refresh,
+                contentDescription = homeStrings.clearCacheRefresh,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        F2mIconButton(
+            onClick = onOpenLogs,
+            modifier = Modifier.size(36.dp),
+            showRestingOutline = false,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Terminal,
+                contentDescription = homeStrings.viewLogs,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
         }
     }
 }

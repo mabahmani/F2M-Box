@@ -18,6 +18,7 @@
     <!-- Search -->
     <string name="search">Search</string>
     <string name="clear_cache_refresh">Clear cache &amp; refresh&#x200E;</string>
+    <string name="top_menu">Home menu</string>
     <string name="view_logs">Logs</string>
     <string name="clear_logs">Clear logs</string>
     <string name="logs_empty">No logs yet.</string>

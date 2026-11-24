@@ -14,6 +14,7 @@ fun rememberAppHomeStrings(): HomeStrings = HomeStrings(
     back = stringResource(R.string.back),
     retry = stringResource(R.string.retry),
     clearCacheRefresh = stringResource(R.string.clear_cache_refresh),
+    topMenu = stringResource(R.string.top_menu),
     viewLogs = stringResource(R.string.view_logs),
     seeMore = stringResource(R.string.see_more),
     ratingFormat = stringResource(R.string.rating_format),

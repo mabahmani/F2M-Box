@@ -150,17 +150,15 @@ actual fun HeroSlider(
                     else -> false
                 }
             }
-            .pointerInput(items.size, isRtl) {
+            .pointerInput(items.size) {
                 var dragX = 0f
                 detectHorizontalDragGestures(
                     onHorizontalDrag = { _, delta -> dragX += delta },
                     onDragEnd = {
                         val threshold = size.width * HERO_DRAG_FRACTION
                         when {
-                            // Finger left = next slide in LTR (content follows
-                            // finger); RTL flips inside the helpers.
-                            dragX < -threshold -> if (isRtl) goToPrevious() else goToNext()
-                            dragX > threshold -> if (isRtl) goToNext() else goToPrevious()
+                            dragX < -threshold -> goToNext()
+                            dragX > threshold -> goToPrevious()
                         }
                         dragX = 0f
                     },

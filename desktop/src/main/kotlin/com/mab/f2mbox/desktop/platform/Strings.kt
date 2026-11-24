@@ -32,6 +32,7 @@ object Strings {
     // Search
     const val search = "Search"
     const val clearCacheRefresh = "Clear cache & refresh\u200E"
+    const val topMenu = "Home menu"
     const val viewLogs = "Logs"
     const val clearLogs = "Clear logs"
     const val logsEmpty = "No logs yet."
