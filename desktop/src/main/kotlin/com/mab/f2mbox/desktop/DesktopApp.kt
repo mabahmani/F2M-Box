@@ -17,7 +17,7 @@ import com.mab.f2mbox.connect.ConnectState
 import com.mab.f2mbox.desktop.platform.LocalWindowFullscreen
 import com.mab.f2mbox.desktop.ui.common.arrowKeyFocusNavigation
 import com.mab.f2mbox.desktop.ui.common.backKeyHandler
-import com.mab.f2mbox.desktop.ui.connect.desktopConnectSplashStrings
+import com.mab.f2mbox.desktop.strings.desktopConnectSplashStrings
 import com.mab.f2mbox.ui.logs.LogsScreen
 import com.mab.f2mbox.navigation.F2mAppHost
 import com.mab.f2mbox.navigation.F2mConnectedRoutes

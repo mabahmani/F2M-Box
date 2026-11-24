@@ -21,7 +21,7 @@ import com.mab.f2mbox.desktop.platform.VazirFonts
 import com.mab.f2mbox.desktop.ui.common.LocalSubtitleStyleStore
 import androidx.compose.ui.window.WindowPlacement
 import com.mab.f2mbox.desktop.ui.common.LocalWatched
-import com.mab.f2mbox.desktop.ui.home.desktopHomeStrings
+import com.mab.f2mbox.desktop.strings.desktopHomeStrings
 import com.mab.f2mbox.storage.WatchedHistory
 import com.mab.f2mbox.ui.common.LocalWatchedItems
 import com.mab.f2mbox.ui.common.WatchedItemsReader
@@ -31,7 +31,7 @@ import com.mab.f2mbox.ui.common.WatchedWriter
 import com.mab.f2mbox.navigation.LocalPlayerRouteContent
 import com.mab.f2mbox.ui.detail.LocalDetailStrings
 import com.mab.f2mbox.desktop.ui.navigation.desktopPlayerRouteContent
-import com.mab.f2mbox.desktop.ui.detail.desktopDetailStrings
+import com.mab.f2mbox.desktop.strings.desktopDetailStrings
 import com.mab.f2mbox.desktop.ui.theme.F2MBoxTheme
 import com.mab.f2mbox.scraper.BaseUrlResolver
 import com.mab.f2mbox.scraper.F2MScraper

@@ -1,4 +1,4 @@
-package com.mab.f2mbox.desktop.ui.detail
+package com.mab.f2mbox.desktop.strings
 
 import com.mab.f2mbox.desktop.platform.Strings
 import com.mab.f2mbox.ui.detail.DetailStrings

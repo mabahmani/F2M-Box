@@ -94,7 +94,7 @@ import com.mab.f2mbox.desktop.player.ExternalPlay
 import com.mab.f2mbox.desktop.player.VlcDiscovery
 import com.mab.f2mbox.desktop.player.VlcPlayerEngine
 import com.mab.f2mbox.desktop.ui.common.LocalSubtitleStyleStore
-import com.mab.f2mbox.desktop.ui.common.rememberDesktopHighlight
+import com.mab.f2mbox.ui.common.rememberCardHighlight
 import java.awt.BorderLayout
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
@@ -992,7 +992,7 @@ private fun SeekBar(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
-    val highlight = rememberDesktopHighlight()
+    val highlight = rememberCardHighlight()
     val currentOnSeek by rememberUpdatedState(onSeek)
     val currentOnSeekTo by rememberUpdatedState(onSeekTo)
     val fraction = if (durationMs > 0) {

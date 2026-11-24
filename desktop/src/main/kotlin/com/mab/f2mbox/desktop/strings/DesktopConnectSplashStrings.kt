@@ -1,4 +1,4 @@
-package com.mab.f2mbox.desktop.ui.connect
+package com.mab.f2mbox.desktop.strings
 
 import com.mab.f2mbox.connect.ConnectSplashStrings
 import com.mab.f2mbox.desktop.platform.Strings

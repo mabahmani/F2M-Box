@@ -29,7 +29,7 @@ fun F2MBoxTheme(content: @Composable () -> Unit) {
         typography = f2mBoxTypography(),
     ) {
         // Desktop uses custom focus cues (scale, border, primary fill), not
-        // Material hover ripples. Hover matches focus via [rememberDesktopHighlight].
+        // Material hover ripples. Hover matches focus via shared [rememberCardHighlight].
         CompositionLocalProvider(LocalIndication provides NoIndication) {
             content()
         }
