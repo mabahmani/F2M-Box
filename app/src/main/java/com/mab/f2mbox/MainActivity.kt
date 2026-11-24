@@ -36,6 +36,8 @@ import com.mab.f2mbox.navigation.F2mAppHost
 import com.mab.f2mbox.navigation.F2mConnectedRoutes
 import com.mab.f2mbox.navigation.LocalPlayerRouteContent
 import com.mab.f2mbox.data.WatchedManager
+import com.mab.f2mbox.ui.common.LocalUsesTouchInput
+import com.mab.f2mbox.ui.common.resolveUsesTouchInput
 import com.mab.f2mbox.ui.common.LocalWatchedItems
 import com.mab.f2mbox.ui.common.WatchedItemsReader
 import com.mab.f2mbox.app.strings.rememberAppConnectSplashStrings
@@ -83,11 +85,15 @@ class MainActivity : ComponentActivity() {
 
     /** The whole Compose UI: theme, RTL, connect gate and routes. */
     private fun installUi(scraper: F2MScraper) {
+        val usesTouchInput = resolveUsesTouchInput()
         setContent {
             F2MBoxTheme {
                 // The whole app is RTL by default: the content is Persian and
                 // every layout mirrors (rows flow right-to-left, start = right).
-                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                CompositionLocalProvider(
+                    LocalUsesTouchInput provides usesTouchInput,
+                    LocalLayoutDirection provides LayoutDirection.Rtl,
+                ) {
                     Surface(
                         modifier = Modifier.fillMaxSize(),
                         shape = RectangleShape,

@@ -46,6 +46,7 @@ import com.mab.f2mbox.ui.common.NullableStringListStateSaver
 import com.mab.f2mbox.ui.common.PagerNextId
 import com.mab.f2mbox.ui.common.PagerPreviousId
 import com.mab.f2mbox.ui.common.ScraperLogFeed
+import com.mab.f2mbox.ui.common.RestoreFocusOnEnter
 import com.mab.f2mbox.ui.common.rememberFocusTracker
 import com.mab.f2mbox.ui.connect.LoadingDots
 import com.mab.f2mbox.ui.home.LocalHomeStrings
@@ -198,7 +199,7 @@ private fun ListContent(
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalHomeStrings.current
-    LaunchedEffect(data) {
+    RestoreFocusOnEnter(data) {
         focusTracker.restore(fallbackId = GridPosterId(0))
     }
 

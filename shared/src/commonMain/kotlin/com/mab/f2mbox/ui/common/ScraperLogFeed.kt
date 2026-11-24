@@ -1,7 +1,6 @@
 package com.mab.f2mbox.ui.common
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -46,7 +45,7 @@ fun ScraperLogFeed(modifier: Modifier = Modifier) {
                     shape = MaterialTheme.shapes.small,
                 )
                 .verticalScroll(scrollState)
-                .focusable()
+                .optionalDpadFocusable()
                 .padding(horizontal = 18.dp, vertical = 12.dp),
         ) {
             lines.forEachIndexed { index, line ->

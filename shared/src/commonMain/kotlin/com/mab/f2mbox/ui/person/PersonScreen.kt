@@ -18,7 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,6 +31,7 @@ import com.mab.f2mbox.data.remote.PersonData
 import com.mab.f2mbox.data.remote.PersonProfile
 import com.mab.f2mbox.ui.common.F2mButton
 import com.mab.f2mbox.ui.common.FocusTracker
+import com.mab.f2mbox.ui.common.RestoreFocusOnEnter
 import com.mab.f2mbox.ui.common.GridPosterId
 import com.mab.f2mbox.ui.home.LocalHomeStrings
 import com.mab.f2mbox.ui.home.PosterCard
@@ -54,7 +54,7 @@ fun PersonScreen(
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LaunchedEffect(data) {
+    RestoreFocusOnEnter(data) {
         focusTracker.restore(fallbackId = GridPosterId(0))
     }
 

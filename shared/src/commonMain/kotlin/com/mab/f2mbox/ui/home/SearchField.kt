@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.mab.f2mbox.ui.common.F2mButton
+import com.mab.f2mbox.ui.common.rememberTvKeyboardGateState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import com.mab.f2mbox.ui.home.LocalHomeStrings
@@ -65,6 +66,7 @@ fun SearchField(
     modifier: Modifier = Modifier
 ) {
     val focusManager = LocalFocusManager.current
+    val keyboardGate = rememberTvKeyboardGateState()
     // Locale of the context (system language), not the forced RTL layout:
     // the typed text follows it — right-to-left in a Persian locale, with
     // the actual content still winning per first-strong bidi rule, so
@@ -104,6 +106,7 @@ fun SearchField(
             OutlinedTextField(
                 value = query,
                 onValueChange = onQueryChange,
+                readOnly = keyboardGate.readOnly,
                 textStyle = TextStyle(
                     textDirection = if (localeIsRtl) {
                         TextDirection.ContentOrRtl
@@ -113,6 +116,7 @@ fun SearchField(
                 ),
                 modifier = Modifier
                     .weight(1f)
+                    .then(keyboardGate.modifier)
                     .onPreviewKeyEvent { event ->
                         // Preview phase, so the interception happens before
                         // the field's own key handling: Up/Down leave the

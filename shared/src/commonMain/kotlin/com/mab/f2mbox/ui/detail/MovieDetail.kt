@@ -68,6 +68,8 @@ import androidx.compose.material3.Text
 import coil3.compose.AsyncImage
 import com.mab.f2mbox.data.WatchedItem
 import com.mab.f2mbox.ui.common.FocusTracker
+import com.mab.f2mbox.ui.common.RestoreFocusOnEnter
+import com.mab.f2mbox.ui.common.optionalDpadFocus
 import com.mab.f2mbox.ui.common.rememberFocusTracker
 import com.mab.f2mbox.data.remote.Comments
 import com.mab.f2mbox.data.remote.Comment
@@ -146,7 +148,7 @@ fun MovieDetail(
     // or the element the user left when coming back to this page.
     val focusTracker = rememberFocusTracker()
     val backFocusId = "detail:back"
-    LaunchedEffect(data) {
+    RestoreFocusOnEnter(data) {
         focusTracker.restore(fallbackId = backFocusId)
     }
 
@@ -862,8 +864,7 @@ private fun CommentCard(comment: Comment, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .then(highlight.modifier)
-            .focusable(interactionSource = highlight.interactionSource)
+            .optionalDpadFocus(highlight)
             .clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.35f))
             .border(
@@ -1143,8 +1144,7 @@ private fun VoiceActorCard(actor: VoiceActor, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .width(VoiceActorCardWidth)
-            .then(highlight.modifier)
-            .focusable(interactionSource = highlight.interactionSource)
+            .optionalDpadFocus(highlight)
             .clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .border(

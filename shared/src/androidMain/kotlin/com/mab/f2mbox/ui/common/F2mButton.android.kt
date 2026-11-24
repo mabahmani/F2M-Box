@@ -4,6 +4,8 @@ package com.mab.f2mbox.ui.common
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.material3.Button as M3Button
+import androidx.compose.material3.ButtonDefaults as M3ButtonDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -29,10 +31,46 @@ actual fun F2mButton(
     shape: Shape?,
     content: @Composable RowScope.() -> Unit,
 ) {
+    if (LocalUsesTouchInput.current) {
+        TouchF2mButton(onClick, modifier, enabled, shape, content)
+        return
+    }
+    TvF2mButton(onClick, modifier, enabled, shape, content)
+}
+
+@Composable
+private fun TouchF2mButton(
+    onClick: () -> Unit,
+    modifier: Modifier,
+    enabled: Boolean,
+    shape: Shape?,
+    content: @Composable RowScope.() -> Unit,
+) {
+    M3Button(
+        onClick = onClick,
+        modifier = modifier,
+        enabled = enabled,
+        shape = shape ?: M3ButtonDefaults.shape,
+        colors = M3ButtonDefaults.buttonColors(
+            containerColor = SurfaceNavyVariant.copy(alpha = 0.8f),
+            contentColor = TextBright.copy(alpha = 0.8f),
+            disabledContainerColor = SurfaceNavyVariant.copy(alpha = 0.4f),
+            disabledContentColor = TextBright.copy(alpha = 0.4f),
+        ),
+        content = content,
+    )
+}
+
+@Composable
+private fun TvF2mButton(
+    onClick: () -> Unit,
+    modifier: Modifier,
+    enabled: Boolean,
+    shape: Shape?,
+    content: @Composable RowScope.() -> Unit,
+) {
     var focused by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
-    // Pin resting colors to brand tokens — shared UI sits under nested M3 theme
-    // and default tv button colors were easy to misread as the wrong unfocused fill.
     val colors = ButtonDefaults.colors(
         containerColor = SurfaceNavyVariant.copy(alpha = 0.8f),
         contentColor = TextBright.copy(alpha = 0.8f),
@@ -58,7 +96,6 @@ actual fun F2mButton(
         },
         colors = colors,
         content = {
-            // Shared labels use compose Material 3 Text (M3 locals), not tv Text.
             CompositionLocalProvider(LocalContentColor provides labelColor) {
                 content()
             }

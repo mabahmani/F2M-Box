@@ -43,6 +43,8 @@ import com.mab.f2mbox.ui.common.IntStateSaver
 import com.mab.f2mbox.ui.common.LocalWatchedItems
 import com.mab.f2mbox.ui.common.ScraperLogFeed
 import com.mab.f2mbox.ui.common.continueWatchingSection
+import com.mab.f2mbox.ui.common.LocalUsesTouchInput
+import com.mab.f2mbox.ui.common.RestoreFocusOnEnter
 import com.mab.f2mbox.ui.common.rememberFocusTracker
 import com.mab.f2mbox.ui.connect.LoadingDots
 
@@ -164,11 +166,16 @@ private fun HomeContent(
 ) {
     val homeStrings = LocalHomeStrings.current
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val heroHeight = maxHeight
+        val usesTouch = LocalUsesTouchInput.current
+        val heroHeight = if (usesTouch) {
+            (maxHeight * 0.45f).coerceAtMost(420.dp)
+        } else {
+            maxHeight
+        }
         val listState = rememberLazyListState()
 
         val heroFocus = focusTracker.requesterFor(HeroFocusId)
-        LaunchedEffect(home) {
+        RestoreFocusOnEnter(home) {
             focusTracker.restore(fallbackId = HeroFocusId)
         }
 

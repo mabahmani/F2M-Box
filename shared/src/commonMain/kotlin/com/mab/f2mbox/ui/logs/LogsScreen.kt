@@ -42,6 +42,9 @@ import androidx.compose.ui.unit.dp
 import com.mab.f2mbox.scraper.ScraperLog
 import com.mab.f2mbox.ui.common.F2mButton
 import com.mab.f2mbox.ui.common.F2mIconButton
+import com.mab.f2mbox.ui.common.LocalUsesTouchInput
+import com.mab.f2mbox.ui.common.RequestInitialFocusOnEnter
+import com.mab.f2mbox.ui.common.optionalDpadFocusable
 import com.mab.f2mbox.ui.home.LocalHomeStrings
 
 @Composable
@@ -61,9 +64,8 @@ fun LogsScreen(
             listState.scrollToItem(lines.lastIndex)
         }
     }
-    LaunchedEffect(Unit) {
-        backFocus.requestFocus()
-    }
+    RequestInitialFocusOnEnter { backFocus.requestFocus() }
+    val usesTouch = LocalUsesTouchInput.current
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         Column(modifier = modifier.fillMaxSize()) {
@@ -115,7 +117,7 @@ fun LogsScreen(
                         .padding(12.dp)
                         .heightIn(max = 280.dp)
                         .verticalScroll(rememberScrollState())
-                        .focusable(),
+                        .optionalDpadFocusable(),
                 ) {
                     Text(
                         text = strings.logsLastCrash,
@@ -154,15 +156,22 @@ fun LogsScreen(
                             text = line,
                             style = MaterialTheme.typography.labelSmall,
                             fontFamily = FontFamily.Monospace,
-                            color = if (isFocused || index == lines.lastIndex) {
+                            color = if ((!usesTouch && isFocused) || index == lines.lastIndex) {
                                 MaterialTheme.colorScheme.onSurface
                             } else {
                                 MaterialTheme.colorScheme.onSurfaceVariant
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .onFocusChanged { isFocused = it.isFocused }
-                                .focusable()
+                                .then(
+                                    if (usesTouch) {
+                                        Modifier
+                                    } else {
+                                        Modifier
+                                            .onFocusChanged { isFocused = it.isFocused }
+                                            .focusable()
+                                    },
+                                )
                                 .padding(vertical = 2.dp),
                         )
                     }

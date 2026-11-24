@@ -29,6 +29,7 @@ import com.mab.f2mbox.connect.ConnectSplashStrings
 import com.mab.f2mbox.connect.ConnectState
 import com.mab.f2mbox.ui.common.F2mButton
 import com.mab.f2mbox.ui.common.ScraperLogFeed
+import com.mab.f2mbox.ui.common.rememberTvKeyboardGateState
 
 /**
  * Splash while the scraper connects. [onBack] exits the app on desktop
@@ -110,6 +111,7 @@ internal fun ManualDomainInput(
 ) {
     var text by remember { mutableStateOf("") }
     var error by remember { mutableStateOf(false) }
+    val keyboardGate = rememberTvKeyboardGateState()
 
     fun submit() {
         val value = text.trim()
@@ -143,7 +145,10 @@ internal fun ManualDomainInput(
                 singleLine = true,
                 isError = error,
                 enabled = enabled,
-                modifier = Modifier.width(260.dp),
+                readOnly = keyboardGate.readOnly,
+                modifier = Modifier
+                    .width(260.dp)
+                    .then(keyboardGate.modifier),
             )
             if (error) {
                 Spacer(Modifier.width(8.dp))
