@@ -38,7 +38,7 @@ import com.mab.f2mbox.navigation.LocalPlayerRouteContent
 import com.mab.f2mbox.data.WatchedManager
 import com.mab.f2mbox.ui.common.LocalWatchedItems
 import com.mab.f2mbox.ui.common.WatchedItemsReader
-import com.mab.f2mbox.ui.connect.rememberConnectSplashStrings
+import com.mab.f2mbox.app.strings.rememberAppConnectSplashStrings
 import com.mab.f2mbox.ui.home.LocalHomeStrings
 import com.mab.f2mbox.app.strings.rememberAppDetailStrings
 import com.mab.f2mbox.app.strings.rememberAppHomeStrings
@@ -141,7 +141,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun ConnectGate(scraper: F2MScraper) {
     val context = LocalContext.current
-    val splashStrings = rememberConnectSplashStrings()
+    val splashStrings = rememberAppConnectSplashStrings()
     val homeStrings = rememberAppHomeStrings()
     val detailStrings = rememberAppDetailStrings()
     val watchedReader = remember(context) {

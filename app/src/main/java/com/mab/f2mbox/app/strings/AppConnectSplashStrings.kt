@@ -1,6 +1,6 @@
 @file:OptIn(ExperimentalTvMaterial3Api::class)
 
-package com.mab.f2mbox.ui.connect
+package com.mab.f2mbox.app.strings
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
@@ -9,7 +9,7 @@ import com.mab.f2mbox.R
 import com.mab.f2mbox.connect.ConnectSplashStrings
 
 @Composable
-fun rememberConnectSplashStrings(): ConnectSplashStrings = ConnectSplashStrings(
+fun rememberAppConnectSplashStrings(): ConnectSplashStrings = ConnectSplashStrings(
     appName = stringResource(R.string.app_name),
     back = stringResource(R.string.back),
     retry = stringResource(R.string.retry),
