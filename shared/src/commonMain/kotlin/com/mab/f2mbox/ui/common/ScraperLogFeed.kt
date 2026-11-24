@@ -1,12 +1,10 @@
 package com.mab.f2mbox.ui.common
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,7 +34,8 @@ fun ScraperLogFeed(modifier: Modifier = Modifier) {
     }
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-        Column(
+        F2mVerticalScroll(
+            state = scrollState,
             modifier = modifier
                 .fillMaxWidth(0.82f)
                 .heightIn(max = 220.dp)
@@ -44,7 +43,6 @@ fun ScraperLogFeed(modifier: Modifier = Modifier) {
                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
                     shape = MaterialTheme.shapes.small,
                 )
-                .verticalScroll(scrollState)
                 .optionalDpadFocusable()
                 .padding(horizontal = 18.dp, vertical = 12.dp),
         ) {

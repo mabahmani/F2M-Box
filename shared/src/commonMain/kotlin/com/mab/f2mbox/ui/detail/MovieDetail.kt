@@ -31,11 +31,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import com.mab.f2mbox.ui.common.F2mLazyRow
+import com.mab.f2mbox.ui.common.F2mVerticalScrollColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -167,6 +167,7 @@ fun MovieDetail(
     var commentLoading by remember(data) { mutableStateOf(false) }
     var commentError by remember(data) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val detailScrollState = rememberScrollState()
 
     // Collapsible seasons: which season indexes are expanded (the last one
     // open by default, since that's the currently-airing season). Toggled
@@ -271,13 +272,13 @@ fun MovieDetail(
         // the cast, are missing and the gaps grow). The content is bounded
         // (intro + a few rows + one comment page), so eager composition
         // costs nothing meaningful. Horizontal rows stay lazy.
-        Column(
+        F2mVerticalScrollColumn(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .verticalScroll(rememberScrollState())
                 .padding(horizontal = ContentMargin),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            state = detailScrollState,
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             IntroBlock(
                 intro = intro,
@@ -330,7 +331,7 @@ fun MovieDetail(
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(top = 12.dp)
                 )
-                LazyRow(
+                F2mLazyRow(
                     // Inset so the focus-scaled first/last cards aren't
                     // clipped at the row's bounds.
                     contentPadding = PaddingValues(horizontal = 8.dp),
@@ -416,7 +417,7 @@ fun MovieDetail(
                                 style = MaterialTheme.typography.titleSmall,
                                 color = MaterialTheme.colorScheme.primary
                             )
-                            LazyRow(
+                            F2mLazyRow(
                                 // Inset so the focus-scaled first/last cards
                                 // aren't clipped at the row's bounds.
                                 contentPadding = PaddingValues(horizontal = 8.dp),
@@ -445,7 +446,7 @@ fun MovieDetail(
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(top = 12.dp)
                 )
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                F2mLazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     items(variant.qualities.size) { index ->
                         QualityCard(
                             quality = variant.qualities[index],
@@ -520,7 +521,7 @@ fun MovieDetail(
                                 style = MaterialTheme.typography.titleSmall,
                                 color = MaterialTheme.colorScheme.primary
                             )
-                            LazyRow(
+                            F2mLazyRow(
                                 // Inset so the focus-scaled first/last cards
                                 // aren't clipped at the row's bounds.
                                 contentPadding = PaddingValues(horizontal = 8.dp),
@@ -555,7 +556,7 @@ fun MovieDetail(
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(top = 12.dp)
                 )
-                LazyRow(
+                F2mLazyRow(
                     // Inset so the focus-scaled first/last cards aren't
                     // clipped at the row's bounds.
                     contentPadding = PaddingValues(horizontal = 8.dp),
@@ -663,7 +664,7 @@ private fun IntroBlock(
         ) {
             val satisfaction = intro.satisfactionPercent
             if (satisfaction != null || intro.notes.isNotEmpty()) {
-                LazyRow(
+                F2mLazyRow(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -701,7 +702,7 @@ private fun IntroBlock(
 
             val formats = intro.formats.distinct()
             if (formats.isNotEmpty()) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                F2mLazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(formats.size) { index ->
                         AccentChip(
                             text = formats[index],
@@ -712,7 +713,7 @@ private fun IntroBlock(
             }
 
             if (intro.genres.isNotEmpty()) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                F2mLazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(intro.genres.size) { index ->
                         val genre = intro.genres[index]
                         val name = genre.name ?: return@items

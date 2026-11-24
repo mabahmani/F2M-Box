@@ -12,8 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import com.mab.f2mbox.ui.common.F2mLazyVerticalGrid
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -76,9 +76,10 @@ fun PersonScreen(
             return@Column
         }
 
-        LazyVerticalGrid(
+        val gridState = rememberLazyGridState()
+        F2mLazyVerticalGrid(
             columns = GridCells.Fixed(GridColumns),
-            state = rememberLazyGridState(),
+            state = gridState,
             modifier = Modifier.fillMaxWidth().weight(1f),
             contentPadding = PaddingValues(
                 start = ContentMargin,

@@ -7,12 +7,14 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.lazy.LazyRow
+import com.mab.f2mbox.ui.common.F2mLazyRow
+import com.mab.f2mbox.ui.common.LocalShowDesktopScrollbars
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -91,7 +93,7 @@ fun NavigationBlock(
     val scope = rememberCoroutineScope()
 
     Column(modifier = modifier.fillMaxWidth().padding(top = 28.dp)) {
-        LazyRow(
+        F2mLazyRow(
             contentPadding = PaddingValues(horizontal = ContentMargin),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.onPreviewKeyEvent { event ->
@@ -168,6 +170,8 @@ private fun genresFor(sectionUrl: String?, navigation: HomeNavigation): List<Gen
 // Fixed height of the genre-row slot, so the search field below keeps its
 // position whether the row is showing chips or empty.
 private val GenreRowSlotHeight = 44.dp
+/** Room for chip row + horizontal scrollbar margins on desktop. */
+private val GenreRowSlotHeightWithScrollbar = 88.dp
 
 @Composable
 private fun GenreRow(
@@ -177,13 +181,19 @@ private fun GenreRow(
     sectionUrl: String?,
     modifier: Modifier = Modifier
 ) {
+    val desktopScrollbars = LocalShowDesktopScrollbars.current
+    val slotHeight = if (desktopScrollbars) GenreRowSlotHeightWithScrollbar else GenreRowSlotHeight
     Box(
-        modifier = modifier.height(GenreRowSlotHeight),
-        contentAlignment = Alignment.Center
+        modifier = modifier.height(slotHeight),
+        contentAlignment = if (desktopScrollbars) Alignment.TopCenter else Alignment.Center,
     ) {
         if (genres.isNotEmpty()) {
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
+            F2mLazyRow(
+                modifier = if (desktopScrollbars) {
+                    Modifier.fillMaxWidth().fillMaxHeight()
+                } else {
+                    Modifier.fillMaxWidth()
+                },
                 contentPadding = PaddingValues(horizontal = ContentMargin),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {

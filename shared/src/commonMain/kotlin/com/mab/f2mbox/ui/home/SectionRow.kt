@@ -11,7 +11,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.lazy.LazyRow
+import com.mab.f2mbox.ui.common.F2mLazyRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -91,7 +91,7 @@ fun SectionRow(
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(horizontal = ContentMargin, vertical = 12.dp)
         )
-        LazyRow(
+        F2mLazyRow(
             contentPadding = PaddingValues(horizontal = ContentMargin),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {

@@ -12,8 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import com.mab.f2mbox.ui.common.F2mLazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Refresh
@@ -183,7 +183,7 @@ private fun HomeContent(
             focusTracker.restore(fallbackId = HeroFocusId)
         }
 
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+        F2mLazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
             if (!touch) {
                 item {
                     HomeTopToolbar(

@@ -23,6 +23,7 @@ import androidx.compose.ui.window.WindowPlacement
 import com.mab.f2mbox.desktop.ui.common.LocalWatched
 import com.mab.f2mbox.desktop.strings.desktopHomeStrings
 import com.mab.f2mbox.storage.WatchedHistory
+import com.mab.f2mbox.ui.common.LocalShowDesktopScrollbars
 import com.mab.f2mbox.ui.common.LocalWatchedItems
 import com.mab.f2mbox.ui.common.WatchedItemsReader
 import com.mab.f2mbox.ui.home.LocalHomeStrings
@@ -98,6 +99,7 @@ fun main() {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     CompositionLocalProvider(LocalWatched provides watchedStorage) {
                         CompositionLocalProvider(
+                            LocalShowDesktopScrollbars provides true,
                             LocalHomeStrings provides desktopHomeStrings(),
                             LocalWatchedItems provides WatchedItemsReader {
                                 WatchedHistory.getWatchedItems(watchedStorage)

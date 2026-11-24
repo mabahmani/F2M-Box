@@ -12,11 +12,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import com.mab.f2mbox.ui.common.F2mLazyColumn
+import com.mab.f2mbox.ui.common.F2mVerticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Icon
@@ -56,6 +56,7 @@ fun LogsScreen(
     val crashStore = LocalSessionCrashStore.current
     val lines by ScraperLog.lines.collectAsState()
     val listState = rememberLazyListState()
+    val crashScrollState = rememberScrollState()
     val backFocus = remember { FocusRequester() }
     var lastCrash by remember { mutableStateOf(crashStore?.pending()) }
 
@@ -106,7 +107,8 @@ fun LogsScreen(
                 }
             }
             lastCrash?.let { crash ->
-                Column(
+                F2mVerticalScroll(
+                    state = crashScrollState,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
@@ -116,7 +118,6 @@ fun LogsScreen(
                         )
                         .padding(12.dp)
                         .heightIn(max = 280.dp)
-                        .verticalScroll(rememberScrollState())
                         .optionalDpadFocusable(),
                 ) {
                     Text(
@@ -142,7 +143,7 @@ fun LogsScreen(
                     modifier = Modifier.padding(horizontal = 24.dp),
                 )
             } else {
-                LazyColumn(
+                F2mLazyColumn(
                     state = listState,
                     modifier = Modifier
                         .weight(1f)

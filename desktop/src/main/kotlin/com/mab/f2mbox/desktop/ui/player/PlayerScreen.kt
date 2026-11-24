@@ -23,7 +23,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
+import com.mab.f2mbox.ui.common.F2mLazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -1649,7 +1649,7 @@ private fun SubtitleChipsPanelRow(
             color = Color.White.copy(alpha = 0.7f),
             modifier = Modifier.width(110.dp)
         )
-        LazyRow(
+        F2mLazyRow(
             state = listState,
             modifier = Modifier.weight(1f),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
