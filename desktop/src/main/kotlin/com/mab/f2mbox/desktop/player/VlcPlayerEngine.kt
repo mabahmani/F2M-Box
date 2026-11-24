@@ -21,6 +21,8 @@ data class TrackInfo(val id: Int, val label: String)
 sealed interface EngineEvent {
     data object Playing : EngineEvent
     data object Paused : EngineEvent
+    /** Network/cache fill while opening or after a seek; 0–100. */
+    data class Buffering(val percent: Float) : EngineEvent
     data class Position(val ms: Long, val durationMs: Long) : EngineEvent
     data class Rate(val rate: Float) : EngineEvent
     data class TracksReady(
@@ -249,6 +251,11 @@ class VlcPlayerEngine(
                 if (startPositionMs > 0 && startApplied && !resumeSettled) {
                     applyResumeWithRetry(mediaPlayer)
                 }
+            }
+
+            override fun buffering(mediaPlayer: MediaPlayer, newCache: Float) {
+                if (released) return
+                emitIfActive(EngineEvent.Buffering(newCache.coerceIn(0f, 100f)))
             }
 
             override fun paused(mediaPlayer: MediaPlayer) {

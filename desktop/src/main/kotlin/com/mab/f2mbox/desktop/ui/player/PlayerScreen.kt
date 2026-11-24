@@ -165,6 +165,10 @@ fun PlayerScreen(
     var durationMs by remember { mutableLongStateOf(0L) }
     var isPlaying by remember { mutableStateOf(false) }
     var everPlayed by remember { mutableStateOf(false) }
+    /** False while the engine is building or waiting for the first `playing` after a rebuild. */
+    var playbackReady by remember { mutableStateOf(false) }
+    var isBuffering by remember { mutableStateOf(false) }
+    var bufferPercent by remember { mutableFloatStateOf(0f) }
     // Why playback failed: null while healthy. libvlc reports no codec
     // name in its error event, so the codec detail of the Android build
     // has no counterpart here.
@@ -214,6 +218,8 @@ fun PlayerScreen(
     // mounted/released by the DisposableEffect(engine) below.
     LaunchedEffect(url, retryNonce, styleRevision) {
         errorKind = null
+        playbackReady = false
+        isBuffering = false
         val startAt = resumeAtMs
         val holder = AtomicReference<VlcPlayerEngine?>(null)
         try {
@@ -229,8 +235,14 @@ fun PlayerScreen(
                             is EngineEvent.Playing -> {
                                 isPlaying = true
                                 everPlayed = true
+                                playbackReady = true
+                                isBuffering = false
                             }
                             is EngineEvent.Paused -> isPlaying = false
+                            is EngineEvent.Buffering -> {
+                                bufferPercent = event.percent
+                                isBuffering = event.percent < 100f
+                            }
                             is EngineEvent.Position -> {
                                 positionMs = event.ms.coerceAtLeast(0L)
                                 durationMs = event.durationMs.takeIf { it > 0 } ?: 0L
@@ -556,10 +568,12 @@ fun PlayerScreen(
                 modifier = Modifier.fillMaxSize()
             )
 
-            if (!everPlayed && errorKind == null) {
-                CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center).size(56.dp),
-                    color = MaterialTheme.colorScheme.primary
+            val showLoadingOverlay = errorKind == null && (!playbackReady || isBuffering)
+            if (showLoadingOverlay) {
+                PlayerLoadingOverlay(
+                    buffering = playbackReady && isBuffering,
+                    bufferPercent = bufferPercent,
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
 
@@ -569,6 +583,7 @@ fun PlayerScreen(
                     onRetry = {
                         errorKind = null
                         everPlayed = false
+                        playbackReady = false
                         positionMs = 0
                         resumeAtMs = 0
                         retryNonce++
@@ -1238,6 +1253,49 @@ private fun ChoiceMenu(
                     style = MaterialTheme.typography.titleSmall,
                     color = Color.White,
                     maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+/** Dimmed overlay while the engine builds or libVLC buffers after a seek. */
+@Composable
+private fun PlayerLoadingOverlay(
+    buffering: Boolean,
+    bufferPercent: Float,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier.background(Color.Black.copy(alpha = 0.55f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (buffering && bufferPercent > 0f) {
+                CircularProgressIndicator(
+                    progress = { bufferPercent / 100f },
+                    modifier = Modifier.size(56.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            } else {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(56.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Text(
+                text = if (buffering) Strings.playerBuffering else Strings.playerLoading,
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White,
+            )
+            if (buffering && bufferPercent > 0f) {
+                Text(
+                    text = "${bufferPercent.toInt()}%",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.85f),
                 )
             }
         }

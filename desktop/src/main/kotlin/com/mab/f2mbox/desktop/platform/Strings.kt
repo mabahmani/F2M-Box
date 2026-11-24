@@ -70,6 +70,8 @@ object Strings {
     const val downloads = "Play"
 
     // Player
+    const val playerLoading = "Loading video"
+    const val playerBuffering = "Buffering"
     const val playerPlay = "Play"
     const val playerPause = "Pause"
     const val playerReplay = "Replay"
