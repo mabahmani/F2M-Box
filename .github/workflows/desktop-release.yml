@@ -25,7 +25,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14
+          # macos-14 retired 2026-11-02 — use macos-15 (arm64) for Apple Silicon DMG.
+          - os: macos-15
             artifact: macos-arm64
           - os: macos-15-intel
             artifact: macos-x64
