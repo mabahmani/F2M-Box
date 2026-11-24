@@ -13,6 +13,7 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import androidx.compose.ui.unit.dp
 import com.mab.f2mbox.desktop.platform.LocalWindowFullscreen
+import com.mab.f2mbox.desktop.platform.rememberAppIconPainter
 import com.mab.f2mbox.desktop.platform.desktopStores
 import com.mab.f2mbox.desktop.platform.rememberWindowFullscreen
 import com.mab.f2mbox.desktop.platform.subtitleStyleStore
@@ -66,11 +67,11 @@ fun main() {
     application {
         val windowState = rememberWindowState(width = 1280.dp, height = 720.dp)
         val windowFullscreen = rememberWindowFullscreen(windowState)
-
         Window(
             onCloseRequest = ::exitApplication,
             state = windowState,
-            title = "F2M Box"
+            title = "F2M Box",
+            icon = rememberAppIconPainter(),
         ) {
             if (windowState.placement != WindowPlacement.Fullscreen) {
                 MenuBar {

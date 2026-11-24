@@ -67,7 +67,7 @@ compose.desktop {
             includeAllModules = true
 
             macOS {
-                iconFile.set(project.file("src/main/resources/f2mbox-logo.png"))
+                iconFile.set(project.file("src/main/resources/f2mbox-logo.icns"))
                 bundleID = "com.mab.f2mbox.desktop"
             }
         }
