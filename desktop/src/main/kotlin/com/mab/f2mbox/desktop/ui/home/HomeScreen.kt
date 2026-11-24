@@ -44,10 +44,11 @@ import com.mab.f2mbox.data.remote.HomeSection
 import com.mab.f2mbox.scraper.ScraperLog
 import com.mab.f2mbox.desktop.ui.common.FocusTracker
 import com.mab.f2mbox.desktop.ui.common.IntStateSaver
-import com.mab.f2mbox.desktop.ui.common.ScraperLogFeed
+import com.mab.f2mbox.ui.common.ScraperLogFeed
 import com.mab.f2mbox.desktop.ui.common.rememberFocusTracker
-import com.mab.f2mbox.desktop.ui.connect.LoadingDots
-import com.mab.f2mbox.desktop.ui.connect.describe
+import com.mab.f2mbox.connect.describeConnectError
+import com.mab.f2mbox.ui.connect.LoadingDots
+import com.mab.f2mbox.ui.home.HomeUiState
 import kotlinx.coroutines.delay
 import com.mab.f2mbox.desktop.platform.Strings
 
@@ -116,7 +117,7 @@ fun HomeScreen(
                 fetchedToken = fetchToken
                 onHomeLoaded(it)
             },
-            onFailure = { state = HomeUiState.Error(describe(it)) }
+            onFailure = { state = HomeUiState.Error(describeConnectError(it)) }
         )
     }
 

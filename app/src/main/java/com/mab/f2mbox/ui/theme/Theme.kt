@@ -1,5 +1,7 @@
 package com.mab.f2mbox.ui.theme
 
+import androidx.compose.material3.MaterialTheme as M3MaterialTheme
+import androidx.compose.material3.darkColorScheme as m3DarkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
@@ -33,9 +35,34 @@ fun F2MBoxTheme(content: @Composable () -> Unit) {
         borderVariant = BorderNavy,
         scrim = BgNavy
     )
+    val m3Colors = m3DarkColorScheme(
+        primary = BrandPurple,
+        onPrimary = TextBright,
+        primaryContainer = BrandPurpleDeep,
+        onPrimaryContainer = TextBright,
+        secondary = BrandBlue,
+        onSecondary = TextBright,
+        secondaryContainer = BrandBlueDeep,
+        onSecondaryContainer = TextBright,
+        tertiary = BrandPurple,
+        onTertiary = TextBright,
+        background = BgNavy,
+        onBackground = TextBright,
+        surface = SurfaceNavy,
+        onSurface = TextBright,
+        surfaceVariant = SurfaceNavyVariant,
+        onSurfaceVariant = TextMuted,
+        outline = SurfaceNavyVariant,
+        outlineVariant = BorderNavy,
+        scrim = BgNavy,
+    )
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
-        content = content
-    )
+    ) {
+        // Shared CMP composables from `:shared` read Material 3 locals.
+        M3MaterialTheme(colorScheme = m3Colors) {
+            content()
+        }
+    }
 }

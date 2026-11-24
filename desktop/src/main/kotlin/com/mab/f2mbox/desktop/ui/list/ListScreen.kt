@@ -49,10 +49,10 @@ import com.mab.f2mbox.desktop.ui.common.IntStateSaver
 import com.mab.f2mbox.desktop.ui.common.NullableStringListStateSaver
 import com.mab.f2mbox.desktop.ui.common.PagerNextId
 import com.mab.f2mbox.desktop.ui.common.PagerPreviousId
-import com.mab.f2mbox.desktop.ui.common.ScraperLogFeed
+import com.mab.f2mbox.ui.common.ScraperLogFeed
 import com.mab.f2mbox.desktop.ui.common.rememberFocusTracker
-import com.mab.f2mbox.desktop.ui.connect.LoadingDots
-import com.mab.f2mbox.desktop.ui.connect.describe
+import com.mab.f2mbox.connect.describeConnectError
+import com.mab.f2mbox.ui.connect.LoadingDots
 import com.mab.f2mbox.desktop.ui.detail.MovieDetail
 import com.mab.f2mbox.desktop.ui.home.PosterCard
 import com.mab.f2mbox.desktop.ui.person.PersonScreen
@@ -149,7 +149,7 @@ fun ListScreen(
                 state = ListUiState.Ready(it)
                 pageCache.put(cacheKey, it)
             },
-            onFailure = { state = ListUiState.Error(describe(it)) }
+            onFailure = { state = ListUiState.Error(describeConnectError(it)) }
         )
     }
 

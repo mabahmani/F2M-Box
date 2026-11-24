@@ -1,6 +1,16 @@
 package com.mab.f2mbox.desktop.ui.theme
 
 import androidx.compose.foundation.LocalIndication
+import com.mab.f2mbox.ui.theme.BorderNavy
+import com.mab.f2mbox.ui.theme.BgNavy
+import com.mab.f2mbox.ui.theme.BrandBlue
+import com.mab.f2mbox.ui.theme.BrandBlueDeep
+import com.mab.f2mbox.ui.theme.BrandPurple
+import com.mab.f2mbox.ui.theme.BrandPurpleDeep
+import com.mab.f2mbox.ui.theme.SurfaceNavy
+import com.mab.f2mbox.ui.theme.SurfaceNavyVariant
+import com.mab.f2mbox.ui.theme.TextBright
+import com.mab.f2mbox.ui.theme.TextMuted
 import androidx.compose.material3.MaterialTheme
 import com.mab.f2mbox.desktop.ui.common.NoIndication
 import androidx.compose.material3.darkColorScheme

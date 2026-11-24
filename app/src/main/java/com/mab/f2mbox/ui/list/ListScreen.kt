@@ -3,7 +3,6 @@
 package com.mab.f2mbox.ui.list
 
 import androidx.activity.compose.BackHandler
-import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,8 +55,8 @@ import com.mab.f2mbox.ui.common.PagerNextId
 import com.mab.f2mbox.ui.common.PagerPreviousId
 import com.mab.f2mbox.ui.common.ScraperLogFeed
 import com.mab.f2mbox.ui.common.rememberFocusTracker
+import com.mab.f2mbox.connect.describeConnectError
 import com.mab.f2mbox.ui.connect.LoadingDots
-import com.mab.f2mbox.ui.connect.describe
 import com.mab.f2mbox.ui.detail.MovieDetail
 import com.mab.f2mbox.ui.home.PosterCard
 import com.mab.f2mbox.ui.person.PersonScreen
@@ -76,7 +75,7 @@ private val GridItemPadding = 16.dp
 /** UI state of the scrape screen. */
 sealed interface ListUiState {
     data object Loading : ListUiState
-    data class Error(@StringRes val messageRes: Int) : ListUiState
+    data class Error(val message: String) : ListUiState
     data class Ready(val result: ScrapeResult) : ListUiState
 }
 
@@ -146,7 +145,7 @@ fun ListScreen(
                 state = ListUiState.Ready(it)
                 pageCache.put(cacheKey, it)
             },
-            onFailure = { state = ListUiState.Error(describe(it)) }
+            onFailure = { state = ListUiState.Error(describeConnectError(it)) }
         )
     }
 
@@ -171,7 +170,7 @@ fun ListScreen(
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = stringResource(current.messageRes),
+                    text = current.message,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center

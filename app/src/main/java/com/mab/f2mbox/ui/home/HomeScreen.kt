@@ -50,8 +50,9 @@ import com.mab.f2mbox.ui.common.FocusTracker
 import com.mab.f2mbox.ui.common.IntStateSaver
 import com.mab.f2mbox.ui.common.ScraperLogFeed
 import com.mab.f2mbox.ui.common.rememberFocusTracker
+import com.mab.f2mbox.connect.describeConnectError
 import com.mab.f2mbox.ui.connect.LoadingDots
-import com.mab.f2mbox.ui.connect.describe
+import com.mab.f2mbox.ui.home.HomeUiState
 import kotlinx.coroutines.delay
 
 /**
@@ -118,7 +119,7 @@ fun HomeScreen(
                 fetchedToken = fetchToken
                 onHomeLoaded(it)
             },
-            onFailure = { state = HomeUiState.Error(describe(it)) }
+            onFailure = { state = HomeUiState.Error(describeConnectError(it)) }
         )
     }
 
@@ -140,7 +141,7 @@ fun HomeScreen(
             val contextError = LocalContext.current
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = stringResource(current.messageRes),
+                    text = current.message,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
