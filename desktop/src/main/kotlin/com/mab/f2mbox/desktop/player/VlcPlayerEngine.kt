@@ -78,11 +78,11 @@ class VlcPlayerEngine(
     url: String,
     listener: (EngineEvent) -> Unit,
     /** Extra libvlc args; used by the diagnostic harnesses to get native logs. */
-    extraArgs: List<String> = emptyList(),
+    private val extraArgs: List<String> = emptyList(),
     /** Subtitle look applied to this playback; libvlc reads it when the engine's factory is built. */
-    subtitleStyle: SubtitleStyle = SubtitleStyle.Default,
+    private val subtitleStyle: SubtitleStyle = SubtitleStyle.Default,
     /** Where playback resumes (used when a style change rebuilds the engine mid-watch). */
-    startPositionMs: Long = 0L,
+    private val startPositionMs: Long = 0L,
     /**
      * The native libVLC location chosen by [VlcDiscovery]. When present its
      * directory becomes the top `jna.library.path` entry, so a packaged app
@@ -95,31 +95,25 @@ class VlcPlayerEngine(
     private val bus = EngineEventBus(listener)
 
     /**
-     * libVLC must decode in software for subtitles to reach the callback
-     * surface.
-     *
-     * On the hardware path (VideoToolbox on macOS, D3D11VA/DXVA2 on Windows)
-     * libVLC hands the subtitle bitmap (a YUVA subpicture) to its alpha-blend
-     * filter against the decoder's native CVPX/NV12 picture, which has no
-     * blend routine — it logs
-     * `no matching alpha blending routine (chroma: YUVA -> CVPN)` and the
-     * subtitle never reaches the frame (verified with a paused A/B capture:
-     * with hardware decode the subtitle region is pixel-identical with the
-     * track on or off). The software avcodec decoder produces an I420
-     * picture, which *does* have a YUVA->I420 blender, so subtitles composite
-     * into the callback frame. Forcing it globally (`--codec=avcodec` also
-     * overrides macOS's separate `videotoolbox` module) costs CPU decoding,
-     * but it is the only way to show subtitles without a native video surface
-     * that would sit above — and hide — the Compose overlay controls.
+     * For embedded subtitles inside media files (MKV/MP4/TS) and remote streaming URLs,
+     * libVLC decodes in software (`--codec=avcodec`, `--avcodec-hw=none`) so libVLC can
+     * perform YUVA -> I420 alpha blending of embedded subtitle subpictures.
      */
-    private val decodeArgs = listOf("--codec=avcodec", "--avcodec-hw=none") + extraArgs
+    private val decodeArgs = (if (startPositionMs > 0) {
+        // On a rebuild, open the media already at [startPositionMs] via the media
+        // ':start-time' option, instead of seeking after the first playing event.
+        // Verified on a remote HTTP stream: seeking immediately after play() was
+        // unreliable (playback stayed at 0 while the seek was racing media setup);
+        // ':start-time' makes the resume deterministic and avoids the race.
+        listOf(
+            "--start-time=${startPositionMs / 1000.0}",
+            // The seek guarantee above requires the demuxer's start-time support
+            // for network sources; none needed here — mkv/ts/mp4 all honor it.
+        )
+    } else emptyList()) + listOf("--codec=avcodec", "--avcodec-hw=none") + extraArgs
 
     /**
-     * The full libvlc global argument list. The style's freetype options
-     * ride along here because libvlc only honours them as global
-     * (`--opt=value`) args, not as per-media `:` options. The app's Vazirmatn
-     * family is registered natively at startup ([VazirFonts]); passing it
-     * makes subtitles use it instead of libvlc's default font.
+     * The full libvlc global argument list including user subtitle styling.
      */
     private val factoryArgs = decodeArgs + subtitleStyle.toVlcArgs(
         fontFamily = VazirFonts.registeredFamily()
@@ -171,9 +165,38 @@ class VlcPlayerEngine(
     /** Applies [startPositionMs] once, on the first `playing` event. */
     private var startApplied = false
 
+    /** True once the resume position actually took effect (verified via timeChanged). */
+    @Volatile
+    private var resumeSettled = false
+
     /** Guards the deferred start against a release before the window showed. */
     @Volatile
     private var released = false
+
+    /**
+     * Applies the resume seek and verifies it landed. On network sources the
+     * first `playing` event can fire before the demuxer accepts seeks, so the
+     * initial setTime is retried (then via `lengthChanged`) until
+     * [resumeSettled] flips — confirmed by observing time >= target in
+     * [timeChanged]. Capped at 10 attempts with 250ms gaps.
+     */
+    private fun applyResumeWithRetry(mediaPlayer: MediaPlayer) {
+        var attempts = 0
+        val retryThread = Thread({
+            while (!released && !resumeSettled && attempts < 10) {
+                attempts++
+                mediaPlayer.controls().setTime(startPositionMs)
+                try {
+                    Thread.sleep(250)
+                } catch (_: InterruptedException) {
+                    return@Thread
+                }
+            }
+        }, "vlc-resume").apply {
+            isDaemon = true
+            start()
+        }
+    }
 
     init {
         player.events().addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
@@ -181,12 +204,23 @@ class VlcPlayerEngine(
                 startedPlaying = true
                 // Resume where a style change interrupted playback (the
                 // engine is rebuilt to re-read the global freetype args).
-                if (!startApplied) {
+                // For network streams the position is not yet settled at the
+                // first `playing` event: setTime can race media setup and be
+                // swallowed. Retry until it actually takes, capped at 5s.
+                if (startPositionMs > 0 && !startApplied) {
                     startApplied = true
-                    if (startPositionMs > 0) mediaPlayer.controls().setTime(startPositionMs)
+                    applyResumeWithRetry(mediaPlayer)
                 }
                 bus.emit(EngineEvent.Playing)
                 emitTracks(mediaPlayer)
+            }
+
+            override fun lengthChanged(mediaPlayer: MediaPlayer, newLength: Long) {
+                // If the resume seek was swallowed before the length was known
+                // (typical on network sources), retry once the duration lands.
+                if (startPositionMs > 0 && startApplied && !resumeSettled) {
+                    applyResumeWithRetry(mediaPlayer)
+                }
             }
 
             override fun paused(mediaPlayer: MediaPlayer) {
@@ -198,6 +232,11 @@ class VlcPlayerEngine(
             }
 
             override fun timeChanged(mediaPlayer: MediaPlayer, time: Long) {
+                // Confirms the resume seek landed: once the demuxer reports a
+                // time at/after the target, stop retrying.
+                if (startPositionMs > 0 && !resumeSettled && time >= startPositionMs - 1_000) {
+                    resumeSettled = true
+                }
                 bus.emit(EngineEvent.Position(time, mediaPlayer.status().length()))
             }
 
@@ -247,7 +286,13 @@ class VlcPlayerEngine(
             }
             if (!released && componentSurface.isDisplayable) {
                 javax.swing.SwingUtilities.invokeLater {
-                    if (!released) player.media().play(url)
+                    if (!released) {
+                        if (startPositionMs > 0) {
+                            player.media().play(url, ":start-time=${startPositionMs / 1000}")
+                        } else {
+                            player.media().play(url)
+                        }
+                    }
                 }
             } else if (!released) {
                 bus.emit(EngineEvent.Error(EngineEvent.ErrorKind.Source))

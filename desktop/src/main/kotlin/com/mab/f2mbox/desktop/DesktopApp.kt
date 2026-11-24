@@ -57,8 +57,12 @@ sealed interface Route {
     /** Results of one search query, rendered like any listing. */
     data class Results(val query: String) : Route
 
-    /** In-app playback of one direct video url. */
-    data class Player(val url: String, val title: String) : Route
+    /** In-app playback of one direct video url, with an optional SRT subtitle URL or path. */
+    data class Player(
+        val url: String,
+        val title: String,
+        val subtitleUrl: String? = null
+    ) : Route
 
     /** Session log of the scraper engine, reached from the home screen. */
     data object Logs : Route
@@ -285,6 +289,7 @@ fun DesktopApp(scraper: F2MScraper) {
                         is Route.Player -> PlayerScreen(
                             url = current.url,
                             title = current.title,
+                            subtitleUrl = current.subtitleUrl,
                             onNavigateBack = goBack,
                             registerEsc = { escHandler = it }
                         )

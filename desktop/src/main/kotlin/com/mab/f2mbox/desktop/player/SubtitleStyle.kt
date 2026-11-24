@@ -85,8 +85,13 @@ data class SubtitleStyle(
 
     companion object {
 
-        /** Subtitle size choices in sp, tuned for 10-foot TV viewing (Android's set). */
-        val SizeOptions = listOf(16f, 20f, 25f, 32f)
+        /**
+         * Subtitle size choices in sp, tuned for 10-foot TV viewing. Wider
+         * spread than Android's set so "Small" is actually small: the span
+         * 16→32 was too tight (25% smallest-to-largest), whereas 12→40 spans
+         * ~3.3x — each step visibly different at 1080p.
+         */
+        val SizeOptions = listOf(12f, 20f, 28f, 40f)
 
         /** Text colors as RGB ints (Android's seven choices, alpha dropped). */
         val ColorOptions = listOf(

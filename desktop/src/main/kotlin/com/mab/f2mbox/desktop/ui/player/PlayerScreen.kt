@@ -125,6 +125,7 @@ fun PlayerScreen(
     title: String,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
+    subtitleUrl: String? = null,
     registerEsc: ((() -> Unit)?) -> Unit = {},
 ) {
     val discovery = remember { VlcDiscovery.findLibVlc() }
@@ -1228,11 +1229,14 @@ private fun SubtitleSettingsPanel(
             0 -> onChange(style.copy(textSizeSp = SubtitleSizeChoices[c.coerceIn(0, SubtitleSizeChoices.lastIndex)]))
             1 -> onChange(style.copy(bold = c == 1))
             2 -> onChange(style.copy(colorRgb = SubtitleStyle.ColorOptions[c.coerceIn(0, SubtitleStyle.ColorOptions.lastIndex)]))
+            3 -> onChange(style.copy(backgroundOpacityPercent = (style.backgroundOpacityPercent + 25).coerceIn(0, 100)))
             4 -> onChange(style.copy(edge = SubtitleEdgeChoices[c.coerceIn(0, SubtitleEdgeChoices.lastIndex)]))
-            // Sliders scrub with Left/Right only.
+            5 -> onChange(style.copy(edgeStrengthPercent = (style.edgeStrengthPercent + 25).coerceIn(0, 100)))
+            6 -> onChange(style.copy(bottomOffsetPercent = (style.bottomOffsetPercent + 5).coerceIn(0, 30)))
             else -> {}
         }
     }
+
 
     Box(
         modifier = modifier
@@ -1395,7 +1399,18 @@ private fun SubtitleChipsPanelRow(
                                 else -> Color.White.copy(alpha = 0.15f)
                             }
                         )
-                        .clickable { onPick(index) }
+                        .pointerInput(selectedIndex) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    val event = awaitPointerEvent()
+
+                                    if (event.changes.any { it.pressed }) {
+                                        onPick(index)
+                                        event.changes.forEach { it.consume() }
+                                    }
+                                }
+                            }
+                        }
                         .padding(horizontal = 14.dp, vertical = 8.dp)
                 ) {
                     Text(
@@ -1460,7 +1475,17 @@ private fun SubtitlePanelChip(
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
             .background(if (highlighted) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.15f))
-            .clickable { onClick() }
+            .pointerInput(label) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        if (event.changes.any { it.pressed }) {
+                            onClick()
+                            event.changes.forEach { it.consume() }
+                        }
+                    }
+                }
+            }
             .padding(horizontal = 18.dp, vertical = 8.dp)
     ) {
         Text(text = label, style = MaterialTheme.typography.titleSmall, color = Color.White, maxLines = 1)

@@ -34,7 +34,7 @@ class SubtitleStyleTest {
     @Test
     fun `custom style maps every setting`() {
         val style = SubtitleStyle(
-            textSizeSp = 32f,
+            textSizeSp = 40f,
             bold = true,
             colorRgb = 0x00E5FF,
             backgroundOpacityPercent = 40,
@@ -44,7 +44,7 @@ class SubtitleStyleTest {
         )
         assertEquals(
             listOf(
-                "--sub-text-scale=160",
+                "--sub-text-scale=200",
                 "--freetype-bold",
                 "--freetype-color=58879",
                 "--freetype-background-opacity=102",
@@ -102,7 +102,7 @@ class SubtitleStyleTest {
     @Test
     fun `encode and load round-trip`() {
         val style = SubtitleStyle(
-            textSizeSp = 25f,
+            textSizeSp = 28f,
             bold = true,
             colorRgb = 0xFF9800,
             backgroundOpacityPercent = 30,
@@ -127,8 +127,8 @@ class SubtitleStyleTest {
 
     @Test
     fun `unknown keys and missing fields keep defaults`() {
-        val loaded = SubtitleStyle.load("size=25;future=1")
-        assertEquals(25f, loaded.textSizeSp)
+        val loaded = SubtitleStyle.load("size=28;future=1")
+        assertEquals(28f, loaded.textSizeSp)
         assertEquals(SubtitleStyle.Default.bold, loaded.bold)
         assertEquals(SubtitleStyle.Default.edge, loaded.edge)
     }
