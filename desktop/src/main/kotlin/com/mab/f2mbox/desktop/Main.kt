@@ -21,6 +21,11 @@ import com.mab.f2mbox.desktop.platform.VazirFonts
 import com.mab.f2mbox.desktop.ui.common.LocalSubtitleStyleStore
 import androidx.compose.ui.window.WindowPlacement
 import com.mab.f2mbox.desktop.ui.common.LocalWatched
+import com.mab.f2mbox.desktop.ui.home.desktopHomeStrings
+import com.mab.f2mbox.storage.WatchedHistory
+import com.mab.f2mbox.ui.common.LocalWatchedItems
+import com.mab.f2mbox.ui.common.WatchedItemsReader
+import com.mab.f2mbox.ui.home.LocalHomeStrings
 import com.mab.f2mbox.desktop.ui.theme.F2MBoxTheme
 import com.mab.f2mbox.scraper.BaseUrlResolver
 import com.mab.f2mbox.scraper.F2MScraper
@@ -86,6 +91,12 @@ fun main() {
                 // every layout mirrors (rows flow right-to-left, start = right).
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     CompositionLocalProvider(LocalWatched provides watchedStorage) {
+                        CompositionLocalProvider(
+                            LocalHomeStrings provides desktopHomeStrings(),
+                            LocalWatchedItems provides WatchedItemsReader {
+                                WatchedHistory.getWatchedItems(watchedStorage)
+                            },
+                        ) {
                         CompositionLocalProvider(LocalSubtitleStyleStore provides subtitleStyles) {
                             CompositionLocalProvider(LocalWindowFullscreen provides windowFullscreen) {
                                 Surface(
@@ -95,6 +106,7 @@ fun main() {
                                     DesktopApp(scraper = scraper)
                                 }
                             }
+                        }
                         }
                     }
                 }

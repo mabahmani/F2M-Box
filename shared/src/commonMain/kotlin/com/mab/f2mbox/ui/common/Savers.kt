@@ -1,4 +1,4 @@
-package com.mab.f2mbox.desktop.ui.common
+package com.mab.f2mbox.ui.common
 
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState

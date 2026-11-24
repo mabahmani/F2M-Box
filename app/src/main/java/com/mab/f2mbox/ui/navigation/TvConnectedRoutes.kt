@@ -1,6 +1,8 @@
 package com.mab.f2mbox.ui.navigation
 
+import android.app.Activity
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import com.mab.f2mbox.data.remote.ScrapeResult
 import com.mab.f2mbox.navigation.F2mAppSession
 import com.mab.f2mbox.navigation.Route
@@ -11,6 +13,7 @@ import com.mab.f2mbox.ui.player.PlayerScreen
 
 @Composable
 fun TvConnectedRoutes(session: F2mAppSession, route: Route) {
+    val context = LocalContext.current
     when (val current = route) {
         Route.Home -> HomeScreen(
             scraper = session.scraper,
@@ -23,6 +26,7 @@ fun TvConnectedRoutes(session: F2mAppSession, route: Route) {
             onHomeLoaded = session.onHomeLoaded,
             onClearCache = session.clearCaches,
             onOpenLogs = { session.navigate(Route.Logs) },
+            onExit = { (context as? Activity)?.finish() },
         )
         is Route.Scrape -> ListScreen(
             routeKey = current.url,

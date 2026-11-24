@@ -2,7 +2,7 @@ package com.mab.f2mbox.desktop.ui.navigation
 
 import androidx.compose.runtime.Composable
 import com.mab.f2mbox.data.remote.ScrapeResult
-import com.mab.f2mbox.desktop.ui.home.HomeScreen
+import com.mab.f2mbox.ui.home.HomeScreen
 import com.mab.f2mbox.desktop.ui.list.ListScreen
 import com.mab.f2mbox.desktop.ui.logs.LogsScreen
 import com.mab.f2mbox.desktop.ui.player.PlayerScreen
@@ -28,7 +28,7 @@ fun DesktopConnectedRoutes(
             onHomeLoaded = session.onHomeLoaded,
             onClearCache = session.clearCaches,
             onOpenLogs = { session.navigate(Route.Logs) },
-            onQuit = onQuit,
+            onExit = onQuit,
         )
         is Route.Scrape -> ListScreen(
             routeKey = current.url,

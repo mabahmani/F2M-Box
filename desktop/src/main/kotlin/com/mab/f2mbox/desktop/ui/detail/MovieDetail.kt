@@ -62,9 +62,9 @@ import com.mab.f2mbox.data.WatchedItem
 import com.mab.f2mbox.storage.WatchedHistory
 import com.mab.f2mbox.desktop.ui.common.AppButton
 import com.mab.f2mbox.desktop.ui.common.LocalWatched
-import com.mab.f2mbox.desktop.ui.common.FocusTracker
+import com.mab.f2mbox.ui.common.FocusTracker
 import com.mab.f2mbox.desktop.ui.common.rememberDesktopHighlight
-import com.mab.f2mbox.desktop.ui.common.rememberFocusTracker
+import com.mab.f2mbox.ui.common.rememberFocusTracker
 import com.mab.f2mbox.data.remote.Comments
 import com.mab.f2mbox.data.remote.Comment
 import com.mab.f2mbox.data.remote.DownloadQuality
@@ -81,8 +81,8 @@ import com.mab.f2mbox.data.remote.ScrapeResult
 import com.mab.f2mbox.data.remote.Trailer
 import com.mab.f2mbox.data.remote.VoiceActor
 import com.mab.f2mbox.data.remote.normalizeImageUrl
-import com.mab.f2mbox.desktop.ui.common.IntSetStateSaver
-import com.mab.f2mbox.desktop.ui.home.PosterCard
+import com.mab.f2mbox.ui.common.IntSetStateSaver
+import com.mab.f2mbox.ui.home.PosterCard
 import com.mab.f2mbox.desktop.ui.theme.F2MBoxTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch

@@ -1,4 +1,3 @@
-@file:OptIn(ExperimentalTvMaterial3Api::class)
 
 package com.mab.f2mbox.ui.home
 
@@ -45,21 +44,20 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import androidx.tv.material3.ExperimentalTvMaterial3Api
-import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Text
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import coil3.compose.AsyncImage
-import com.mab.f2mbox.R
 import com.mab.f2mbox.data.remote.HomeSection
 import com.mab.f2mbox.data.remote.SectionItem
 import com.mab.f2mbox.ui.common.FocusTracker
+import com.mab.f2mbox.ui.home.LocalHomeStrings
+import com.mab.f2mbox.ui.common.rememberCardHighlight
 
 private val ContentMargin = 48.dp
 private val PosterCardWidth = 180.dp
@@ -153,9 +151,9 @@ private fun SeeMoreCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var isFocused by remember { mutableStateOf(false) }
+    val highlight = rememberCardHighlight()
     val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.08f else 1f,
+        targetValue = if (highlight.highlighted) 1.08f else 1f,
         animationSpec = tween(durationMillis = 200),
         label = "see-more-scale"
     )
@@ -166,9 +164,12 @@ private fun SeeMoreCard(
             .height(PosterCardHeight)
             // Same z-lift as PosterCard so the focused border isn't cut by
             // the neighboring cards' draw order.
-            .zIndex(if (isFocused) 1f else 0f)
-            .onFocusChanged { isFocused = it.isFocused }
-            .clickable(onClick = onClick)
+            .zIndex(if (highlight.highlighted) 1f else 0f)
+            .then(highlight.modifier)
+            .clickable(
+                interactionSource = highlight.interactionSource,
+                onClick = onClick,
+            )
             // Inside the focusable node — see PosterCard.
             .graphicsLayer {
                 scaleX = scale
@@ -177,8 +178,8 @@ private fun SeeMoreCard(
             .clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .border(
-                width = if (isFocused) 2.dp else 0.dp,
-                color = if (isFocused) {
+                width = if (highlight.highlighted) 2.dp else 0.dp,
+                color = if (highlight.highlighted) {
                     MaterialTheme.colorScheme.primary
                 } else {
                     Color.Transparent
@@ -189,7 +190,7 @@ private fun SeeMoreCard(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = stringResource(R.string.see_more),
+                text = LocalHomeStrings.current.seeMore,
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -214,15 +215,15 @@ private fun SeeMoreCard(
  * restore the focus on it later.
  */
 @Composable
-internal fun PosterCard(
+fun PosterCard(
     item: SectionItem,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     onFocus: (() -> Unit)? = null
 ) {
-    var isFocused by remember { mutableStateOf(false) }
+    val highlight = rememberCardHighlight(onFocus = onFocus)
     val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.08f else 1f,
+        targetValue = if (highlight.highlighted) 1.08f else 1f,
         animationSpec = tween(durationMillis = 200),
         label = "poster-scale"
     )
@@ -233,12 +234,12 @@ internal fun PosterCard(
             // card expands past its layout bounds, and later siblings would
             // otherwise paint over the expansion, cutting the focus border
             // off the poster's edges.
-            .zIndex(if (isFocused) 1f else 0f)
-            .onFocusChanged {
-                isFocused = it.isFocused
-                if (it.isFocused) onFocus?.invoke()
-            }
-            .clickable(onClick = onClick)
+            .zIndex(if (highlight.highlighted) 1f else 0f)
+            .then(highlight.modifier)
+            .clickable(
+                interactionSource = highlight.interactionSource,
+                onClick = onClick,
+            )
             // Sits inside the focusable node so the focus bounds stay at the
             // layout size while the card animates; a scaled focus target
             // makes the scroll containers chase its growing bounds and the
@@ -260,8 +261,8 @@ internal fun PosterCard(
                     .clip(RoundedCornerShape(10.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .border(
-                        width = if (isFocused) 2.dp else 0.dp,
-                        color = if (isFocused) {
+                        width = if (highlight.highlighted) 2.dp else 0.dp,
+                        color = if (highlight.highlighted) {
                             MaterialTheme.colorScheme.primary
                         } else {
                             Color.Transparent
@@ -271,7 +272,7 @@ internal fun PosterCard(
             )
             item.rating?.let { rating ->
                 Text(
-                    text = stringResource(R.string.rating_format, rating.toString()),
+                    text = LocalHomeStrings.current.formatRating(rating.toFloat()),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier
@@ -287,7 +288,7 @@ internal fun PosterCard(
             val genreNames = item.genres.mapNotNull { it.name }
             if (genreNames.isNotEmpty()) {
                 androidx.compose.animation.AnimatedVisibility(
-                    visible = isFocused,
+                    visible = highlight.highlighted,
                     enter = fadeIn() + slideInVertically { it / 2 },
                     exit = fadeOut() + slideOutVertically { it / 2 },
                     modifier = Modifier

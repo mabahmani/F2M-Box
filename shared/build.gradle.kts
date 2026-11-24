@@ -29,13 +29,19 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.cmp.foundation)
             implementation(libs.cmp.material3)
+            implementation(libs.cmp.material.icons.extended)
+            implementation(libs.coil.compose)
+        }
+        androidMain.dependencies {
+            implementation(libs.coil.network.okhttp)
+            implementation(libs.androidx.tv.material)
+        }
+        jvmMain.dependencies {
+            implementation(libs.coil.network.okhttp)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.junit)
-        }
-        androidMain.dependencies {
-            implementation(libs.androidx.tv.material)
         }
     }
 }

@@ -29,8 +29,12 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.CompositionLocalProvider
 import com.mab.f2mbox.desktop.ui.common.arrowKeyFocusNavigation
+import com.mab.f2mbox.desktop.ui.home.desktopHomeStrings
 import com.mab.f2mbox.desktop.ui.theme.F2MBoxTheme
+import com.mab.f2mbox.ui.home.LocalHomeStrings
+import com.mab.f2mbox.ui.home.SearchField
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -52,6 +56,7 @@ class SearchFieldTest {
         onQueryChange: (String) -> Unit,
         onSubmit: (String) -> Unit
     ) {
+        CompositionLocalProvider(LocalHomeStrings provides desktopHomeStrings()) {
         F2MBoxTheme {
             Column(
                 Modifier
@@ -81,6 +86,7 @@ class SearchFieldTest {
                         .focusable()
                 )
             }
+        }
         }
     }
 

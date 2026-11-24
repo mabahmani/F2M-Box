@@ -40,9 +40,9 @@ import androidx.compose.material3.Text
 import coil3.compose.AsyncImage
 import com.mab.f2mbox.data.remote.PersonData
 import com.mab.f2mbox.data.remote.PersonProfile
-import com.mab.f2mbox.desktop.ui.common.FocusTracker
-import com.mab.f2mbox.desktop.ui.common.GridPosterId
-import com.mab.f2mbox.desktop.ui.home.PosterCard
+import com.mab.f2mbox.ui.common.FocusTracker
+import com.mab.f2mbox.ui.common.GridPosterId
+import com.mab.f2mbox.ui.home.PosterCard
 import com.mab.f2mbox.desktop.ui.list.PagerControls
 import com.mab.f2mbox.desktop.platform.Strings
 

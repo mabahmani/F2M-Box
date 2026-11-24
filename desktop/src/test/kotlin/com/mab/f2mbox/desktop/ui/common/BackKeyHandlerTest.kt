@@ -21,7 +21,10 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.dp
-import com.mab.f2mbox.desktop.ui.home.SearchField
+import androidx.compose.runtime.CompositionLocalProvider
+import com.mab.f2mbox.desktop.ui.home.desktopHomeStrings
+import com.mab.f2mbox.ui.home.LocalHomeStrings
+import com.mab.f2mbox.ui.home.SearchField
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -69,6 +72,7 @@ class BackKeyHandlerTest {
         var backCount = 0
         var query by mutableStateOf("")
         setContent {
+            CompositionLocalProvider(LocalHomeStrings provides desktopHomeStrings()) {
             Box(Modifier.fillMaxSize().backKeyHandler { backCount++ }) {
                 Column(Modifier.width(400.dp)) {
                     SearchField(
@@ -77,6 +81,7 @@ class BackKeyHandlerTest {
                         onSubmit = {}
                     )
                 }
+            }
             }
         }
 

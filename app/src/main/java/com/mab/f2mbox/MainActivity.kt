@@ -17,6 +17,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -32,7 +33,12 @@ import com.mab.f2mbox.scraper.HtmlCache
 import com.mab.f2mbox.scraper.ScraperLog
 import com.mab.f2mbox.scraper.SharedPreferencesStore
 import com.mab.f2mbox.navigation.F2mAppHost
+import com.mab.f2mbox.data.WatchedManager
+import com.mab.f2mbox.ui.common.LocalWatchedItems
+import com.mab.f2mbox.ui.common.WatchedItemsReader
 import com.mab.f2mbox.ui.connect.rememberConnectSplashStrings
+import com.mab.f2mbox.ui.home.LocalHomeStrings
+import com.mab.f2mbox.ui.home.rememberHomeStrings
 import com.mab.f2mbox.ui.logs.LogsScreen
 import com.mab.f2mbox.ui.navigation.TvConnectedRoutes
 import com.mab.f2mbox.ui.theme.F2MBoxTheme
@@ -128,6 +134,14 @@ class MainActivity : ComponentActivity() {
 private fun ConnectGate(scraper: F2MScraper) {
     val context = LocalContext.current
     val splashStrings = rememberConnectSplashStrings()
+    val homeStrings = rememberHomeStrings()
+    val watchedReader = remember(context) {
+        WatchedItemsReader { WatchedManager.getWatchedItems(context) }
+    }
+    CompositionLocalProvider(
+        LocalHomeStrings provides homeStrings,
+        LocalWatchedItems provides watchedReader,
+    ) {
     F2mAppHost(
         scraper = scraper,
         splashStrings = splashStrings,
@@ -141,6 +155,7 @@ private fun ConnectGate(scraper: F2MScraper) {
         errorLogs = { onBack -> LogsScreen(onNavigateBack = onBack) },
         connected = { session, route -> TvConnectedRoutes(session, route) },
     )
+    }
 }
 
 private const val TAG = "F2MBox"
