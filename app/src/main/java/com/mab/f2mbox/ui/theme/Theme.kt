@@ -31,6 +31,8 @@ fun F2MBoxTheme(content: @Composable () -> Unit) {
         onSurface = TextBright,
         surfaceVariant = SurfaceNavyVariant,
         onSurfaceVariant = TextMuted,
+        inverseSurface = TextBright,
+        inverseOnSurface = BgNavy,
         border = SurfaceNavyVariant,
         borderVariant = BorderNavy,
         scrim = BgNavy
@@ -41,7 +43,10 @@ fun F2MBoxTheme(content: @Composable () -> Unit) {
         typography = Typography,
     ) {
         // Shared CMP composables from `:shared` read Material 3 locals.
-        M3MaterialTheme(colorScheme = m3Colors) {
+        M3MaterialTheme(
+            colorScheme = m3Colors,
+            typography = Typography.toMaterial3Typography(),
+        ) {
             content()
         }
     }

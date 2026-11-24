@@ -969,9 +969,8 @@ private fun PlayButton(
 ) {
     F2mButton(
         onClick = onClick,
-        modifier = modifier
-            .height(46.dp)
-            .clip(RoundedCornerShape(12.dp)),
+        modifier = modifier.height(46.dp),
+        shape = RoundedCornerShape(12.dp),
     ) {
         // The label fills the button and centers itself in it.
         Text(

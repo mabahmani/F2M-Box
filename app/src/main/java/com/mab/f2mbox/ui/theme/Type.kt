@@ -1,5 +1,6 @@
 package com.mab.f2mbox.ui.theme
 
+import androidx.compose.material3.Typography as M3Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -129,4 +130,24 @@ val Typography = Typography(
         lineHeight = 17.sp,
         letterSpacing = 0.4.sp
     )
+)
+
+/** Same Vazirmatn scale for shared CMP composables (`androidx.compose.material3`). */
+@OptIn(ExperimentalTvMaterial3Api::class)
+fun Typography.toMaterial3Typography(): M3Typography = M3Typography(
+    displayLarge = displayLarge,
+    displayMedium = displayMedium,
+    displaySmall = displaySmall,
+    headlineLarge = headlineLarge,
+    headlineMedium = headlineMedium,
+    headlineSmall = headlineSmall,
+    titleLarge = titleLarge,
+    titleMedium = titleMedium,
+    titleSmall = titleSmall,
+    bodyLarge = bodyLarge,
+    bodyMedium = bodyMedium,
+    bodySmall = bodySmall,
+    labelLarge = labelLarge,
+    labelMedium = labelMedium,
+    labelSmall = labelSmall,
 )

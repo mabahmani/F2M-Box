@@ -25,6 +25,7 @@ actual fun F2mButton(
     onClick: () -> Unit,
     modifier: Modifier,
     enabled: Boolean,
+    shape: Shape?,
     content: @Composable RowScope.() -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -32,14 +33,14 @@ actual fun F2mButton(
     val hovered by interactionSource.collectIsHoveredAsState()
     val highlighted = focused || hovered
     val scheme = MaterialTheme.colorScheme
-    val shape: Shape = ButtonDefaults.shape
+    val buttonShape = shape ?: ButtonDefaults.shape
     OutlinedButton(
         onClick = onClick,
         modifier = modifier
             .hoverable(interactionSource = interactionSource)
             .onFocusChanged { focused = it.isFocused },
         enabled = enabled,
-        shape = shape,
+        shape = buttonShape,
         colors = ButtonDefaults.outlinedButtonColors(
             containerColor = if (highlighted) scheme.primary else Color.Transparent,
             contentColor = if (highlighted) scheme.onPrimary else scheme.primary,

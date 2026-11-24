@@ -88,6 +88,7 @@ fun SearchField(
                 modifier = Modifier
                     .width(SearchButtonWidth)
                     .fillMaxHeight(),
+                shape = SearchControlShape,
             ) {
                 Box(
                     modifier = Modifier.fillMaxHeight(),
