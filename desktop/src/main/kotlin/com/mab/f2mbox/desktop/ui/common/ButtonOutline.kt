@@ -125,22 +125,28 @@ fun AppButton(
 }
 
 /**
- * A Material [IconButton] that shows a resting circular outline while
- * unfocused, so the small icon-only controls stay discoverable at rest.
+ * A Material [IconButton]. By default it shows a resting circular outline
+ * while unfocused; set [showRestingOutline] false for toolbar-style icons.
  */
 @Composable
 fun AppIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    showRestingOutline: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    IconButton(
-        onClick = onClick,
-        modifier = modifier.outlineWhenUnfocused(
+    val outline = if (showRestingOutline) {
+        Modifier.outlineWhenUnfocused(
             CircleShape,
             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-        ),
+        )
+    } else {
+        Modifier
+    }
+    IconButton(
+        onClick = onClick,
+        modifier = modifier.then(outline),
         enabled = enabled,
         content = content
     )

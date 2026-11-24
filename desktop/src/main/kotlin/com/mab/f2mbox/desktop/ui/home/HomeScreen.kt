@@ -241,7 +241,8 @@ private fun HomeContent(
                     }
                     AppIconButton(
                         onClick = onRefresh,
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(36.dp),
+                        showRestingOutline = false,
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Refresh,
@@ -252,7 +253,8 @@ private fun HomeContent(
                     }
                     AppIconButton(
                         onClick = onOpenLogs,
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(36.dp),
+                        showRestingOutline = false,
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Terminal,
