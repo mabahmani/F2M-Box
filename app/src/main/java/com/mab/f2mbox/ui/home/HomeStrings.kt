@@ -24,4 +24,8 @@ fun rememberHomeStrings(): com.mab.f2mbox.ui.home.HomeStrings =
         heroPreviousSlide = HomeText.heroPreviousSlide,
         heroNextSlide = HomeText.heroNextSlide,
         heroOpenSlide = HomeText.heroOpenSlide,
+        noResults = stringResource(R.string.no_results),
+        pageFormat = stringResource(R.string.page_format),
+        previous = stringResource(R.string.previous),
+        next = stringResource(R.string.next),
     )

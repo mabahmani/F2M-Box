@@ -35,6 +35,7 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.coil.network.okhttp)
             implementation(libs.androidx.tv.material)
+            implementation(libs.androidx.activity.compose)
         }
         jvmMain.dependencies {
             implementation(libs.coil.network.okhttp)

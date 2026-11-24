@@ -39,6 +39,8 @@ import com.mab.f2mbox.ui.common.WatchedItemsReader
 import com.mab.f2mbox.ui.connect.rememberConnectSplashStrings
 import com.mab.f2mbox.ui.home.LocalHomeStrings
 import com.mab.f2mbox.ui.home.rememberHomeStrings
+import com.mab.f2mbox.ui.list.LocalListScrapeSlots
+import com.mab.f2mbox.ui.list.appListScrapeSlots
 import com.mab.f2mbox.ui.logs.LogsScreen
 import com.mab.f2mbox.ui.navigation.TvConnectedRoutes
 import com.mab.f2mbox.ui.theme.F2MBoxTheme
@@ -141,6 +143,7 @@ private fun ConnectGate(scraper: F2MScraper) {
     CompositionLocalProvider(
         LocalHomeStrings provides homeStrings,
         LocalWatchedItems provides watchedReader,
+        LocalListScrapeSlots provides appListScrapeSlots(),
     ) {
     F2mAppHost(
         scraper = scraper,

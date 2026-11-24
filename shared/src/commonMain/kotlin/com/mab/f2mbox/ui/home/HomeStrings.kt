@@ -17,6 +17,10 @@ data class HomeStrings(
     val heroPreviousSlide: String,
     val heroNextSlide: String,
     val heroOpenSlide: String,
+    val noResults: String,
+    val pageFormat: String,
+    val previous: String,
+    val next: String,
 )
 
 /** Defaults aligned with `app/src/main/res/values/strings.xml`. */
@@ -34,6 +38,10 @@ object HomeText {
     const val heroPreviousSlide = "Previous hero slide"
     const val heroNextSlide = "Next hero slide"
     const val heroOpenSlide = "Open featured title"
+    const val noResults = "No results found"
+    const val pageFormat = "Page %1\$d\u200E"
+    const val previous = "Previous"
+    const val next = "Next"
 }
 
 fun defaultHomeStrings(): HomeStrings = HomeStrings(
@@ -50,9 +58,16 @@ fun defaultHomeStrings(): HomeStrings = HomeStrings(
     heroPreviousSlide = HomeText.heroPreviousSlide,
     heroNextSlide = HomeText.heroNextSlide,
     heroOpenSlide = HomeText.heroOpenSlide,
+    noResults = HomeText.noResults,
+    pageFormat = HomeText.pageFormat,
+    previous = HomeText.previous,
+    next = HomeText.next,
 )
 
 val LocalHomeStrings = staticCompositionLocalOf { defaultHomeStrings() }
 
 fun HomeStrings.formatRating(rating: Float): String =
     ratingFormat.replace("%1\$s", rating.toString()).replace("%s", rating.toString())
+
+fun HomeStrings.formatPage(page: Int): String =
+    pageFormat.replace("%1\$d", page.toString())

@@ -26,6 +26,8 @@ import com.mab.f2mbox.storage.WatchedHistory
 import com.mab.f2mbox.ui.common.LocalWatchedItems
 import com.mab.f2mbox.ui.common.WatchedItemsReader
 import com.mab.f2mbox.ui.home.LocalHomeStrings
+import com.mab.f2mbox.ui.list.LocalListScrapeSlots
+import com.mab.f2mbox.desktop.ui.list.desktopListScrapeSlots
 import com.mab.f2mbox.desktop.ui.theme.F2MBoxTheme
 import com.mab.f2mbox.scraper.BaseUrlResolver
 import com.mab.f2mbox.scraper.F2MScraper
@@ -96,6 +98,7 @@ fun main() {
                             LocalWatchedItems provides WatchedItemsReader {
                                 WatchedHistory.getWatchedItems(watchedStorage)
                             },
+                            LocalListScrapeSlots provides desktopListScrapeSlots(),
                         ) {
                         CompositionLocalProvider(LocalSubtitleStyleStore provides subtitleStyles) {
                             CompositionLocalProvider(LocalWindowFullscreen provides windowFullscreen) {

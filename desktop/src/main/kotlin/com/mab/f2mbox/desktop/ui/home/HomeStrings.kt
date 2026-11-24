@@ -17,4 +17,8 @@ fun desktopHomeStrings(): HomeStrings = HomeStrings(
     heroPreviousSlide = Strings.heroPreviousSlide,
     heroNextSlide = Strings.heroNextSlide,
     heroOpenSlide = Strings.heroOpenSlide,
+    noResults = Strings.noResults,
+    pageFormat = Strings.pageFormat,
+    previous = Strings.previous,
+    next = Strings.next,
 )

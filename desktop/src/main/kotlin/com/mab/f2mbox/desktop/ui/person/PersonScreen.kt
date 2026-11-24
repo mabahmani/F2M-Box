@@ -43,7 +43,7 @@ import com.mab.f2mbox.data.remote.PersonProfile
 import com.mab.f2mbox.ui.common.FocusTracker
 import com.mab.f2mbox.ui.common.GridPosterId
 import com.mab.f2mbox.ui.home.PosterCard
-import com.mab.f2mbox.desktop.ui.list.PagerControls
+import com.mab.f2mbox.ui.list.PagerControls
 import com.mab.f2mbox.desktop.platform.Strings
 
 private val ContentMargin = 48.dp
