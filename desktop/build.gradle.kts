@@ -160,8 +160,6 @@ fun stageFromDmg(dmg: File, stage: File) {
         val appMacOs = File(mount, "VLC.app/Contents/MacOS")
         check(File(appMacOs, "lib").isDirectory) { "VLC.app layout unexpected in ${dmg.name}" }
         // ditto keeps symlinks (libvlc.dylib -> libvlc.5.dylib) and mtimes.
-        // Note: jpackage re-signs the dylibs at package time, so VLC rebuilds
-        // its plugin cache once on first launch — expected and harmless.
         runCommand(listOf("ditto", File(appMacOs, "lib").absolutePath, File(stage, "lib").absolutePath))
         runCommand(listOf("ditto", File(appMacOs, "plugins").absolutePath, File(stage, "plugins").absolutePath))
     } finally {
@@ -199,6 +197,20 @@ fun copyVlcLicenses(stage: File) {
     val licenses = project.file("vlc-licenses")
     if (licenses.isDirectory) {
         licenses.listFiles()?.forEach { it.copyTo(File(stage, it.name), overwrite = true) }
+    }
+}
+
+/**
+ * Drops libVLC's `plugins/plugins.dat`. The index goes stale whenever Gradle
+ * re-copies or re-signs `.dylib`/`.dll` plugins but leaves the old cache
+ * behind (common under `compose/tmp/prepareAppResources/vlc`). VLC rebuilds
+ * the cache on the next launch when the file is absent.
+ */
+fun deleteVlcPluginsCache(vlcDir: File) {
+    if (!vlcDir.isDirectory) return
+    val cache = File(vlcDir, "plugins/plugins.dat")
+    if (cache.isFile) {
+        check(cache.delete()) { "Could not delete ${cache.absolutePath}" }
     }
 }
 
@@ -288,7 +300,31 @@ val prepareVlc = tasks.register("prepareVlc") {
         if (arc.fileName.endsWith(".dmg")) stageFromDmg(downloaded, stage) else stageFromZip(downloaded, stage)
         copyVlcLicenses(stage)
         stageFfmpeg(stage)
+        deleteVlcPluginsCache(stage)
         logger.lifecycle("libVLC staged at ${stage.absolutePath}")
+    }
+}
+
+val purgeVlcPluginsCache = tasks.register("purgeVlcPluginsCache") {
+    group = "distribution"
+    description = "Removes bundled libVLC plugins.dat under build/ so runtime rescans plugins."
+    doLast {
+        val buildDir = layout.buildDirectory.get().asFile
+        val vlcDirs = linkedSetOf(vlcStagingDir.get().asFile)
+        val tmpVlc = File(buildDir, "compose/tmp/prepareAppResources/vlc")
+        if (tmpVlc.isDirectory) vlcDirs += tmpVlc
+        val binariesRoot = File(buildDir, "compose/binaries")
+        if (binariesRoot.isDirectory) {
+            binariesRoot.walkTopDown().maxDepth(12).filter { dir ->
+                dir.isDirectory && dir.name == "vlc" && File(dir, "plugins").isDirectory
+            }.forEach { vlcDirs += it }
+        }
+        vlcDirs.forEach { vlc ->
+            val cache = File(vlc, "plugins/plugins.dat")
+            if (cache.isFile && cache.delete()) {
+                logger.lifecycle("Removed libVLC plugins cache: ${cache.absolutePath}")
+            }
+        }
     }
 }
 
@@ -301,7 +337,11 @@ listOf(
     "packageExe",
     "packageDeb",
     "packageDistributionForCurrentOS",
+    "run",
     "runDistributable",
 ).forEach { taskName ->
-    tasks.matching { it.name == taskName }.configureEach { dependsOn(prepareVlc) }
+    tasks.matching { it.name == taskName }.configureEach {
+        dependsOn(prepareVlc)
+        finalizedBy(purgeVlcPluginsCache)
+    }
 }

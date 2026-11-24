@@ -10,7 +10,9 @@ import uk.co.caprica.vlcj.player.base.TrackDescription
 import uk.co.caprica.vlcj.player.component.CallbackMediaPlayerComponent
 import uk.co.caprica.vlcj.player.component.InputEvents
 import uk.co.caprica.vlcj.player.embedded.EmbeddedMediaPlayer
+import java.lang.reflect.InvocationTargetException
 import javax.swing.JComponent
+import javax.swing.SwingUtilities
 
 /** One selectable audio/subtitle track of the playing media. */
 data class TrackInfo(val id: Int, val label: String)
@@ -189,6 +191,10 @@ class VlcPlayerEngine(
     @Volatile
     private var released = false
 
+    /** Native vlcj factories are torn down on the EDT once. */
+    @Volatile
+    private var nativeReleased = false
+
     /**
      * Applies the resume seek and verifies it landed. On network sources the
      * first `playing` event can fire before the demuxer accepts seeks, so the
@@ -214,9 +220,14 @@ class VlcPlayerEngine(
         }
     }
 
+    private fun emitIfActive(event: EngineEvent) {
+        if (!released) bus.emit(event)
+    }
+
     init {
         player.events().addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
             override fun playing(mediaPlayer: MediaPlayer) {
+                if (released) return
                 startedPlaying = true
                 // Resume where a style change interrupted playback (the
                 // engine is rebuilt to re-read the global freetype args).
@@ -227,11 +238,12 @@ class VlcPlayerEngine(
                     startApplied = true
                     applyResumeWithRetry(mediaPlayer)
                 }
-                bus.emit(EngineEvent.Playing)
+                emitIfActive(EngineEvent.Playing)
                 emitTracks(mediaPlayer)
             }
 
             override fun lengthChanged(mediaPlayer: MediaPlayer, newLength: Long) {
+                if (released) return
                 // If the resume seek was swallowed before the length was known
                 // (typical on network sources), retry once the duration lands.
                 if (startPositionMs > 0 && startApplied && !resumeSettled) {
@@ -240,20 +252,21 @@ class VlcPlayerEngine(
             }
 
             override fun paused(mediaPlayer: MediaPlayer) {
-                bus.emit(EngineEvent.Paused)
+                emitIfActive(EngineEvent.Paused)
             }
 
             override fun stopped(mediaPlayer: MediaPlayer) {
-                bus.emit(EngineEvent.Paused)
+                emitIfActive(EngineEvent.Paused)
             }
 
             override fun timeChanged(mediaPlayer: MediaPlayer, time: Long) {
+                if (released) return
                 // Confirms the resume seek landed: once the demuxer reports a
                 // time at/after the target, stop retrying.
                 if (startPositionMs > 0 && !resumeSettled && time >= startPositionMs - 1_000) {
                     resumeSettled = true
                 }
-                bus.emit(EngineEvent.Position(time, mediaPlayer.status().length()))
+                emitIfActive(EngineEvent.Position(time, mediaPlayer.status().length()))
             }
 
             override fun elementaryStreamAdded(
@@ -261,6 +274,7 @@ class VlcPlayerEngine(
                 type: TrackType,
                 id: Int,
             ) {
+                if (released) return
                 emitTracks(mediaPlayer)
             }
 
@@ -269,11 +283,13 @@ class VlcPlayerEngine(
                 type: TrackType,
                 id: Int,
             ) {
+                if (released) return
                 emitTracks(mediaPlayer)
             }
 
             override fun error(mediaPlayer: MediaPlayer) {
-                bus.emit(
+                if (released) return
+                emitIfActive(
                     EngineEvent.Error(
                         if (startedPlaying) EngineEvent.ErrorKind.Decode
                         else EngineEvent.ErrorKind.Source
@@ -311,7 +327,7 @@ class VlcPlayerEngine(
                     }
                 }
             } else if (!released) {
-                bus.emit(EngineEvent.Error(EngineEvent.ErrorKind.Source))
+                emitIfActive(EngineEvent.Error(EngineEvent.ErrorKind.Source))
             }
         }, "vlc-start").apply {
             isDaemon = true
@@ -348,20 +364,64 @@ class VlcPlayerEngine(
      */
     fun refreshTracks() = emitTracks(player)
 
+    /**
+     * Tears down native libVLC on the caller's thread (blocking EDT if invoked
+     * off it). Prefer [releaseAsync] when leaving the player so navigation is
+     * not stalled on HTTPS stop/teardown.
+     */
     fun release() {
         released = true
-        // The component was built from [factory] and does not own it, so
-        // releasing the component frees the media player while [factory]
-        // itself is released explicitly here (once).
-        component.release()
-        factory.release()
-        bus.reset()
+        runReleaseOnEdt()
+    }
+
+    /** Detach from the UI first; native stop/release runs on a daemon thread. */
+    fun releaseAsync() {
+        released = true
+        Thread({
+            runReleaseOnEdt()
+        }, "vlc-release").apply {
+            isDaemon = true
+            start()
+        }
+    }
+
+    private fun runReleaseOnEdt() {
+        val disposeNative = Runnable {
+            if (nativeReleased) return@Runnable
+            nativeReleased = true
+            try {
+                player.controls().stop()
+            } catch (_: Throwable) {
+            }
+            // Component was built from [factory] and does not own it: release
+            // the player first, then the factory.
+            try {
+                component.release()
+            } catch (_: Throwable) {
+            }
+            try {
+                factory.release()
+            } catch (_: Throwable) {
+            }
+            bus.reset()
+        }
+        if (SwingUtilities.isEventDispatchThread()) {
+            disposeNative.run()
+        } else {
+            try {
+                SwingUtilities.invokeAndWait(disposeNative)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            } catch (_: InvocationTargetException) {
+            }
+        }
     }
 
     private fun emitTracks(mediaPlayer: MediaPlayer) {
+        if (released) return
         val audio = mediaPlayer.audio().trackDescriptions().orEmpty().toTrackInfos()
         val subtitles = mediaPlayer.subpictures().trackDescriptions().orEmpty().toTrackInfos()
-        bus.emit(
+        emitIfActive(
             EngineEvent.TracksReady(
                 audio = audio,
                 subtitles = subtitles,

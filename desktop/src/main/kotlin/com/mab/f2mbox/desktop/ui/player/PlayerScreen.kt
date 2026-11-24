@@ -253,7 +253,7 @@ fun PlayerScreen(
             // Cancelled/failed before hand-off (or after building but before
             // assignment): release whatever we built so the native resources
             // are not leaked.
-            holder.getAndSet(null)?.release()
+            holder.getAndSet(null)?.releaseAsync()
         }
     }
 
@@ -327,18 +327,17 @@ fun PlayerScreen(
             }
         }
         onDispose {
-            if (boundEngine != null) {
-                // Detach this engine's surface before releasing it, so a
-                // style-change rebuild never shows (or releases under) a
-                // surface that is still mounted.
-                SwingUtilities.invokeLater {
-                    if (surface != null && surface.parent === videoHost) {
-                        videoHost.remove(surface)
-                        videoHost.revalidate()
-                        videoHost.repaint()
-                    }
+            val bound = boundEngine ?: return@onDispose
+            // Do not block composition on libVLC stop (HTTPS teardown can take
+            // seconds). Detach the surface on the EDT; native release runs async.
+            bound.releaseAsync()
+            val surf = surface
+            SwingUtilities.invokeLater {
+                if (surf != null && surf.parent === videoHost) {
+                    videoHost.remove(surf)
+                    videoHost.revalidate()
+                    videoHost.repaint()
                 }
-                boundEngine.release()
             }
         }
     }
