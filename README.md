@@ -3,7 +3,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Android%20TV%20%7C%20Tablet%20%7C%20Desktop-green.svg)](https://developer.android.com/tv)
 [![Language](https://img.shields.io/badge/Language-Kotlin-blue.svg)](https://kotlinlang.org/)
 [![UI Toolkit](https://img.shields.io/badge/UI-Jetpack%20Compose%20%2F%20CMP-brightgreen.svg)](https://developer.android.com/jetpack/compose)
-[![Version](https://img.shields.io/badge/Release-v1.3-orange.svg)](https://github.com/mabahmani/F2MBox/releases)
+[![Version](https://img.shields.io/badge/Release-v1.4-orange.svg)](https://github.com/mabahmani/F2MBox/releases)
 
 **F2M Box** streams movies, series, trailers, and cast information through a **Kotlin Multiplatform** client: one shared scraper and UI core (`:shared`) powers the **Android TV / tablet** app (`:app`) and the **desktop** app (`:desktop`). The interface is **RTL** with **Vazirmatn** typography. **TV** builds use D-pad focus and Leanback-friendly controls; **touchscreen tablets** get tap, scroll, and swipe; **desktop** adds mouse, keyboard, and native scrollbars while keeping the same catalog flows.
 
@@ -118,28 +118,28 @@ Or **System Settings → Privacy & Security → Open Anyway**. On Windows: Smart
 
 ### 1. Update version in Gradle
 
-Bump **`f2mVersionName`** and **`f2mVersionCode`** in [`gradle.properties`](gradle.properties). Android uses both fields; desktop installers use **`MAJOR.MINOR.BUILD`** with **BUILD = `f2mVersionCode`** (e.g. `1.3` + code `4` → package version **`1.3.4`**).
+Bump **`f2mVersionName`** and **`f2mVersionCode`** in [`gradle.properties`](gradle.properties). Android uses both fields; desktop installers use **`MAJOR.MINOR.BUILD`** with **BUILD = `f2mVersionCode`** (e.g. `1.4` + code `5` → package version **`1.4.5`**).
 
 ### 2. Commit and tag
 
 ```bash
 git add .
-git commit -m "release: v1.3"
-git tag -a v1.3 -m "Release version 1.3"
+git commit -m "release: v1.4"
+git tag -a v1.4 -m "Release version 1.4"
 ```
 
 ### 3. Push
 
 ```bash
 git push origin main
-git push origin v1.3
+git push origin v1.4
 ```
 
 ### 4. GitHub release
 
 ```bash
-gh release create v1.3 ./app/build/outputs/apk/release/F2MBox-TV-release.apk \
-  --title "F2M Box v1.3" --notes "Release notes"
+gh release create v1.4 ./app/build/outputs/apk/release/F2MBox-TV-release.apk \
+  --title "F2M Box v1.4" --notes "Release notes"
 ```
 
 Attach desktop packages from `desktop/build/compose/binaries/main/` when publishing a desktop build.
