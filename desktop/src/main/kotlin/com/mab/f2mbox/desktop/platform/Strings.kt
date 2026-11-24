@@ -75,6 +75,8 @@ object Strings {
     const val playerReplay = "Replay"
     const val playerSkipBack = "Skip back 10 seconds"
     const val playerSkipForward = "Skip forward 10 seconds"
+    const val playerFullscreen = "Full screen"
+    const val playerExitFullscreen = "Exit full screen"
     const val playerSpeed = "Playback speed"
     const val playerSubtitles = "Subtitles"
     const val playerSubtitlesOff = "Off"

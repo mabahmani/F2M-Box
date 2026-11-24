@@ -23,6 +23,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import com.mab.f2mbox.data.PageCache
 import com.mab.f2mbox.data.remote.HomeData
+import com.mab.f2mbox.desktop.platform.LocalWindowFullscreen
 import com.mab.f2mbox.desktop.platform.Strings
 import com.mab.f2mbox.desktop.ui.common.arrowKeyFocusNavigation
 import com.mab.f2mbox.desktop.ui.common.backKeyHandler
@@ -192,11 +193,16 @@ fun DesktopApp(scraper: F2MScraper) {
         }
     }
 
+    val windowFullscreen = LocalWindowFullscreen.current
+
     // Drops the saved state of the popped screen. Runs after the new route
     // is on screen, so the holder is no longer tracking that key.
     LaunchedEffect(route) {
         poppedStateKey?.let { stateHolder.removeState(it) }
         poppedStateKey = null
+        if (route !is Route.Player) {
+            windowFullscreen?.exit()
+        }
     }
 
     val connect: suspend () -> Unit = {

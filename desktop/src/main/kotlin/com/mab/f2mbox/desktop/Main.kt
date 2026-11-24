@@ -12,10 +12,13 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import androidx.compose.ui.unit.dp
+import com.mab.f2mbox.desktop.platform.LocalWindowFullscreen
 import com.mab.f2mbox.desktop.platform.desktopStores
+import com.mab.f2mbox.desktop.platform.rememberWindowFullscreen
 import com.mab.f2mbox.desktop.platform.subtitleStyleStore
 import com.mab.f2mbox.desktop.platform.VazirFonts
 import com.mab.f2mbox.desktop.ui.common.LocalSubtitleStyleStore
+import androidx.compose.ui.window.WindowPlacement
 import com.mab.f2mbox.desktop.ui.common.LocalWatched
 import com.mab.f2mbox.desktop.ui.theme.F2MBoxTheme
 import com.mab.f2mbox.scraper.BaseUrlResolver
@@ -62,15 +65,18 @@ fun main() {
 
     application {
         val windowState = rememberWindowState(width = 1280.dp, height = 720.dp)
+        val windowFullscreen = rememberWindowFullscreen(windowState)
 
         Window(
             onCloseRequest = ::exitApplication,
             state = windowState,
             title = "F2M Box"
         ) {
-            MenuBar {
-                Menu("File") {
-                    Item("Quit", onClick = ::exitApplication)
+            if (windowState.placement != WindowPlacement.Fullscreen) {
+                MenuBar {
+                    Menu("File") {
+                        Item("Quit", onClick = ::exitApplication)
+                    }
                 }
             }
 
@@ -80,11 +86,13 @@ fun main() {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     CompositionLocalProvider(LocalWatched provides watchedStorage) {
                         CompositionLocalProvider(LocalSubtitleStyleStore provides subtitleStyles) {
-                            Surface(
-                                modifier = Modifier.fillMaxSize(),
-                                color = MaterialTheme.colorScheme.background
-                            ) {
-                                DesktopApp(scraper = scraper)
+                            CompositionLocalProvider(LocalWindowFullscreen provides windowFullscreen) {
+                                Surface(
+                                    modifier = Modifier.fillMaxSize(),
+                                    color = MaterialTheme.colorScheme.background
+                                ) {
+                                    DesktopApp(scraper = scraper)
+                                }
                             }
                         }
                     }

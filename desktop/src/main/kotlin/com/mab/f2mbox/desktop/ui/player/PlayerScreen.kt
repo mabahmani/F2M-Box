@@ -33,6 +33,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.ClosedCaptionOff
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -54,6 +56,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -81,6 +84,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.awt.SwingPanel
+import com.mab.f2mbox.desktop.platform.LocalWindowFullscreen
 import com.mab.f2mbox.desktop.platform.Strings
 import com.mab.f2mbox.desktop.player.EngineEvent
 import com.mab.f2mbox.desktop.player.SubtitleCue
@@ -130,7 +134,8 @@ private const val TrackOff = -1
  * subtitle look is applied as global freetype args when the engine is built
  * — see [SubtitleStyle] and the customize panel; saving a change rebuilds
  * the engine at the current position. Backspace/ESC walk the same layered
- * Back chain: cancel a menu/panel, hide the controls, then leave the screen.
+ * Back chain: cancel a menu/panel, exit window fullscreen, hide the controls,
+ * then leave the screen. **F** toggles window fullscreen.
  */
 @Composable
 fun PlayerScreen(
@@ -142,6 +147,7 @@ fun PlayerScreen(
     registerEsc: ((() -> Unit)?) -> Unit = {},
 ) {
     val discovery = remember { VlcDiscovery.findLibVlc() }
+    val windowFullscreen = LocalWindowFullscreen.current
 
     if (discovery.isFailure) {
         VlcSetupCard(
@@ -280,6 +286,11 @@ fun PlayerScreen(
         interaction++
     }
 
+    val isWindowFullscreen = windowFullscreen?.isFullscreen == true
+    val toggleWindowFullscreen: () -> Unit = {
+        windowFullscreen?.toggle()
+        interaction++
+    }
     val layeredBack: () -> Unit = {
         when {
             subtitlePanelVisible -> {
@@ -292,12 +303,13 @@ fun PlayerScreen(
                 subtitleMenuVisible = false
                 audioMenuVisible = false
             }
+            windowFullscreen?.isFullscreen == true -> windowFullscreen.exit()
             controlsVisible -> controlsVisible = false
             else -> onNavigateBack()
         }
     }
+    SideEffect { registerEsc(layeredBack) }
     DisposableEffect(Unit) {
-        registerEsc(layeredBack)
         onDispose { registerEsc(null) }
     }
 
@@ -488,6 +500,14 @@ fun PlayerScreen(
                             layeredBack()
                             true
                         }
+                        Key.F -> {
+                            if (!subtitlePanelVisible) {
+                                toggleWindowFullscreen()
+                                true
+                            } else {
+                                false
+                            }
+                        }
                         else -> false
                     }
                 }
@@ -621,6 +641,8 @@ fun PlayerScreen(
                 },
                 onInteraction = { interaction++ },
                 onBack = onNavigateBack,
+                isWindowFullscreen = isWindowFullscreen,
+                onToggleFullscreen = toggleWindowFullscreen,
                 playPauseFocus = playPauseFocus,
                 speedButtonFocus = speedButtonFocus,
                 subtitleButtonFocus = subtitleButtonFocus,
@@ -705,6 +727,8 @@ private fun PlayerControls(
     onSeekTo: (Long) -> Unit,
     onInteraction: () -> Unit,
     onBack: () -> Unit,
+    isWindowFullscreen: Boolean,
+    onToggleFullscreen: () -> Unit,
     playPauseFocus: FocusRequester,
     speedButtonFocus: FocusRequester,
     subtitleButtonFocus: FocusRequester,
@@ -899,6 +923,25 @@ private fun PlayerControls(
                     ) {
                         Icon(Icons.Default.Audiotrack, null, tint = Color.White)
                     }
+                }
+                PlayerButton(
+                    onClick = onToggleFullscreen,
+                    description = if (isWindowFullscreen) {
+                        Strings.playerExitFullscreen
+                    } else {
+                        Strings.playerFullscreen
+                    },
+                    enabled = visible
+                ) {
+                    Icon(
+                        if (isWindowFullscreen) {
+                            Icons.Default.FullscreenExit
+                        } else {
+                            Icons.Default.Fullscreen
+                        },
+                        null,
+                        tint = Color.White
+                    )
                 }
                 Spacer(Modifier.weight(1f))
             }
