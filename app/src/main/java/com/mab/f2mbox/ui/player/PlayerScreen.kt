@@ -966,10 +966,14 @@ private fun SeekBar(
                         else -> false
                     }
                 }
-                .pointerInput(durationMs) {
+                .pointerInput(durationMs, positionMs) {
                     detectTapGestures { offset ->
-                        if (durationMs > 0) {
-                            onSeek((offset.x / size.width.toFloat() * durationMs).toLong())
+                        if (durationMs > 0 && size.width > 0f) {
+                            val targetMs = (offset.x / size.width * durationMs)
+                                .toLong()
+                                .coerceIn(0L, durationMs)
+                            // onSeek is relative (seekBy); tap picks an absolute time.
+                            onSeek(targetMs - positionMs)
                         }
                     }
                 }

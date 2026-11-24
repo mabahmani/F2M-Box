@@ -612,6 +612,10 @@ fun PlayerScreen(
                     seek(it)
                     interaction++
                 },
+                onSeekTo = { targetMs ->
+                    currentEngine?.seekTo(targetMs)
+                    interaction++
+                },
                 onInteraction = { interaction++ },
                 onBack = { controlsVisible = false },
                 playPauseFocus = playPauseFocus,
@@ -655,6 +659,7 @@ fun PlayerScreen(
                         positionMs = positionMs,
                         durationMs = durationMs,
                         onSeek = seek,
+                        onSeekTo = { targetMs -> currentEngine?.seekTo(targetMs) },
                         onTogglePlayPause = {},
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -694,6 +699,7 @@ private fun PlayerControls(
     onToggleAudioMenu: () -> Unit,
     onAudioSelect: (Int) -> Unit,
     onSeek: (Long) -> Unit,
+    onSeekTo: (Long) -> Unit,
     onInteraction: () -> Unit,
     onBack: () -> Unit,
     playPauseFocus: FocusRequester,
@@ -898,6 +904,7 @@ private fun PlayerControls(
                 positionMs = positionMs,
                 durationMs = durationMs,
                 onSeek = onSeek,
+                onSeekTo = onSeekTo,
                 onTogglePlayPause = togglePlayPause,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = visible
@@ -910,20 +917,23 @@ private fun PlayerControls(
  * The seek bar. Focusable in the controls mode: Left/Right scrub ±10s per
  * key press (auto-repeat keeps scrubbing), Up/Down fall through so focus
  * returns to the transport row, and Center toggles play/pause. Also
- * tap-to-seek for mouse users. [enabled] is false while the overlay is
- * hidden so the invisible bar does not swallow clicks meant to reveal it.
+ * tap-to-seek for mouse users ([onSeekTo]). Relative scrub uses [onSeek].
+ * [enabled] is false while the overlay is hidden so the invisible bar does
+ * not swallow clicks meant to reveal it.
  */
 @Composable
 private fun SeekBar(
     positionMs: Long,
     durationMs: Long,
     onSeek: (Long) -> Unit,
+    onSeekTo: (Long) -> Unit,
     onTogglePlayPause: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val currentOnSeek by rememberUpdatedState(onSeek)
+    val currentOnSeekTo by rememberUpdatedState(onSeekTo)
     val fraction = if (durationMs > 0) {
         (positionMs.toFloat() / durationMs).coerceIn(0f, 1f)
     } else {
@@ -980,8 +990,11 @@ private fun SeekBar(
                 .pointerInput(durationMs, enabled) {
                     if (enabled) {
                         detectTapGestures { offset ->
-                            if (durationMs > 0) {
-                                currentOnSeek((offset.x / size.width.toFloat() * durationMs).toLong())
+                            if (durationMs > 0 && size.width > 0f) {
+                                val targetMs = (offset.x / size.width * durationMs)
+                                    .toLong()
+                                    .coerceIn(0L, durationMs)
+                                currentOnSeekTo(targetMs)
                             }
                         }
                     }
