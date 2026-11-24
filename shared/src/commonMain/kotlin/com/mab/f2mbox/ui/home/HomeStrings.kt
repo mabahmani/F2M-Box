@@ -21,6 +21,10 @@ data class HomeStrings(
     val pageFormat: String,
     val previous: String,
     val next: String,
+    val personKindActor: String,
+    val personKindDirector: String,
+    val personKindWriter: String,
+    val personKindCreator: String,
 )
 
 /** Defaults aligned with `app/src/main/res/values/strings.xml`. */
@@ -42,6 +46,10 @@ object HomeText {
     const val pageFormat = "Page %1\$d\u200E"
     const val previous = "Previous"
     const val next = "Next"
+    const val personKindActor = "Actor"
+    const val personKindDirector = "Director"
+    const val personKindWriter = "Writer"
+    const val personKindCreator = "Creator"
 }
 
 fun defaultHomeStrings(): HomeStrings = HomeStrings(
@@ -62,6 +70,10 @@ fun defaultHomeStrings(): HomeStrings = HomeStrings(
     pageFormat = HomeText.pageFormat,
     previous = HomeText.previous,
     next = HomeText.next,
+    personKindActor = HomeText.personKindActor,
+    personKindDirector = HomeText.personKindDirector,
+    personKindWriter = HomeText.personKindWriter,
+    personKindCreator = HomeText.personKindCreator,
 )
 
 val LocalHomeStrings = staticCompositionLocalOf { defaultHomeStrings() }

@@ -1,5 +1,14 @@
 
-package com.mab.f2mbox.desktop.ui.detail
+package com.mab.f2mbox.ui.detail
+
+import com.mab.f2mbox.ui.common.F2mButton
+import com.mab.f2mbox.ui.common.LocalWatchedWriter
+import com.mab.f2mbox.ui.common.rememberCardHighlight
+import com.mab.f2mbox.ui.detail.LocalDetailStrings
+import com.mab.f2mbox.ui.detail.formatComments
+import com.mab.f2mbox.ui.detail.formatDislikeCount
+import com.mab.f2mbox.ui.detail.formatDurationMinutes
+import com.mab.f2mbox.ui.detail.formatLikeCount
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -51,7 +60,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.compose.material3.Icon
@@ -59,11 +67,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import coil3.compose.AsyncImage
 import com.mab.f2mbox.data.WatchedItem
-import com.mab.f2mbox.storage.WatchedHistory
-import com.mab.f2mbox.desktop.ui.common.AppButton
-import com.mab.f2mbox.desktop.ui.common.LocalWatched
 import com.mab.f2mbox.ui.common.FocusTracker
-import com.mab.f2mbox.desktop.ui.common.rememberDesktopHighlight
 import com.mab.f2mbox.ui.common.rememberFocusTracker
 import com.mab.f2mbox.data.remote.Comments
 import com.mab.f2mbox.data.remote.Comment
@@ -83,10 +87,8 @@ import com.mab.f2mbox.data.remote.VoiceActor
 import com.mab.f2mbox.data.remote.normalizeImageUrl
 import com.mab.f2mbox.ui.common.IntSetStateSaver
 import com.mab.f2mbox.ui.home.PosterCard
-import com.mab.f2mbox.desktop.ui.theme.F2MBoxTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import com.mab.f2mbox.desktop.platform.Strings
 
 private val ContentMargin = 48.dp
 private val PosterWidth = 200.dp
@@ -128,15 +130,14 @@ fun MovieDetail(
     modifier: Modifier = Modifier
 ) {
     val intro = data.intro ?: return
-    val watched = LocalWatched.current
+    val watchedWriter = LocalWatchedWriter.current
     val handlePlay: (String, String) -> Unit = { playUrl, playTitle ->
-        WatchedHistory.save(
-            storage = watched,
-            item = WatchedItem(
+        watchedWriter.save(
+            WatchedItem(
                 title = intro.title ?: data.title ?: playTitle,
                 url = data.url ?: data.canonicalUrl.orEmpty().ifEmpty { playUrl },
-                posterUrl = intro.poster?.url
-            )
+                posterUrl = intro.poster?.url,
+            ),
         )
         onPlay(playUrl, playTitle)
     }
@@ -242,13 +243,13 @@ fun MovieDetail(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-            AppButton(
+            F2mButton(
                 onClick = onNavigateBack,
                 modifier = Modifier
                     .focusRequester(focusTracker.requesterFor(backFocusId))
                     .onFocusChanged { if (it.isFocused) focusTracker.onFocused(backFocusId) }
             ) {
-                Text(Strings.back)
+                Text(LocalDetailStrings.current.back)
             }
             Text(
                 text = intro.title ?: data.pageTitle ?: data.title.orEmpty(),
@@ -322,7 +323,7 @@ fun MovieDetail(
             }
             if (people.isNotEmpty()) {
                 Text(
-                    text = Strings.castAndCrew,
+                    text = LocalDetailStrings.current.castAndCrew,
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(top = 12.dp)
@@ -340,7 +341,7 @@ fun MovieDetail(
             }
             data.dubbing?.takeIf { it.dubs.isNotEmpty() }?.let { dubbing ->
                 Text(
-                    text = Strings.dubbing,
+                    text = LocalDetailStrings.current.dubbing,
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(top = 12.dp)
@@ -348,7 +349,7 @@ fun MovieDetail(
                 dubbing.dubs.forEachIndexed { dubIndex, dub ->
                     val isExpanded = dubIndex in expandedDubs
                     key(dubIndex) {
-                        val dubHighlight = rememberDesktopHighlight()
+                        val dubHighlight = rememberCardHighlight()
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -409,7 +410,7 @@ fun MovieDetail(
                         }
                         if (dub.voiceActors.isNotEmpty()) {
                             Text(
-                                text = Strings.voiceActors,
+                                text = LocalDetailStrings.current.voiceActors,
                                 style = MaterialTheme.typography.titleSmall,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -429,7 +430,7 @@ fun MovieDetail(
             }
             data.downloads?.takeIf { it.variants.isNotEmpty() || it.seasons.isNotEmpty() }?.let {
                 Text(
-                    text = Strings.downloads,
+                    text = LocalDetailStrings.current.downloads,
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(top = 12.dp)
@@ -461,7 +462,7 @@ fun MovieDetail(
             data.downloads?.seasons?.forEachIndexed { seasonIndex, season ->
                 val isExpanded = seasonIndex in expandedSeasons
                 key(seasonIndex) {
-                    val seasonHighlight = rememberDesktopHighlight()
+                    val seasonHighlight = rememberCardHighlight()
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -547,7 +548,7 @@ fun MovieDetail(
             }
             data.suggested?.takeIf { it.items.isNotEmpty() }?.let { suggested ->
                 Text(
-                    text = suggested.title ?: Strings.suggested,
+                    text = suggested.title ?: LocalDetailStrings.current.suggested,
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(top = 12.dp)
@@ -569,7 +570,7 @@ fun MovieDetail(
             }
             data.comments?.takeIf { it.items.isNotEmpty() }?.let { comments ->
                 Text(
-                    text = Strings.comments.format(comments.total ?: comments.count ?: comments.items.size),
+                    text = LocalDetailStrings.current.formatComments(comments.total ?: comments.count ?: comments.items.size),
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(top = 12.dp)
@@ -647,7 +648,7 @@ private fun IntroBlock(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.PlayArrow,
-                        contentDescription = Strings.playerPlay,
+                        contentDescription = LocalDetailStrings.current.playerPlay,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(56.dp)
                     )
@@ -684,12 +685,12 @@ private fun IntroBlock(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
-                        text = Strings.likeCount.format(it.likeCount),
+                        text = LocalDetailStrings.current.formatLikeCount(it.likeCount),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = Strings.dislikeCount.format(it.dislikeCount),
+                        text = LocalDetailStrings.current.formatDislikeCount(it.dislikeCount),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -730,16 +731,16 @@ private fun IntroBlock(
 
             intro.info?.let { info ->
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    InfoRow(Strings.infoRelease, info.release)
-                    InfoRow(Strings.infoPublished, info.published)
+                    InfoRow(LocalDetailStrings.current.infoRelease, info.release)
+                    InfoRow(LocalDetailStrings.current.infoPublished, info.published)
                     // `duration` is often just the Persian word for minutes;
                     // prefer the numeric minute count when present.
                     val durationText = info.durationMinutes?.let {
-                        Strings.infoDurationValue.format(it)
+                        LocalDetailStrings.current.formatDurationMinutes(it)
                     } ?: info.duration?.takeIf { value -> value.any { it.isDigit() } }
-                    InfoRow(Strings.infoDuration, durationText)
-                    InfoRow(Strings.infoCountries, info.countries)
-                    InfoRow(Strings.infoLanguage, info.language)
+                    InfoRow(LocalDetailStrings.current.infoDuration, durationText)
+                    InfoRow(LocalDetailStrings.current.infoCountries, info.countries)
+                    InfoRow(LocalDetailStrings.current.infoLanguage, info.language)
                 }
             }
         }
@@ -788,7 +789,7 @@ private const val PersonCardScale = 1.06f
  */
 @Composable
 private fun PersonCard(person: PersonRef, onOpenUrl: (String) -> Unit, modifier: Modifier = Modifier) {
-    val highlight = rememberDesktopHighlight()
+    val highlight = rememberCardHighlight()
     val scale by animateFloatAsState(
         targetValue = if (highlight.highlighted) PersonCardScale else 1f,
         animationSpec = tween(durationMillis = 200),
@@ -856,7 +857,7 @@ private fun CommentCard(comment: Comment, modifier: Modifier = Modifier) {
     // only scrolls toward focusable items, and with plain non-focusable
     // cards the search below the last row finds nothing and the comments
     // become unreachable.
-    val highlight = rememberDesktopHighlight()
+    val highlight = rememberCardHighlight()
 
     Column(
         modifier = modifier
@@ -902,12 +903,12 @@ private fun CommentCard(comment: Comment, modifier: Modifier = Modifier) {
         )
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Text(
-                text = Strings.likeCount.format(comment.likeCount),
+                text = LocalDetailStrings.current.formatLikeCount(comment.likeCount),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = Strings.dislikeCount.format(comment.dislikeCount),
+                text = LocalDetailStrings.current.formatDislikeCount(comment.dislikeCount),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -935,7 +936,7 @@ private fun CommentsPager(
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (hasError) {
             Text(
-                text = Strings.commentsError,
+                text = LocalDetailStrings.current.commentsError,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -944,15 +945,15 @@ private fun CommentsPager(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally)
         ) {
-            AppButton(onClick = onLoadPrevious, enabled = canGoBack && !isLoading) {
-                Text(Strings.previous)
+            F2mButton(onClick = onLoadPrevious, enabled = canGoBack && !isLoading) {
+                Text(LocalDetailStrings.current.previous)
             }
-            AppButton(onClick = onLoadNext, enabled = !isLoading && comments.pagination.next != null) {
+            F2mButton(onClick = onLoadNext, enabled = !isLoading && comments.pagination.next != null) {
                 Text(
                     text = if (isLoading) {
-                        Strings.loading
+                        LocalDetailStrings.current.loading
                     } else {
-                        Strings.moreComments
+                        LocalDetailStrings.current.moreComments
                     }
                 )
             }
@@ -960,28 +961,21 @@ private fun CommentsPager(
     }
 }
 
-/**
- * The play button on a quality/episode card: a rounded play bar with a
- * glyph, styled for a TV screen. At rest it is a quiet tint of the brand
- * color so a row of cards stays calm; when the D-pad lands on it, it fills
- * The play button on a quality/episode card: a rounded play bar, styled for
- * a TV screen. At rest it is an outline-only bar (transparent background) so
- * a row of cards stays calm; when the D-pad lands on it, the shared
- * [AppButton] focus treatment fills it with the brand color.
- */
+/** Rounded play bar on a quality/episode card. */
 @Composable
 private fun PlayButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    AppButton(
+    F2mButton(
         onClick = onClick,
-        modifier = modifier.height(46.dp),
-        shape = RoundedCornerShape(12.dp)
+        modifier = modifier
+            .height(46.dp)
+            .clip(RoundedCornerShape(12.dp)),
     ) {
         // The label fills the button and centers itself in it.
         Text(
-            text = Strings.playerPlay,
+            text = LocalDetailStrings.current.playerPlay,
             textAlign = TextAlign.Center,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.fillMaxWidth()
@@ -1115,7 +1109,7 @@ private fun TrailerCard(
     ) {
         AsyncImage(
             model = trailer.poster,
-            contentDescription = Strings.trailer,
+            contentDescription = LocalDetailStrings.current.trailer,
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .width(200.dp)
@@ -1125,13 +1119,13 @@ private fun TrailerCard(
         )
         Column(verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = Strings.trailer,
+                text = LocalDetailStrings.current.trailer,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            AppButton(onClick = { trailer.url?.let { onPlay(it, title) } }) {
-                Text(Strings.watchTrailer)
+            F2mButton(onClick = { trailer.url?.let { onPlay(it, title) } }) {
+                Text(LocalDetailStrings.current.watchTrailer)
             }
         }
     }
@@ -1145,7 +1139,7 @@ private fun TrailerCard(
  */
 @Composable
 private fun VoiceActorCard(actor: VoiceActor, modifier: Modifier = Modifier) {
-    val highlight = rememberDesktopHighlight()
+    val highlight = rememberCardHighlight()
 
     Column(
         modifier = modifier
@@ -1184,31 +1178,4 @@ private fun VoiceActorCard(actor: VoiceActor, modifier: Modifier = Modifier) {
     }
 }
 
-@Preview(showBackground = true, widthDp = 960, heightDp = 540)
-@Composable
-private fun MovieDetailPreview() {
-    F2MBoxTheme {
-        MovieDetail(
-            data = MovieData(
-                title = "Sample Movie",
-                intro = MovieIntro(
-                    title = "Sample Movie",
-                    notes = listOf("1080p", "SoftSub"),
-                    formats = listOf("MKV", "MP4"),
-                    genres = listOf(GenreRef("Action", "/action")),
-                    info = MovieInfo(
-                        release = "2024",
-                        durationMinutes = 120,
-                        countries = "USA",
-                        language = "English"
-                    )
-                ),
-                trailer = Trailer(url = "http://example.com/trailer.mp4")
-            ),
-            fetchPage = { Result.success(ScrapeResult.Listing(com.mab.f2mbox.data.remote.ListData())) },
-            onOpenUrl = {},
-            onNavigateBack = {}
-        )
-    }
-}
 

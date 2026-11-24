@@ -50,7 +50,9 @@ import com.mab.f2mbox.ui.common.rememberFocusTracker
 import com.mab.f2mbox.ui.connect.LoadingDots
 import com.mab.f2mbox.ui.home.LocalHomeStrings
 import com.mab.f2mbox.ui.home.PosterCard
+import com.mab.f2mbox.ui.detail.MovieDetail
 import com.mab.f2mbox.ui.home.formatPage
+import com.mab.f2mbox.ui.person.PersonScreen
 
 private val ContentMargin = 48.dp
 private val GridColumns = 4
@@ -75,7 +77,6 @@ fun ListScreen(
     registerEsc: ((() -> Unit)?) -> Unit = {},
 ) {
     val strings = LocalHomeStrings.current
-    val scrapeSlots = LocalListScrapeSlots.current
     var pages by rememberSaveable(routeKey, saver = NullableStringListStateSaver) {
         mutableStateOf(listOf<String?>(null))
     }
@@ -161,24 +162,24 @@ fun ListScreen(
                 onNext = { result.data.pagination.next?.let { pages = pages + it } },
                 modifier = modifier,
             )
-            is ScrapeResult.Movie -> scrapeSlots.movie(
-                result.data,
-                fetchPage,
-                onOpenUrl,
-                onPlay,
-                onNavigateBack,
-                modifier,
+            is ScrapeResult.Movie -> MovieDetail(
+                data = result.data,
+                fetchPage = fetchPage,
+                onOpenUrl = onOpenUrl,
+                onPlay = onPlay,
+                onNavigateBack = onNavigateBack,
+                modifier = modifier,
             )
-            is ScrapeResult.Person -> scrapeSlots.person(
-                result.data,
-                onNavigateBack,
-                onOpenUrl,
-                focusTracker,
-                pages.size > 1,
-                { pages = pages.dropLast(1) },
-                result.data.pagination.next != null,
-                { result.data.pagination.next?.let { pages = pages + it } },
-                modifier,
+            is ScrapeResult.Person -> PersonScreen(
+                data = result.data,
+                onNavigateBack = onNavigateBack,
+                onOpenUrl = onOpenUrl,
+                focusTracker = focusTracker,
+                hasPrevious = pages.size > 1,
+                onPrevious = { pages = pages.dropLast(1) },
+                hasNext = result.data.pagination.next != null,
+                onNext = { result.data.pagination.next?.let { pages = pages + it } },
+                modifier = modifier,
             )
         }
     }

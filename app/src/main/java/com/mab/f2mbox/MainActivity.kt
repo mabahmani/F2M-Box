@@ -39,8 +39,10 @@ import com.mab.f2mbox.ui.common.WatchedItemsReader
 import com.mab.f2mbox.ui.connect.rememberConnectSplashStrings
 import com.mab.f2mbox.ui.home.LocalHomeStrings
 import com.mab.f2mbox.ui.home.rememberHomeStrings
-import com.mab.f2mbox.ui.list.LocalListScrapeSlots
-import com.mab.f2mbox.ui.list.appListScrapeSlots
+import com.mab.f2mbox.ui.common.LocalWatchedWriter
+import com.mab.f2mbox.ui.common.WatchedWriter
+import com.mab.f2mbox.ui.detail.LocalDetailStrings
+import com.mab.f2mbox.ui.detail.rememberDetailStrings
 import com.mab.f2mbox.ui.logs.LogsScreen
 import com.mab.f2mbox.ui.navigation.TvConnectedRoutes
 import com.mab.f2mbox.ui.theme.F2MBoxTheme
@@ -137,13 +139,18 @@ private fun ConnectGate(scraper: F2MScraper) {
     val context = LocalContext.current
     val splashStrings = rememberConnectSplashStrings()
     val homeStrings = rememberHomeStrings()
+    val detailStrings = rememberDetailStrings()
     val watchedReader = remember(context) {
         WatchedItemsReader { WatchedManager.getWatchedItems(context) }
     }
+    val watchedWriter = remember(context) {
+        WatchedWriter { item -> WatchedManager.save(context, item) }
+    }
     CompositionLocalProvider(
         LocalHomeStrings provides homeStrings,
+        LocalDetailStrings provides detailStrings,
         LocalWatchedItems provides watchedReader,
-        LocalListScrapeSlots provides appListScrapeSlots(),
+        LocalWatchedWriter provides watchedWriter,
     ) {
     F2mAppHost(
         scraper = scraper,

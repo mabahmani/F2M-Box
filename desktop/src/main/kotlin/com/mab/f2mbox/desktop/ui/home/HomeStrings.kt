@@ -21,4 +21,8 @@ fun desktopHomeStrings(): HomeStrings = HomeStrings(
     pageFormat = Strings.pageFormat,
     previous = Strings.previous,
     next = Strings.next,
+    personKindActor = Strings.personKindActor,
+    personKindDirector = Strings.personKindDirector,
+    personKindWriter = Strings.personKindWriter,
+    personKindCreator = Strings.personKindCreator,
 )

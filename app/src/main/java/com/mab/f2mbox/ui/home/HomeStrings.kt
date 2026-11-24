@@ -28,4 +28,8 @@ fun rememberHomeStrings(): com.mab.f2mbox.ui.home.HomeStrings =
         pageFormat = stringResource(R.string.page_format),
         previous = stringResource(R.string.previous),
         next = stringResource(R.string.next),
+        personKindActor = stringResource(R.string.person_kind_actor),
+        personKindDirector = stringResource(R.string.person_kind_director),
+        personKindWriter = stringResource(R.string.person_kind_writer),
+        personKindCreator = stringResource(R.string.person_kind_creator),
     )
