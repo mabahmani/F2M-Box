@@ -1,6 +1,9 @@
 package com.mab.f2mbox.desktop.ui.common
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.shape.CircleShape
@@ -81,18 +84,23 @@ fun AppButton(
     content: @Composable RowScope.() -> Unit
 ) {
     var focused by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val hovered by interactionSource.collectIsHoveredAsState()
+    val highlighted = focused || hovered
     val scheme = MaterialTheme.colorScheme
     OutlinedButton(
         onClick = onClick,
         // The border is a Material Surface parameter, so it is drawn at the
         // button's true bounds (a draw modifier would land on the outer
         // minimum-touch-target box instead).
-        modifier = modifier.onFocusChanged { focused = it.isFocused },
+        modifier = modifier
+            .hoverable(interactionSource = interactionSource)
+            .onFocusChanged { focused = it.isFocused },
         enabled = enabled,
         shape = shape,
         colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = if (focused) scheme.primary else Color.Transparent,
-            contentColor = if (focused) scheme.onPrimary else scheme.primary,
+            containerColor = if (highlighted) scheme.primary else Color.Transparent,
+            contentColor = if (highlighted) scheme.onPrimary else scheme.primary,
             disabledContainerColor = Color.Transparent,
             disabledContentColor = scheme.onSurface.copy(alpha = 0.38f)
         ),
@@ -101,9 +109,16 @@ fun AppButton(
             width = 1.dp,
             color = when {
                 !enabled -> scheme.onSurface.copy(alpha = 0.2f)
-                focused -> scheme.primary
+                highlighted -> scheme.primary
                 else -> scheme.primary.copy(alpha = 0.6f)
             }
+        ),
+        elevation = ButtonDefaults.buttonElevation(
+            defaultElevation = 0.dp,
+            pressedElevation = 0.dp,
+            focusedElevation = 0.dp,
+            hoveredElevation = 0.dp,
+            disabledElevation = 0.dp,
         ),
         content = content
     )

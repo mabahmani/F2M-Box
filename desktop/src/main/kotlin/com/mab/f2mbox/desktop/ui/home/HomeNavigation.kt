@@ -47,6 +47,7 @@ import com.mab.f2mbox.data.remote.GenreLink
 import com.mab.f2mbox.data.remote.HomeNavigation
 import com.mab.f2mbox.data.remote.NavSection
 import com.mab.f2mbox.desktop.ui.common.FocusTracker
+import com.mab.f2mbox.desktop.ui.common.rememberDesktopHighlight
 import com.mab.f2mbox.desktop.ui.common.IntStateSaver
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -211,20 +212,20 @@ private fun SectionChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var isFocused by remember { mutableStateOf(false) }
+    val highlight = rememberDesktopHighlight(onFocus = onFocus)
     val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.08f else 1f,
+        targetValue = if (highlight.highlighted) 1.08f else 1f,
         animationSpec = tween(durationMillis = 200),
         label = "section-chip-scale"
     )
 
     Box(
         modifier = modifier
-            .onFocusChanged {
-                isFocused = it.isFocused
-                if (it.isFocused) onFocus()
-            }
-            .clickable(onClick = onClick)
+            .then(highlight.modifier)
+            .clickable(
+                interactionSource = highlight.interactionSource,
+                onClick = onClick,
+            )
             // Inside the focusable node so the focus bounds stay at the
             // layout size while the chip animates — see PosterCard.
             .graphicsLayer {
@@ -235,12 +236,12 @@ private fun SectionChip(
             .background(
                 when {
                     isSelected -> MaterialTheme.colorScheme.primary
-                    isFocused -> MaterialTheme.colorScheme.surfaceVariant
+                    highlight.highlighted -> MaterialTheme.colorScheme.surfaceVariant
                     else -> Color.Transparent
                 }
             )
             .border(
-                width = if (isFocused && !isSelected) 2.dp else 1.dp,
+                width = if (highlight.highlighted && !isSelected) 2.dp else 1.dp,
                 color = MaterialTheme.colorScheme.primary,
                 shape = ChipShape
             )
@@ -272,20 +273,20 @@ private fun GenreChip(
     onFocus: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    var isFocused by remember { mutableStateOf(false) }
+    val highlight = rememberDesktopHighlight(onFocus = onFocus)
     val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.08f else 1f,
+        targetValue = if (highlight.highlighted) 1.08f else 1f,
         animationSpec = tween(durationMillis = 200),
         label = "genre-chip-scale"
     )
 
     Row(
         modifier = modifier
-            .onFocusChanged {
-                isFocused = it.isFocused
-                if (it.isFocused) onFocus()
-            }
-            .clickable(onClick = onClick)
+            .then(highlight.modifier)
+            .clickable(
+                interactionSource = highlight.interactionSource,
+                onClick = onClick,
+            )
             // Inside the focusable node so the focus bounds stay at the
             // layout size while the chip animates — see PosterCard.
             .graphicsLayer {
@@ -294,14 +295,14 @@ private fun GenreChip(
             }
             .clip(ChipShape)
             .background(
-                if (isFocused) {
+                if (highlight.highlighted) {
                     MaterialTheme.colorScheme.surfaceVariant
                 } else {
                     MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
                 }
             )
             .border(
-                width = if (isFocused) 2.dp else 1.dp,
+                width = if (highlight.highlighted) 2.dp else 1.dp,
                 color = MaterialTheme.colorScheme.primary,
                 shape = ChipShape
             )

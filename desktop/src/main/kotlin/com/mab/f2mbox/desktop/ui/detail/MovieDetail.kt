@@ -63,6 +63,7 @@ import com.mab.f2mbox.storage.WatchedHistory
 import com.mab.f2mbox.desktop.ui.common.AppButton
 import com.mab.f2mbox.desktop.ui.common.LocalWatched
 import com.mab.f2mbox.desktop.ui.common.FocusTracker
+import com.mab.f2mbox.desktop.ui.common.rememberDesktopHighlight
 import com.mab.f2mbox.desktop.ui.common.rememberFocusTracker
 import com.mab.f2mbox.data.remote.Comments
 import com.mab.f2mbox.data.remote.Comment
@@ -347,20 +348,22 @@ fun MovieDetail(
                 dubbing.dubs.forEachIndexed { dubIndex, dub ->
                     val isExpanded = dubIndex in expandedDubs
                     key(dubIndex) {
-                        var isFocused by remember { mutableStateOf(false) }
+                        val dubHighlight = rememberDesktopHighlight()
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .onFocusChanged { isFocused = it.isFocused }
+                                .then(dubHighlight.modifier)
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(
-                                    if (isFocused) {
+                                    if (dubHighlight.highlighted) {
                                         MaterialTheme.colorScheme.surfaceVariant
                                     } else {
                                         Color.Transparent
                                     }
                                 )
-                                .clickable {
+                                .clickable(
+                                    interactionSource = dubHighlight.interactionSource,
+                                ) {
                                     expandedDubs = if (isExpanded) {
                                         expandedDubs - dubIndex
                                     } else {
@@ -458,21 +461,23 @@ fun MovieDetail(
             data.downloads?.seasons?.forEachIndexed { seasonIndex, season ->
                 val isExpanded = seasonIndex in expandedSeasons
                 key(seasonIndex) {
-                    var isFocused by remember { mutableStateOf(false) }
+                    val seasonHighlight = rememberDesktopHighlight()
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 12.dp)
-                            .onFocusChanged { isFocused = it.isFocused }
+                            .then(seasonHighlight.modifier)
                             .clip(RoundedCornerShape(10.dp))
                             .background(
-                                if (isFocused) {
+                                if (seasonHighlight.highlighted) {
                                     MaterialTheme.colorScheme.surfaceVariant
                                 } else {
                                     Color.Transparent
                                 }
                             )
-                            .clickable {
+                            .clickable(
+                                interactionSource = seasonHighlight.interactionSource,
+                            ) {
                                 expandedSeasons = if (isExpanded) {
                                     expandedSeasons - seasonIndex
                                 } else {
@@ -783,9 +788,9 @@ private const val PersonCardScale = 1.06f
  */
 @Composable
 private fun PersonCard(person: PersonRef, onOpenUrl: (String) -> Unit, modifier: Modifier = Modifier) {
-    var isFocused by remember { mutableStateOf(false) }
+    val highlight = rememberDesktopHighlight()
     val scale by animateFloatAsState(
-        targetValue = if (isFocused) PersonCardScale else 1f,
+        targetValue = if (highlight.highlighted) PersonCardScale else 1f,
         animationSpec = tween(durationMillis = 200),
         label = "person-scale"
     )
@@ -795,13 +800,16 @@ private fun PersonCard(person: PersonRef, onOpenUrl: (String) -> Unit, modifier:
             .width(PersonCardWidth)
             // Same z-lift as PosterCard so the focused border isn't cut by
             // the neighboring cards' draw order.
-            .zIndex(if (isFocused) 1f else 0f)
+            .zIndex(if (highlight.highlighted) 1f else 0f)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
             }
-            .onFocusChanged { isFocused = it.isFocused }
-            .clickable(enabled = person.url != null) { person.url?.let(onOpenUrl) },
+            .then(highlight.modifier)
+            .clickable(
+                interactionSource = highlight.interactionSource,
+                enabled = person.url != null,
+            ) { person.url?.let(onOpenUrl) },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         AsyncImage(
@@ -813,7 +821,7 @@ private fun PersonCard(person: PersonRef, onOpenUrl: (String) -> Unit, modifier:
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceVariant)
                 .border(
-                    width = if (isFocused) 2.dp else 0.dp,
+                    width = if (highlight.highlighted) 2.dp else 0.dp,
                     color = MaterialTheme.colorScheme.primary,
                     shape = CircleShape
                 )
@@ -848,18 +856,18 @@ private fun CommentCard(comment: Comment, modifier: Modifier = Modifier) {
     // only scrolls toward focusable items, and with plain non-focusable
     // cards the search below the last row finds nothing and the comments
     // become unreachable.
-    var isFocused by remember { mutableStateOf(false) }
+    val highlight = rememberDesktopHighlight()
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
+            .then(highlight.modifier)
+            .focusable(interactionSource = highlight.interactionSource)
             .clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.35f))
             .border(
-                width = if (isFocused) 2.dp else 0.dp,
-                color = if (isFocused) {
+                width = if (highlight.highlighted) 2.dp else 0.dp,
+                color = if (highlight.highlighted) {
                     MaterialTheme.colorScheme.primary
                 } else {
                     Color.Transparent
@@ -1137,18 +1145,18 @@ private fun TrailerCard(
  */
 @Composable
 private fun VoiceActorCard(actor: VoiceActor, modifier: Modifier = Modifier) {
-    var isFocused by remember { mutableStateOf(false) }
+    val highlight = rememberDesktopHighlight()
 
     Column(
         modifier = modifier
             .width(VoiceActorCardWidth)
-            .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
+            .then(highlight.modifier)
+            .focusable(interactionSource = highlight.interactionSource)
             .clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .border(
-                width = if (isFocused) 2.dp else 0.dp,
-                color = if (isFocused) {
+                width = if (highlight.highlighted) 2.dp else 0.dp,
+                color = if (highlight.highlighted) {
                     MaterialTheme.colorScheme.primary
                 } else {
                     Color.Transparent

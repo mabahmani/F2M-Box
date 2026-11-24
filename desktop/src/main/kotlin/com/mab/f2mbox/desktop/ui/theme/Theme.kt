@@ -1,8 +1,11 @@
 package com.mab.f2mbox.desktop.ui.theme
 
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.material3.MaterialTheme
+import com.mab.f2mbox.desktop.ui.common.NoIndication
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 
 /**
  * F2M Box brand theme, ported from the TV theme: near-black backgrounds
@@ -35,6 +38,11 @@ fun F2MBoxTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = colorScheme,
         typography = f2mBoxTypography(),
-        content = content
-    )
+    ) {
+        // Desktop uses custom focus cues (scale, border, primary fill), not
+        // Material hover ripples. Hover matches focus via [rememberDesktopHighlight].
+        CompositionLocalProvider(LocalIndication provides NoIndication) {
+            content()
+        }
+    }
 }

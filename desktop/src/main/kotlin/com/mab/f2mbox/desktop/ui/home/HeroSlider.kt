@@ -5,6 +5,7 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,6 +46,7 @@ import androidx.compose.material3.Text
 import coil3.compose.AsyncImage
 import com.mab.f2mbox.data.remote.HeroSlide
 import com.mab.f2mbox.desktop.ui.common.IntStateSaver
+import com.mab.f2mbox.desktop.ui.common.rememberDesktopHighlight
 import kotlinx.coroutines.delay
 import com.mab.f2mbox.desktop.platform.Strings
 
@@ -82,6 +84,8 @@ fun HeroSlider(
         page = (page + 1) % items.size
     }
 
+    val highlight = rememberDesktopHighlight(onFocus = onFocused)
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -117,8 +121,14 @@ fun HeroSlider(
             // Single focus target: clickable is focusable itself, so OK
             // opens on the first press (focusable + clickable stacked would
             // put focus on the outer, click-less node).
-            .clickable { onSlideClick(items[page].url) }
-            .onFocusChanged { if (it.isFocused) onFocused() }
+            .then(highlight.modifier)
+            .clickable(
+                interactionSource = highlight.interactionSource,
+            ) { onSlideClick(items[page].url) }
+            .border(
+                width = if (highlight.highlighted) 3.dp else 0.dp,
+                color = MaterialTheme.colorScheme.primary,
+            )
     ) {
         Crossfade(
             targetState = page,

@@ -6,6 +6,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -87,6 +90,7 @@ import com.mab.f2mbox.desktop.player.ExternalPlay
 import com.mab.f2mbox.desktop.player.VlcDiscovery
 import com.mab.f2mbox.desktop.player.VlcPlayerEngine
 import com.mab.f2mbox.desktop.ui.common.LocalSubtitleStyleStore
+import com.mab.f2mbox.desktop.ui.common.rememberDesktopHighlight
 import java.awt.BorderLayout
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
@@ -931,7 +935,7 @@ private fun SeekBar(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
-    var isFocused by remember { mutableStateOf(false) }
+    val highlight = rememberDesktopHighlight()
     val currentOnSeek by rememberUpdatedState(onSeek)
     val currentOnSeekTo by rememberUpdatedState(onSeekTo)
     val fraction = if (durationMs > 0) {
@@ -961,11 +965,15 @@ private fun SeekBar(
             modifier = Modifier
                 .weight(1f)
                 .height(28.dp)
-                .onFocusChanged { isFocused = it.isFocused }
-                .focusable()
+                .then(highlight.modifier)
+                .focusable(interactionSource = highlight.interactionSource)
                 .border(
-                    width = if (isFocused) 1.dp else 0.dp,
-                    color = if (isFocused) Color.White.copy(alpha = 0.7f) else Color.Transparent,
+                    width = if (highlight.highlighted) 1.dp else 0.dp,
+                    color = if (highlight.highlighted) {
+                        Color.White.copy(alpha = 0.7f)
+                    } else {
+                        Color.Transparent
+                    },
                     shape = RoundedCornerShape(8.dp)
                 )
                 .onKeyEvent { event ->
@@ -1063,11 +1071,14 @@ private fun PlayerButton(
     var lastActivationAt by remember { mutableLongStateOf(0L) }
     val localFocus = remember { FocusRequester() }
     val focusTarget = focusRequester ?: localFocus
+    val hoverSource = remember { MutableInteractionSource() }
+    val hovered by hoverSource.collectIsHoveredAsState()
+    val showHighlight = isFocused || hovered
     // Keep the tap handler on a stable coroutine while always invoking the
     // latest action (the lambda captures playback state that changes often).
     val currentOnClick by rememberUpdatedState(onClick)
     val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.15f else 1f,
+        targetValue = if (showHighlight) 1.15f else 1f,
         animationSpec = tween(150)
     )
     Box(
@@ -1080,12 +1091,13 @@ private fun PlayerButton(
             .clip(CircleShape)
             .background(
                 when {
-                    isFocused -> MaterialTheme.colorScheme.primary
+                    showHighlight -> MaterialTheme.colorScheme.primary
                     emphasized -> Color.White.copy(alpha = 0.25f)
                     else -> Color.White.copy(alpha = 0.15f)
                 }
             )
             .semantics { contentDescription = description }
+            .hoverable(interactionSource = hoverSource)
             .focusRequester(focusTarget)
             .onFocusChanged { isFocused = it.isFocused }
             .focusable()
