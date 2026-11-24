@@ -14,8 +14,8 @@ android {
         applicationId = "com.mab.f2mbox"
         minSdk = 26
         targetSdk = 37
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = providers.gradleProperty("f2mVersionCode").get().toInt()
+        versionName = providers.gradleProperty("f2mVersionName").get()
     }
 
     buildTypes {

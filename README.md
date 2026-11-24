@@ -118,7 +118,7 @@ Or **System Settings → Privacy & Security → Open Anyway**. On Windows: Smart
 
 ### 1. Update version in Gradle
 
-Increment `versionCode` and `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts) for Android releases.
+Bump **`f2mVersionName`** and **`f2mVersionCode`** in [`gradle.properties`](gradle.properties). Android uses both fields; desktop installers use **`MAJOR.MINOR.BUILD`** with **BUILD = `f2mVersionCode`** (e.g. `1.3` + code `4` → package version **`1.3.4`**).
 
 ### 2. Commit and tag
 

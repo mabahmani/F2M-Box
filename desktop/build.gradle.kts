@@ -3,6 +3,16 @@ import java.net.URI
 import java.security.MessageDigest
 import java.util.zip.ZipFile
 
+/** Windows MSI/EXE require `MAJOR.MINOR.BUILD`; BUILD is [f2mVersionCode]. */
+fun Project.f2mDesktopPackageVersion(): String {
+    val name = providers.gradleProperty("f2mVersionName").get()
+    val build = providers.gradleProperty("f2mVersionCode").get().toInt()
+    val segments = name.split('.').mapNotNull { it.toIntOrNull() }
+    val major = segments.getOrElse(0) { 1 }
+    val minor = segments.getOrElse(1) { 0 }
+    return "$major.$minor.$build"
+}
+
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.jetbrains.compose)
@@ -59,7 +69,7 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb,
             )
             packageName = "F2MBox"
-            packageVersion = "1.0.0"
+            packageVersion = f2mDesktopPackageVersion()
             description = "F2M Box — your world of entertainment, on the desktop"
             vendor = "F2M Box"
             // Pulls every runtime module the fat jar needs (JNA, coroutines,
