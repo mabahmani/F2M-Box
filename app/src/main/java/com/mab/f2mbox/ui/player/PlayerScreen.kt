@@ -619,7 +619,7 @@ fun PlayerScreen(
                     interaction++
                 },
                 onInteraction = { interaction++ },
-                onBack = { controlsVisible = false },
+                onBack = onNavigateBack,
                 playPauseFocus = playPauseFocus,
                 speedButtonFocus = speedButtonFocus,
                 subtitleButtonFocus = subtitleButtonFocus,
