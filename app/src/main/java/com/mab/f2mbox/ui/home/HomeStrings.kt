@@ -32,4 +32,7 @@ fun rememberHomeStrings(): com.mab.f2mbox.ui.home.HomeStrings =
         personKindDirector = stringResource(R.string.person_kind_director),
         personKindWriter = stringResource(R.string.person_kind_writer),
         personKindCreator = stringResource(R.string.person_kind_creator),
+        clearLogs = stringResource(R.string.clear_logs),
+        logsEmpty = stringResource(R.string.logs_empty),
+        logsLastCrash = stringResource(R.string.logs_last_crash),
     )

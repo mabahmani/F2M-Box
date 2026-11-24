@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import com.mab.f2mbox.data.remote.ScrapeResult
 import com.mab.f2mbox.ui.home.HomeScreen
 import com.mab.f2mbox.ui.list.ListScreen
-import com.mab.f2mbox.desktop.ui.logs.LogsScreen
+import com.mab.f2mbox.ui.logs.LogsScreen
 import com.mab.f2mbox.desktop.ui.player.PlayerScreen
 import com.mab.f2mbox.navigation.F2mAppSession
 import com.mab.f2mbox.navigation.Route

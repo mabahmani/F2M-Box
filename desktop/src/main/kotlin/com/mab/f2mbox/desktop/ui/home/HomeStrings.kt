@@ -25,4 +25,7 @@ fun desktopHomeStrings(): HomeStrings = HomeStrings(
     personKindDirector = Strings.personKindDirector,
     personKindWriter = Strings.personKindWriter,
     personKindCreator = Strings.personKindCreator,
+    clearLogs = Strings.clearLogs,
+    logsEmpty = Strings.logsEmpty,
+    logsLastCrash = Strings.logsLastCrash,
 )

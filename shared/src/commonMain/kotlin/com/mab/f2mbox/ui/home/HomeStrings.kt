@@ -25,6 +25,9 @@ data class HomeStrings(
     val personKindDirector: String,
     val personKindWriter: String,
     val personKindCreator: String,
+    val clearLogs: String,
+    val logsEmpty: String,
+    val logsLastCrash: String,
 )
 
 /** Defaults aligned with `app/src/main/res/values/strings.xml`. */
@@ -50,6 +53,9 @@ object HomeText {
     const val personKindDirector = "Director"
     const val personKindWriter = "Writer"
     const val personKindCreator = "Creator"
+    const val clearLogs = "Clear logs"
+    const val logsEmpty = "No logs yet."
+    const val logsLastCrash = "Last crash (previous session)"
 }
 
 fun defaultHomeStrings(): HomeStrings = HomeStrings(
@@ -74,6 +80,9 @@ fun defaultHomeStrings(): HomeStrings = HomeStrings(
     personKindDirector = HomeText.personKindDirector,
     personKindWriter = HomeText.personKindWriter,
     personKindCreator = HomeText.personKindCreator,
+    clearLogs = HomeText.clearLogs,
+    logsEmpty = HomeText.logsEmpty,
+    logsLastCrash = HomeText.logsLastCrash,
 )
 
 val LocalHomeStrings = staticCompositionLocalOf { defaultHomeStrings() }

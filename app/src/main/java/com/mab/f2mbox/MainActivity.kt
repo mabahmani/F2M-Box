@@ -43,7 +43,9 @@ import com.mab.f2mbox.ui.common.LocalWatchedWriter
 import com.mab.f2mbox.ui.common.WatchedWriter
 import com.mab.f2mbox.ui.detail.LocalDetailStrings
 import com.mab.f2mbox.ui.detail.rememberDetailStrings
+import com.mab.f2mbox.ui.logs.LocalSessionCrashStore
 import com.mab.f2mbox.ui.logs.LogsScreen
+import com.mab.f2mbox.ui.logs.androidSessionCrashStore
 import com.mab.f2mbox.ui.navigation.TvConnectedRoutes
 import com.mab.f2mbox.ui.theme.F2MBoxTheme
 import androidx.compose.ui.platform.LocalContext
@@ -146,11 +148,13 @@ private fun ConnectGate(scraper: F2MScraper) {
     val watchedWriter = remember(context) {
         WatchedWriter { item -> WatchedManager.save(context, item) }
     }
+    val crashStore = remember(context) { androidSessionCrashStore(context) }
     CompositionLocalProvider(
         LocalHomeStrings provides homeStrings,
         LocalDetailStrings provides detailStrings,
         LocalWatchedItems provides watchedReader,
         LocalWatchedWriter provides watchedWriter,
+        LocalSessionCrashStore provides crashStore,
     ) {
     F2mAppHost(
         scraper = scraper,
