@@ -82,11 +82,20 @@ data class SubtitleStyle(
     }
 
     /**
-     * The bottom inset in dp for the Compose subtitle renderer. 0% means the
-     * subtitle sits flush with the bottom edge; the 0..30% setting spans
-     * 0..75 dp.
+     * The bottom inset in dp for the Compose subtitle renderer, relative to a
+     * container [containerHeightDp] tall.
+     *
+     * libVLC's freetype renderer never pins subtitles flush to the frame's
+     * bottom edge: even at `--sub-margin=0` a 720p capture left the glyph
+     * bottoms ~32 px (≈4.4% of the height) above the edge. So 0% offset still
+     * means that built-in baseline margin, and the user's 0..30% offset is
+     * added on top as a fraction of the height. The preview then matches where
+     * libVLC actually draws the line at the same offset.
      */
-    fun bottomPaddingDp(): Float = bottomOffsetPercent.coerceIn(0, 30) * 2.5f
+    fun bottomPaddingDp(containerHeightDp: Float): Float {
+        val offset = bottomOffsetPercent.coerceIn(0, 30) / 100f
+        return (DefaultBottomMarginFraction + offset) * containerHeightDp
+    }
 
     private fun opacity255(percent: Int) = (percent.coerceIn(0, 100) * 255 / 100)
 
@@ -95,11 +104,21 @@ data class SubtitleStyle(
         /**
          * The subtitle size range in sp, tuned for 10-foot TV viewing. The
          * customize panel scrubs continuously across it; the range stays
-         * wider than Android's 16→32 so "small" is actually small (12→40
-         * spans ~3.3x).
+         * wider than Android's 16→32 so "small" is actually small (6→40
+         * spans ~6.7x). 6 sp is tiny but deliberately reachable for users who
+         * want unobtrusive subtitles.
          */
-        const val MinTextSizeSp = 12f
+        const val MinTextSizeSp = 6f
         const val MaxTextSizeSp = 40f
+
+        /**
+         * libVLC's inherent bottom margin, as a fraction of the frame height.
+         * Measured from a 720p capture: with `--sub-margin=0` the subtitle glyph
+         * bottoms sat ~32 px above the frame edge (32 / 720 ≈ 4.4%). A real
+         * frame therefore never shows a truly flush line, and neither should
+         * the preview.
+         */
+        const val DefaultBottomMarginFraction = 32f / 720f
 
         /** Text colors as RGB ints (Android's seven choices, alpha dropped). */
         val ColorOptions = listOf(

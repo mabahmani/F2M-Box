@@ -7,8 +7,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -22,6 +20,9 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -1253,6 +1254,10 @@ internal fun SubtitleSettingsPanel(
         }
     }
     val stepFor: (Int) -> Int = { r -> if (r == 0 || r == 6) 1 else 5 }
+    // Rows 0, 3, 5, 6 are sliders (Left/Right scrubs them); the rest are
+    // chip rows (Left/Right moves between chips). Row 4 (edge) is chips, so
+    // it must NOT be treated as a slider.
+    val isSliderRow: (Int) -> Boolean = { it == 0 || it == 3 || it == 5 || it == 6 }
     val adjustSlider: (Int, Int) -> Unit = { r, delta ->
         when (r) {
             0 -> onChange(
@@ -1302,12 +1307,12 @@ internal fun SubtitleSettingsPanel(
                         true
                     }
                     Key.DirectionLeft -> {
-                        if (row == 0 || row in 3..6) adjustSlider(row, -stepFor(row))
+                        if (isSliderRow(row)) adjustSlider(row, -stepFor(row))
                         else col = (col - 1).coerceAtLeast(0)
                         true
                     }
                     Key.DirectionRight -> {
-                        if (row == 0 || row in 3..6) adjustSlider(row, stepFor(row))
+                        if (isSliderRow(row)) adjustSlider(row, stepFor(row))
                         else col = (col + 1).coerceAtMost(maxCol(row))
                         true
                     }
@@ -1413,6 +1418,19 @@ private fun SubtitleChipsPanelRow(
     highlightedIndex: Int,
     onPick: (Int) -> Unit
 ) {
+    val listState = rememberLazyListState()
+    // Keyboard navigation moves the highlight; scroll it into view so the
+    // wider rows (the seven colors) can reach the trailing off-screen chips.
+    // A LazyRow also scrolls with the mouse wheel / trackpad on desktop.
+    LaunchedEffect(highlightedIndex) {
+        if (highlightedIndex !in options.indices) return@LaunchedEffect
+        val info = listState.layoutInfo
+        val item = info.visibleItemsInfo.firstOrNull { it.index == highlightedIndex }
+        val fullyVisible = item != null &&
+            item.offset >= info.viewportStartOffset &&
+            item.offset + item.size <= info.viewportEndOffset
+        if (!fullyVisible) listState.animateScrollToItem(highlightedIndex)
+    }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             text = label,
@@ -1420,13 +1438,12 @@ private fun SubtitleChipsPanelRow(
             color = Color.White.copy(alpha = 0.7f),
             modifier = Modifier.width(110.dp)
         )
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .horizontalScroll(rememberScrollState()),
+        LazyRow(
+            state = listState,
+            modifier = Modifier.weight(1f),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            options.forEachIndexed { index, option ->
+            itemsIndexed(options) { index, option ->
                 val highlighted = index == highlightedIndex
                 val current = index == selectedIndex
                 Box(

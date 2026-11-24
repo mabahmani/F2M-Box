@@ -2,6 +2,7 @@ package com.mab.f2mbox.desktop.ui.player
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -60,30 +61,35 @@ fun DesktopSubtitleView(
         )
     }
 
-    val bottomPaddingDp = style.bottomPaddingDp().dp
-
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(bottom = bottomPaddingDp, start = 24.dp, end = 24.dp),
-        contentAlignment = Alignment.BottomCenter
-    ) {
+    // Padding depends on the container height, so read it from the layout.
+    // libVLC keeps a small baseline gap even at 0% offset (see
+    // SubtitleStyle.bottomPaddingDp); the band height lets the preview scale
+    // that gap and the user's offset the same way a real frame would.
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val bottomPadding = style.bottomPaddingDp(maxHeight.value).dp
         Box(
             modifier = Modifier
-                .background(bgColor, shape = RoundedCornerShape(4.dp))
-                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .fillMaxSize()
+                .padding(bottom = bottomPadding, start = 24.dp, end = 24.dp),
+            contentAlignment = Alignment.BottomCenter
         ) {
-            Text(
-                text = cue.text,
-                style = TextStyle(
-                    color = textColor,
-                    fontSize = style.textSizeSp.sp,
-                    fontWeight = fontWeight,
-                    fontFamily = fontFamily,
-                    textAlign = TextAlign.Center,
-                    shadow = shadow
+            Box(
+                modifier = Modifier
+                    .background(bgColor, shape = RoundedCornerShape(4.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = cue.text,
+                    style = TextStyle(
+                        color = textColor,
+                        fontSize = style.textSizeSp.sp,
+                        fontWeight = fontWeight,
+                        fontFamily = fontFamily,
+                        textAlign = TextAlign.Center,
+                        shadow = shadow
+                    )
                 )
-            )
+            }
         }
     }
 }

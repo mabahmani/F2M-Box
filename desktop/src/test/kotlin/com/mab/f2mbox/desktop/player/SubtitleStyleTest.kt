@@ -126,15 +126,21 @@ class SubtitleStyleTest {
     }
 
     @Test
-    fun `zero bottom offset pins the subtitle to the bottom`() {
+    fun `zero bottom offset keeps libVLC's built-in baseline margin`() {
         val style = SubtitleStyle.Default.copy(bottomOffsetPercent = 0)
-        assertEquals(0f, style.bottomPaddingDp(), 0.001f)
+        // libVLC leaves ~4.4% of the height even at --sub-margin=0; 0% offset
+        // must not render flush to the bottom.
+        assertEquals(7.11f, style.bottomPaddingDp(160f), 0.01f)
     }
 
     @Test
-    fun `bottom offset maps to the preview's 0 to 75 dp range`() {
-        assertEquals(75f, SubtitleStyle.Default.copy(bottomOffsetPercent = 30).bottomPaddingDp(), 0.001f)
-        assertEquals(75f, SubtitleStyle.Default.copy(bottomOffsetPercent = 99).bottomPaddingDp(), 0.001f)
+    fun `bottom offset adds the user's fraction on top of the baseline margin`() {
+        // (32/720 + 0.30) * 160 ≈ 55.11 dp.
+        val at30 = SubtitleStyle.Default.copy(bottomOffsetPercent = 30)
+        assertEquals(55.11f, at30.bottomPaddingDp(160f), 0.05f)
+        // Out-of-range offsets clamp to 30%.
+        val at99 = SubtitleStyle.Default.copy(bottomOffsetPercent = 99)
+        assertEquals(55.11f, at99.bottomPaddingDp(160f), 0.05f)
     }
 
     @Test
@@ -142,6 +148,12 @@ class SubtitleStyleTest {
         // The customize panel now scrubs size continuously, so the stored
         // value is no longer limited to the old four presets.
         assertEquals(21f, SubtitleStyle.load("size=21;bold=0").textSizeSp)
+    }
+
+    @Test
+    fun `loading accepts the 6 sp minimum and rejects below it`() {
+        assertEquals(6f, SubtitleStyle.load("size=6;bold=0").textSizeSp)
+        assertEquals(SubtitleStyle.Default.textSizeSp, SubtitleStyle.load("size=5;bold=0").textSizeSp)
     }
 
     @Test
