@@ -87,10 +87,14 @@ import com.mab.f2mbox.desktop.player.VlcPlayerEngine
 import com.mab.f2mbox.desktop.ui.common.LocalSubtitleStyleStore
 import java.awt.BorderLayout
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicReference
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 private const val SeekStepMs = 10_000L
 
@@ -181,52 +185,69 @@ fun PlayerScreen(
     // does) leaves a black frame and can strand playback; instead we mount
     // this host once and swap the engine's surface inside it when the engine
     // is rebuilt (e.g. after saving subtitle styling).
-    val videoHost = remember { JPanel(BorderLayout()) }
+    // Dark, opaque AWT host: an empty default JPanel is light grey and would
+    // flash white behind the spinner while the engine builds off-thread.
+    val videoHost = remember {
+        JPanel(BorderLayout()).apply {
+            background = java.awt.Color.BLACK
+            isOpaque = true
+        }
+    }
 
-    DisposableEffect(url, retryNonce, styleRevision) {
+    // Build the engine off the UI thread: constructing libVLC's
+    // MediaPlayerFactory (and its AWT component) is a multi-second native
+    // initialisation. Building it inline during composition froze the window
+    // and delayed the player from appearing; now navigation is instant and a
+    // spinner shows until the first `playing` event. The engine's surface is
+    // mounted/released by the DisposableEffect(engine) below.
+    LaunchedEffect(url, retryNonce, styleRevision) {
+        errorKind = null
         val startAt = resumeAtMs
-        val created = VlcPlayerEngine(
-            url = url,
-            extraArgs = emptyList(),
-            subtitleStyle = subtitleStyle,
-            startPositionMs = startAt,
-            nativeLocation = discovery.getOrNull(),
-            listener = { event ->
-                when (event) {
-                    is EngineEvent.Playing -> {
-                        isPlaying = true
-                        everPlayed = true
-                    }
-                    is EngineEvent.Paused -> isPlaying = false
-                    is EngineEvent.Position -> {
-                        positionMs = event.ms.coerceAtLeast(0L)
-                        durationMs = event.durationMs.takeIf { it > 0 } ?: 0L
-                    }
-                    is EngineEvent.Rate -> playbackSpeed = event.rate
-                    is EngineEvent.TracksReady -> {
-                        audioTracks = event.audio.filter { it.id >= 0 }
-                        subtitleTracks = event.subtitles.filter { it.id >= 0 }
-                        currentAudioId = event.currentAudio
-                        currentSubtitleId = event.currentSubtitle
-                    }
-                    is EngineEvent.Error -> errorKind = event.kind
-                }
-            },
-        )
-        engine = created
-        onDispose {
-            // Detach this engine's surface from the host before releasing it,
-            // so a style-change rebuild never shows (or releases under) a
-            // surface that is still mounted.
-            val surface = created.componentSurface
-            SwingUtilities.invokeLater {
-                if (surface.parent === videoHost) {
-                    videoHost.remove(surface)
-                    videoHost.revalidate()
-                    videoHost.repaint()
-                }
+        val holder = AtomicReference<VlcPlayerEngine?>(null)
+        try {
+            val created = withContext(Dispatchers.IO) {
+                VlcPlayerEngine(
+                    url = url,
+                    extraArgs = emptyList(),
+                    subtitleStyle = subtitleStyle,
+                    startPositionMs = startAt,
+                    nativeLocation = discovery.getOrNull(),
+                    listener = { event ->
+                        when (event) {
+                            is EngineEvent.Playing -> {
+                                isPlaying = true
+                                everPlayed = true
+                            }
+                            is EngineEvent.Paused -> isPlaying = false
+                            is EngineEvent.Position -> {
+                                positionMs = event.ms.coerceAtLeast(0L)
+                                durationMs = event.durationMs.takeIf { it > 0 } ?: 0L
+                            }
+                            is EngineEvent.Rate -> playbackSpeed = event.rate
+                            is EngineEvent.TracksReady -> {
+                                audioTracks = event.audio.filter { it.id >= 0 }
+                                subtitleTracks = event.subtitles.filter { it.id >= 0 }
+                                currentAudioId = event.currentAudio
+                                currentSubtitleId = event.currentSubtitle
+                            }
+                            is EngineEvent.Error -> errorKind = event.kind
+                        }
+                    },
+                ).also { holder.set(it) }
             }
-            created.release()
+            // Hand ownership to the state; DisposableEffect(engine) releases it
+            // on the next change or when this screen leaves composition.
+            engine = created
+            holder.set(null)
+        } catch (c: CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            errorKind = EngineEvent.ErrorKind.Source
+        } finally {
+            // Cancelled/failed before hand-off (or after building but before
+            // assignment): release whatever we built so the native resources
+            // are not leaked.
+            holder.getAndSet(null)?.release()
         }
     }
 
@@ -274,9 +295,12 @@ fun PlayerScreen(
 
     // Mount the current engine's surface into the stable host and keep it in
     // sync as the engine is rebuilt. Interop is created once (below); only
-    // the child AWT component swaps here.
+    // the child AWT component swaps here. The engine built asynchronously by
+    // the LaunchedEffect above is owned here, so it is released when the
+    // engine changes or the screen leaves composition.
     DisposableEffect(engine) {
-        val surface = engine?.componentSurface
+        val boundEngine = engine
+        val surface = boundEngine?.componentSurface
         val wake: java.awt.event.MouseAdapter? = surface?.let {
             object : java.awt.event.MouseAdapter() {
                 override fun mouseMoved(event: java.awt.event.MouseEvent) = mouseWake()
@@ -290,6 +314,10 @@ fun PlayerScreen(
         }
         if (surface != null && wake != null) {
             surface.isFocusable = false
+            // Match the dark host so the brief gap before the first frame is
+            // black rather than the component's default light background.
+            surface.isOpaque = true
+            surface.background = java.awt.Color.BLACK
             surface.addMouseListener(wake)
             surface.addMouseMotionListener(wake)
             SwingUtilities.invokeLater {
@@ -303,6 +331,19 @@ fun PlayerScreen(
             if (surface != null && wake != null) {
                 surface.removeMouseListener(wake)
                 surface.removeMouseMotionListener(wake)
+            }
+            if (boundEngine != null) {
+                // Detach this engine's surface before releasing it, so a
+                // style-change rebuild never shows (or releases under) a
+                // surface that is still mounted.
+                SwingUtilities.invokeLater {
+                    if (surface != null && surface.parent === videoHost) {
+                        videoHost.remove(surface)
+                        videoHost.revalidate()
+                        videoHost.repaint()
+                    }
+                }
+                boundEngine.release()
             }
         }
     }
