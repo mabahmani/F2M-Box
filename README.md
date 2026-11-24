@@ -1,61 +1,77 @@
 # F2M Box 📺
 
-[![Platform](https://img.shields.io/badge/Platform-Android%20TV%20%7C%20Mobile-green.svg)](https://developer.android.com/tv)
+[![Platform](https://img.shields.io/badge/Platform-Android%20TV%20%7C%20Tablet%20%7C%20Desktop-green.svg)](https://developer.android.com/tv)
 [![Language](https://img.shields.io/badge/Language-Kotlin-blue.svg)](https://kotlinlang.org/)
-[![UI Toolkit](https://img.shields.io/badge/UI-Jetpack%20Compose-brightgreen.svg)](https://developer.android.com/jetpack/compose)
+[![UI Toolkit](https://img.shields.io/badge/UI-Jetpack%20Compose%20%2F%20CMP-brightgreen.svg)](https://developer.android.com/jetpack/compose)
 [![Version](https://img.shields.io/badge/Release-v1.3-orange.svg)](https://github.com/mabahmani/F2MBox/releases)
 
-**F2M Box** is a modern Android TV and mobile application built with Jetpack Compose for streaming movies, series, trailers, and cast information. Designed with focus-friendly D-Pad navigation for Smart TVs and Leanback devices, as well as touch support for mobile screens.
+**F2M Box** streams movies, series, trailers, and cast information through a **Kotlin Multiplatform** client: one shared scraper and UI core (`:shared`) powers the **Android TV / tablet** app (`:app`) and the **desktop** app (`:desktop`). The interface is **RTL** with **Vazirmatn** typography. **TV** builds use D-pad focus and Leanback-friendly controls; **touchscreen tablets** get tap, scroll, and swipe; **desktop** adds mouse, keyboard, and native scrollbars while keeping the same catalog flows.
 
 ---
 
 ## ✨ Features
 
-- 📺 **Android TV & Leanback Optimized**: Full D-Pad focus navigation tailored for TV remotes.
-- 🎬 **Advanced Media Player**: Powered by **Jetpack Media3 (ExoPlayer)** with subtitle customization (size, color, weight, background, offset), playback speed adjustments, and audio track selection.
-- 🔍 **Search & Catalog**: Fast search, categorised recommendations, hero sliders, and detail pages with cast/crew information and trailers.
-- 🌐 **RTL & Persian Support**: Native Right-To-Left UI layout with Vazirmatn typography and bidirectional text handling.
-- 🔄 **Smart Base URL Resolver**: Dynamic domain resolution and fallback handling with HTML cache and live scraper log feeds.
-- 🕒 **Watched History & State Persistence**: Local storage of watch history and playback progression.
+- 📺 **Android TV & Leanback**: D-pad focus navigation, TV keyboard gate for search fields, and remote-friendly player controls.
+- 📱 **Tablet touch**: Touch is detected separately from TV (including touchscreen TVs in TV UI mode). Hero slider supports finger swipe; home uses a collapsible top menu; category chips preview genres on tap/hover.
+- 🖥️ **Desktop client**: Shared home, search, listings, detail, person, logs, and in-app playback with **libVLC**; **vertical and horizontal scrollbars** on lazy lists; ESC / Backspace / Delete for back; window fullscreen in the player.
+- 🎬 **Advanced media player**: **ExoPlayer (Media3)** on Android; **libVLC (vlcj)** on desktop—with subtitle styling, playback speed, audio/subtitle tracks (desktop subtitles via software decode; see below).
+- 🔍 **Search & catalog**: Hero slider, section carousels, navigation genres, and detail pages with cast, downloads, and comments.
+- 🌐 **RTL & Persian support**: End-to-end RTL layout; LTR enclaves where needed (URLs, logs, hero slide controls).
+- 🔄 **Smart base URL resolver**: Dynamic domain resolution, HTML cache, and live scraper log feeds on connect/loading screens.
+- 🕒 **Watched history**: Local continue-watching and playback progression (platform-specific storage).
 
 ---
 
-## 🛠 Tech Stack
+## 🧱 Project layout
 
-- **Language**: Kotlin
-- **UI Framework**: Jetpack Compose & Compose Material 3 for TV (`androidx.tv.material`)
-- **Media Engine**: Jetpack Media3 ExoPlayer (`androidx.media3`)
-- **Networking & Scraping**: OkHttp & Jsoup
-- **Image Loading**: Coil Compose
+| Module | Role |
+| --- | --- |
+| `:shared` | KMP `commonMain` + `androidMain` / `jvmMain`: scraping, navigation shell, home, detail, list, person, logs, connect splash, shared components. |
+| `:app` | Android application (TV + tablet): Material 3 for TV, ExoPlayer player, Android strings/resources. |
+| `:desktop` | Compose Desktop entry, libVLC player UI, desktop strings, packaging (DMG / MSI / DEB). |
+
+---
+
+## 🛠 Tech stack
+
+- **Language**: Kotlin (Multiplatform)
+- **UI**: Jetpack Compose on Android; Compose Multiplatform on desktop; Material 3 (nested TV M3 on Android TV; CMP Material3 on desktop)
+- **Android media**: Jetpack Media3 ExoPlayer (`androidx.media3`)
+- **Desktop media**: libVLC via vlcj (bundled on macOS/Windows packages)
+- **Networking & scraping**: OkHttp & Jsoup (shared)
+- **Images**: Coil 3
 - **Serialization**: Kotlinx Serialization JSON
-- **Build System**: Gradle (Kotlin DSL) with Version Catalogs
+- **Build**: Gradle Kotlin DSL, version catalogs
 
 ---
 
-## 🚀 Building & Running
+## 🚀 Building & running (Android)
 
 ### Prerequisites
+
 - Android Studio Ladybug or newer
 - JDK 17+
-- Android SDK (API 37 compile target, min SDK 26)
+- Android SDK (compile SDK 37, min SDK 26)
 
-### Build APK
-Run the following Gradle command to assemble the release APK:
+### Commands
 
 ```bash
-./gradlew assembleRelease
+./gradlew :app:assembleDebug          # debug APK
+./gradlew :app:assembleRelease        # release APK
+./gradlew :shared:compileAndroidMain  # compile shared Android sources only
 ```
 
-The output APK will be generated at:
+Release APK (default TV artifact name):
+
 ```text
 app/build/outputs/apk/release/F2MBox-TV-release.apk
 ```
 
 ---
 
-## 🖥 Desktop (macOS / Windows / Linux)
+## 🖥️ Desktop (macOS / Windows / Linux)
 
-The same Kotlin codebase also ships as a desktop app (branch `desktop-kmp`), built with **Compose Multiplatform** on the shared scraper core (`:shared`). UI is RTL, mouse and keyboard both work (ESC = Back), and playback runs on **libVLC (vlcj)** instead of ExoPlayer.
+Same catalog and most screens as Android; playback and window chrome are desktop-specific. UI stays **RTL**; **vertical scrollbars** sit on the physical **right**; **horizontal scrollbars** sit under carousels (with extra spacing); genre rows use a taller slot so the bar is not clipped.
 
 ### Build & run (dev)
 
@@ -65,82 +81,71 @@ The same Kotlin codebase also ships as a desktop app (branch `desktop-kmp`), bui
 | Tests | `./gradlew :desktop:test` |
 | Package for the current OS (DMG/MSI/EXE/DEB) | `./gradlew :desktop:packageDistributionForCurrentOS` |
 
-Prerequisites for dev-run:
+**Prerequisites for dev-run:**
+
 - JDK 17+ (Android Studio's bundled JBR works for `run`; **packaging needs a full JDK with `jpackage`**, e.g. `brew install openjdk@21` — auto-detected).
-- Packaging also downloads the official libVLC build for the host OS/arch (~50–80 MB; cached under `desktop/build/vlc-cache`) and needs network access.
-- The **packaged installers bundle libVLC**, so end users need nothing. A source run (`:desktop:run`) uses your installed VLC as before; run `./gradlew :desktop:prepareVlc` first if you want to exercise the bundled copy in dev. With no libVLC at all, the player screen still offers a **"Play in system player/browser"** fallback that hands the url to the OS default handler.
+- Packaging downloads the official libVLC build for the host OS/arch (~50–80 MB; cached under `desktop/build/vlc-cache`) and needs network access.
+- Packaged installers **bundle libVLC**; `:desktop:run` can use system VLC—run `./gradlew :desktop:prepareVlc` to exercise the bundled copy. With no libVLC, **Play in system player/browser** still opens the URL in the OS default handler.
 
 ### Bundled libVLC
 
-`prepareVlc` downloads VideoLAN's official VLC **3.0.23** build for the host OS and architecture (macOS arm64 / intel64, Windows x64), verifies its SHA-256, and stages only `lib` + `plugins` (plus the LGPL license) into the app image. At runtime the app points `jna.library.path` at that copy, so **no system VLC is required**. Because packaging re-signs the native dylibs, libVLC rebuilds its plugin cache on the first launch only (roughly 5–15 s); later launches are instant. Linux packages currently use the system libVLC (no official relocatable build is bundled). libVLC is LGPL-2.1-or-later — attribution and license text ship in `resources/vlc/` (`NOTICE.txt`, `COPYING.LGPL-2.1`).
+`prepareVlc` downloads VideoLAN **VLC 3.0.23** for the host OS/arch (macOS arm64 / intel64, Windows x64), verifies SHA-256, and stages `lib` + `plugins` plus LGPL license text into the app image. Runtime sets `jna.library.path` to that copy. First launch after packaging may rebuild the plugin cache (~5–15 s). Linux packages use **system libVLC** (no relocatable bundle). LGPL-2.1-or-later — see `resources/vlc/` (`NOTICE.txt`, `COPYING.LGPL-2.1`).
 
-### Subtitles
+### Subtitles (desktop)
 
-Text subtitle tracks embedded in the media (the same tracks the Android build renders) show in-app; the CC button in the player opens the Off/track menu. This requires **software decoding**: libVLC's memory (callback) video output can only blend subtitle bitmaps onto a software I420 picture, not the decoder-native CVPX/NV12 frames that VideoToolbox/D3D11VA produce (VLC logs `no matching alpha blending routine (chroma: YUVA -> CVPN)` and silently drops them). The app therefore forces the avcodec decoder (`--codec=avcodec --avcodec-hw=none`), trading GPU decoding for working subtitles while keeping the lightweight video surface the Compose controls draw on top of. Image-based subtitle tracks (PGS/VobSub) are not rendered on this path.
+Embedded text subtitles use **software decoding** (`--codec=avcodec --avcodec-hw=none`) so libVLC can blend subtitles on the memory video surface under Compose controls. GPU decode paths drop blended subtitles (chroma mismatch). Image-based PGS/VobSub are not rendered on this path.
 
 ### Installing the DMG (macOS, unsigned)
 
-The macOS build is **unsigned** (no Apple Developer account), so Gatekeeper complains on first launch. Either:
+```bash
+xattr -cr /Applications/F2MBox.app
+```
 
-- **Terminal (simplest):** `xattr -cr /Applications/F2MBox.app` (or point it at the app wherever you moved it), or
-- **System Settings → Privacy & Security**, scroll to the blocked-app notice, and click **Open Anyway**.
+Or **System Settings → Privacy & Security → Open Anyway**. On Windows: SmartScreen → *More info → Run anyway*.
 
-On Windows the SmartScreen prompt works the same way: *More info → Run anyway*.
+### Desktop vs Android
 
-### Desktop parity notes
-
-- Full parity: home, search, listings, detail, person, logs, and in-app playback (video in-window with seek/speed/audio/subtitle-track menus), including the subtitle **styling** panel with a live preview of the draft look before Save.
-- Cut for desktop v1: Android-specific crash log viewer.
-- State lives under `~/Library/Application Support/F2MBox` (macOS), `%APPDATA%\F2MBox` (Windows), `~/.local/share/F2MBox` (Linux).
+| Area | Android (`:app`) | Desktop (`:desktop`) |
+| --- | --- | --- |
+| Player | ExoPlayer, touch + D-pad | libVLC, mouse + keyboard |
+| Input profile | TV vs tablet via `LocalUsesTouchInput` | Mouse, wheel, scrollbars |
+| Crash / session logs | `SessionCrashStore` on Android | Desktop session store + shared **Logs** screen |
+| App data | Android storage | `~/Library/Application Support/F2MBox` (macOS), `%APPDATA%\F2MBox` (Windows), `~/.local/share/F2MBox` (Linux) |
 
 ---
 
-## 📦 Release & Tagging Guide
+## 📦 Release & tagging guide
 
-### 1. Update Version in Gradle
-When preparing a new release, increment `versionCode` and update `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts):
+### 1. Update version in Gradle
 
-```kotlin
-defaultConfig {
-    versionCode = 4       // Increment for every release (e.g. 1, 2, 3, 4...)
-    versionName = "1.3"   // User-visible version string
-}
-```
+Increment `versionCode` and `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts) for Android releases.
 
-### 2. Commit and Tag the Release
-Commit your changes and tag the commit with the version number:
+### 2. Commit and tag
 
 ```bash
 git add .
-git commit -m "release: v1.2"
-git tag -a v1.2 -m "Release version 1.2"
+git commit -m "release: v1.3"
+git tag -a v1.3 -m "Release version 1.3"
 ```
 
-### 3. Push to GitHub
-Push your commits and tags to GitHub:
+### 3. Push
 
 ```bash
-# Push branch changes
 git push origin main
-
-# Push the release tag
-git push origin v1.2
+git push origin v1.3
 ```
 
-### 4. Create a GitHub Release
-Using GitHub CLI (`gh`):
+### 4. GitHub release
+
 ```bash
-gh release create v1.2 ./app/build/outputs/apk/release/F2MBox-TV-release.apk --title "F2M Box v1.2" --notes "Release notes for v1.2"
+gh release create v1.3 ./app/build/outputs/apk/release/F2MBox-TV-release.apk \
+  --title "F2M Box v1.3" --notes "Release notes"
 ```
 
-Or manually on GitHub:
-1. Navigate to your repository on GitHub.
-2. Click **Releases** > **Draft a new release**.
-3. Choose the tag `v1.2`.
-4. Add release notes and attach `F2MBox-TV-release.apk`.
-5. Click **Publish release**.
+Attach desktop packages from `desktop/build/compose/binaries/main/` when publishing a desktop build.
 
 ---
 
 ## 📄 License
+
 This project is for educational and personal research purposes.
