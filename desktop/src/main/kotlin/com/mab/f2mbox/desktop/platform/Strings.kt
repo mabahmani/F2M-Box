@@ -25,6 +25,9 @@ object Strings {
     const val loading = "Loading…\u200E"
     const val ratingFormat = "★ %1\$s"
     const val seeMore = "See more"
+    const val heroPreviousSlide = "Previous hero slide"
+    const val heroNextSlide = "Next hero slide"
+    const val heroOpenSlide = "Open featured title"
 
     // Search
     const val search = "Search"

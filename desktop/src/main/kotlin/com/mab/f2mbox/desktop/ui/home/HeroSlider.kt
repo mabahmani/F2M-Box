@@ -5,18 +5,23 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -28,14 +33,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.style.TextOverflow
@@ -51,13 +60,15 @@ import kotlinx.coroutines.delay
 import com.mab.f2mbox.desktop.platform.Strings
 
 private const val AUTO_ADVANCE_MS = 6_000L
+private const val HERO_EDGE_FRACTION = 0.18f
+private const val HERO_DRAG_FRACTION = 0.12f
 
 /**
  * Full-bleed hero slider. Each slide shows the landscape backdrop covering
  * the whole screen with a small vertical poster, the title, rating and year
- * overlaid at the bottom. Auto-advances every few seconds; D-pad left/right
- * moves between slides and resets the timer; OK opens the slide's url via
- * [onSlideClick].
+ * overlaid at the bottom. Auto-advances every few seconds; D-pad or mouse
+ * left/right (edge click or horizontal drag) changes slides; center click or
+ * OK opens the slide's url via [onSlideClick]. Indicator pills jump to a slide.
  *
  * The slide the user is on is saved, so it is still showing when the user
  * comes back to the home screen. [onFocused] reports that the slider took
@@ -86,6 +97,22 @@ fun HeroSlider(
 
     val highlight = rememberDesktopHighlight(onFocus = onFocused)
 
+    val goToPrevious: () -> Unit = {
+        page = if (isRtl) {
+            (page + 1) % items.size
+        } else {
+            (page - 1 + items.size) % items.size
+        }
+    }
+    val goToNext: () -> Unit = {
+        page = if (isRtl) {
+            (page - 1 + items.size) % items.size
+        } else {
+            (page + 1) % items.size
+        }
+    }
+    val openCurrent: () -> Unit = { onSlideClick(items[page].url) }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -97,19 +124,11 @@ fun HeroSlider(
                 if (event.type == KeyEventType.KeyDown) {
                     when (event.key) {
                         Key.DirectionLeft -> {
-                            page = if (isRtl) {
-                                (page + 1) % items.size
-                            } else {
-                                (page - 1 + items.size) % items.size
-                            }
+                            goToPrevious()
                             true
                         }
                         Key.DirectionRight -> {
-                            page = if (isRtl) {
-                                (page - 1 + items.size) % items.size
-                            } else {
-                                (page + 1) % items.size
-                            }
+                            goToNext()
                             true
                         }
                         else -> false
@@ -118,17 +137,35 @@ fun HeroSlider(
                     false
                 }
             }
-            // Single focus target: clickable is focusable itself, so OK
-            // opens on the first press (focusable + clickable stacked would
-            // put focus on the outer, click-less node).
             .then(highlight.modifier)
-            .clickable(
-                interactionSource = highlight.interactionSource,
-            ) { onSlideClick(items[page].url) }
-            .border(
-                width = if (highlight.highlighted) 3.dp else 0.dp,
-                color = MaterialTheme.colorScheme.primary,
-            )
+            .focusable(interactionSource = highlight.interactionSource)
+            .onKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                when (event.key) {
+                    Key.DirectionCenter, Key.Enter, Key.Spacebar -> {
+                        openCurrent()
+                        true
+                    }
+                    else -> false
+                }
+            }
+            .pointerInput(items.size, isRtl) {
+                var dragX = 0f
+                detectHorizontalDragGestures(
+                    onHorizontalDrag = { _, delta -> dragX += delta },
+                    onDragEnd = {
+                        val threshold = size.width * HERO_DRAG_FRACTION
+                        when {
+                            // Finger left = next slide in LTR (content follows
+                            // finger); RTL flips inside the helpers.
+                            dragX < -threshold -> if (isRtl) goToPrevious() else goToNext()
+                            dragX > threshold -> if (isRtl) goToNext() else goToPrevious()
+                        }
+                        dragX = 0f
+                    },
+                    onDragCancel = { dragX = 0f },
+                )
+            }
     ) {
         Crossfade(
             targetState = page,
@@ -138,9 +175,47 @@ fun HeroSlider(
             SlideContent(items[current])
         }
 
+        // Hit targets stay LTR so "start" is always the physical left edge and
+        // matches the Left arrow key (RTL page math stays in goToPrevious/Next).
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val density = LocalDensity.current
+                val edgeWidth = with(density) {
+                    (maxWidth * HERO_EDGE_FRACTION).coerceIn(64.dp, 200.dp)
+                }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .width(edgeWidth)
+                        .fillMaxHeight()
+                        .semantics { contentDescription = Strings.heroPreviousSlide }
+                        .clickable(onClick = goToPrevious)
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .width(edgeWidth)
+                        .fillMaxHeight()
+                        .semantics { contentDescription = Strings.heroNextSlide }
+                        .clickable(onClick = goToNext)
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = edgeWidth)
+                        .semantics { contentDescription = Strings.heroOpenSlide }
+                        .clickable(
+                            interactionSource = highlight.interactionSource,
+                            onClick = openCurrent,
+                        )
+                )
+            }
+        }
+
         HeroIndicators(
             count = items.size,
             active = page,
+            onSelect = { page = it },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 96.dp, bottom = 48.dp)
@@ -263,6 +338,7 @@ private fun RatingBadge(rating: Double, modifier: Modifier = Modifier) {
 private fun HeroIndicators(
     count: Int,
     active: Int,
+    onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -272,20 +348,39 @@ private fun HeroIndicators(
     ) {
         repeat(count) { index ->
             val isActive = index == active
+            val dotHighlight = rememberDesktopHighlight()
             val width by animateDpAsState(
                 targetValue = if (isActive) 28.dp else 10.dp,
                 label = "indicator-width"
             )
             Box(
                 modifier = Modifier
-                    .width(width)
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(
-                        if (isActive) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                    .then(dotHighlight.modifier)
+                    .clickable(
+                        interactionSource = dotHighlight.interactionSource,
+                        onClick = { onSelect(index) },
                     )
-            )
+                    .height(24.dp)
+                    .widthIn(min = 24.dp)
+                    .padding(horizontal = 4.dp, vertical = 9.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(width)
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(
+                            when {
+                                isActive -> MaterialTheme.colorScheme.primary
+                                dotHighlight.highlighted -> {
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                }
+                                else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                            }
+                        )
+                )
+            }
         }
     }
 }
