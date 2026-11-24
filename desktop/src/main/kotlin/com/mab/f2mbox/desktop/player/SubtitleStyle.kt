@@ -81,17 +81,25 @@ data class SubtitleStyle(
         )
     }
 
+    /**
+     * The bottom inset in dp for the Compose subtitle renderer. 0% means the
+     * subtitle sits flush with the bottom edge; the 0..30% setting spans
+     * 0..75 dp.
+     */
+    fun bottomPaddingDp(): Float = bottomOffsetPercent.coerceIn(0, 30) * 2.5f
+
     private fun opacity255(percent: Int) = (percent.coerceIn(0, 100) * 255 / 100)
 
     companion object {
 
         /**
-         * Subtitle size choices in sp, tuned for 10-foot TV viewing. Wider
-         * spread than Android's set so "Small" is actually small: the span
-         * 16→32 was too tight (25% smallest-to-largest), whereas 12→40 spans
-         * ~3.3x — each step visibly different at 1080p.
+         * The subtitle size range in sp, tuned for 10-foot TV viewing. The
+         * customize panel scrubs continuously across it; the range stays
+         * wider than Android's 16→32 so "small" is actually small (12→40
+         * spans ~3.3x).
          */
-        val SizeOptions = listOf(12f, 20f, 28f, 40f)
+        const val MinTextSizeSp = 12f
+        const val MaxTextSizeSp = 40f
 
         /** Text colors as RGB ints (Android's seven choices, alpha dropped). */
         val ColorOptions = listOf(
@@ -134,7 +142,8 @@ data class SubtitleStyle(
                 val value = pair.substring(eq + 1)
                 style = when (key) {
                     "size" -> value.toFloatOrNull()
-                        ?.takeIf { it in SizeOptions }?.let { style.copy(textSizeSp = it) }
+                        ?.takeIf { it in MinTextSizeSp..MaxTextSizeSp }
+                        ?.let { style.copy(textSizeSp = it) }
                     "bold" -> value.toIntOrNull()
                         ?.takeIf { it == 0 || it == 1 }?.let { style.copy(bold = it == 1) }
                     "color" -> value.toIntOrNull()

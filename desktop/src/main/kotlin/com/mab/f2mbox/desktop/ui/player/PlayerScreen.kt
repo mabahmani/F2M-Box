@@ -77,6 +77,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.awt.SwingPanel
 import com.mab.f2mbox.desktop.platform.Strings
 import com.mab.f2mbox.desktop.player.EngineEvent
+import com.mab.f2mbox.desktop.player.SubtitleCue
 import com.mab.f2mbox.desktop.player.SubtitleStyle
 import com.mab.f2mbox.desktop.player.TrackInfo
 import com.mab.f2mbox.desktop.player.ExternalPlay
@@ -87,6 +88,7 @@ import java.awt.BorderLayout
 import java.util.Locale
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
 private const val SeekStepMs = 10_000L
@@ -1174,11 +1176,46 @@ private fun speedLabel(speed: Float): String =
 
 // ---- Subtitle customize panel (desktop port of Android's SubtitleSettingsPanel) ----
 
-/** Subtitle size choices, matching Android's set (see [SubtitleStyle.SizeOptions]). */
-private val SubtitleSizeChoices = SubtitleStyle.SizeOptions
-
 /** The three edge treatments in display order. */
 private val SubtitleEdgeChoices = SubtitleStyle.Edge.entries
+
+/** The line shown in the customize panel's live preview (a Persian sample). */
+internal const val SubtitlePreviewSample = "این یک نمونهٔ زیرنویس است."
+
+/**
+ * Live preview of the draft [style] over a dark, video-like band. It uses the
+ * same [DesktopSubtitleView] a Compose subtitle layer would, so size, weight,
+ * color, background, edge and bottom offset can be judged before saving.
+ * libVLC still renders the real playback subtitles; this is a sample line.
+ */
+@Composable
+internal fun SubtitlePreview(
+    style: SubtitleStyle,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(160.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xFF101014), Color(0xFF1B1B23))
+                )
+            )
+            .border(
+                width = 1.dp,
+                color = Color.White.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(10.dp)
+            )
+    ) {
+        DesktopSubtitleView(
+            cue = SubtitleCue(startMs = 0L, endMs = 1L, text = SubtitlePreviewSample),
+            style = style,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
 
 /**
  * Modal editor for the player's subtitle look. Edits a [style] draft via
@@ -1189,7 +1226,7 @@ private val SubtitleEdgeChoices = SubtitleStyle.Edge.entries
  * the chrome behind it stays inert while it is open.
  */
 @Composable
-private fun SubtitleSettingsPanel(
+internal fun SubtitleSettingsPanel(
     style: SubtitleStyle,
     onChange: (SubtitleStyle) -> Unit,
     onSave: () -> Unit,
@@ -1208,7 +1245,6 @@ private fun SubtitleSettingsPanel(
 
     val maxCol: (Int) -> Int = { r ->
         when (r) {
-            0 -> SubtitleSizeChoices.lastIndex
             1 -> 1
             2 -> SubtitleStyle.ColorOptions.lastIndex
             4 -> SubtitleEdgeChoices.lastIndex
@@ -1216,9 +1252,15 @@ private fun SubtitleSettingsPanel(
             else -> 0
         }
     }
-    val stepFor: (Int) -> Int = { r -> if (r == 6) 1 else 5 }
+    val stepFor: (Int) -> Int = { r -> if (r == 0 || r == 6) 1 else 5 }
     val adjustSlider: (Int, Int) -> Unit = { r, delta ->
         when (r) {
+            0 -> onChange(
+                style.copy(
+                    textSizeSp = (style.textSizeSp + delta)
+                        .coerceIn(SubtitleStyle.MinTextSizeSp, SubtitleStyle.MaxTextSizeSp)
+                )
+            )
             3 -> onChange(style.copy(backgroundOpacityPercent = (style.backgroundOpacityPercent + delta).coerceIn(0, 100)))
             5 -> onChange(style.copy(edgeStrengthPercent = (style.edgeStrengthPercent + delta).coerceIn(0, 100)))
             6 -> onChange(style.copy(bottomOffsetPercent = (style.bottomOffsetPercent + delta).coerceIn(0, 30)))
@@ -1226,7 +1268,6 @@ private fun SubtitleSettingsPanel(
     }
     val activate: (Int, Int) -> Unit = { r, c ->
         when (r) {
-            0 -> onChange(style.copy(textSizeSp = SubtitleSizeChoices[c.coerceIn(0, SubtitleSizeChoices.lastIndex)]))
             1 -> onChange(style.copy(bold = c == 1))
             2 -> onChange(style.copy(colorRgb = SubtitleStyle.ColorOptions[c.coerceIn(0, SubtitleStyle.ColorOptions.lastIndex)]))
             3 -> onChange(style.copy(backgroundOpacityPercent = (style.backgroundOpacityPercent + 25).coerceIn(0, 100)))
@@ -1261,12 +1302,12 @@ private fun SubtitleSettingsPanel(
                         true
                     }
                     Key.DirectionLeft -> {
-                        if (row in 3..6) adjustSlider(row, -stepFor(row))
+                        if (row == 0 || row in 3..6) adjustSlider(row, -stepFor(row))
                         else col = (col - 1).coerceAtLeast(0)
                         true
                     }
                     Key.DirectionRight -> {
-                        if (row in 3..6) adjustSlider(row, stepFor(row))
+                        if (row == 0 || row in 3..6) adjustSlider(row, stepFor(row))
                         else col = (col + 1).coerceAtMost(maxCol(row))
                         true
                     }
@@ -1286,17 +1327,13 @@ private fun SubtitleSettingsPanel(
             }
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SubtitleChipsPanelRow(
+            SubtitlePreview(style = style)
+            SubtitleSliderPanelRow(
                 label = Strings.playerSubtitleSize,
-                options = listOf(
-                    Strings.playerSubtitleOptSmall,
-                    Strings.playerSubtitleOptNormal,
-                    Strings.playerSubtitleOptLarge,
-                    Strings.playerSubtitleOptXl
-                ),
-                selectedIndex = SubtitleSizeChoices.indexOf(style.textSizeSp).coerceAtLeast(0),
-                highlightedIndex = if (row == 0) col else -1,
-                onPick = { onChange(style.copy(textSizeSp = SubtitleSizeChoices[it])) }
+                fillFraction = (style.textSizeSp - SubtitleStyle.MinTextSizeSp) /
+                    (SubtitleStyle.MaxTextSizeSp - SubtitleStyle.MinTextSizeSp),
+                valueLabel = "${style.textSizeSp.roundToInt()}sp",
+                highlighted = row == 0
             )
             SubtitleChipsPanelRow(
                 label = Strings.playerSubtitleWeight,
@@ -1322,7 +1359,8 @@ private fun SubtitleSettingsPanel(
             )
             SubtitleSliderPanelRow(
                 label = Strings.playerSubtitleBackground,
-                valuePercent = style.backgroundOpacityPercent,
+                fillFraction = style.backgroundOpacityPercent / 100f,
+                valueLabel = "${style.backgroundOpacityPercent}%",
                 highlighted = row == 3
             )
             SubtitleChipsPanelRow(
@@ -1339,13 +1377,15 @@ private fun SubtitleSettingsPanel(
             SubtitleSliderPanelRow(
                 // Only meaningful for Shadow/Outline; show it regardless.
                 label = Strings.playerSubtitleStrength,
-                valuePercent = style.edgeStrengthPercent,
+                fillFraction = style.edgeStrengthPercent / 100f,
+                valueLabel = "${style.edgeStrengthPercent}%",
                 highlighted = row == 5
             )
             SubtitleSliderPanelRow(
                 label = Strings.playerSubtitleOffset,
-                // Offset is 0..30% of height; show it on a 0..100 slider.
-                valuePercent = (style.bottomOffsetPercent * 100 / 30).coerceIn(0, 100),
+                // Offset is 0..30% of height; the bar shows that range.
+                fillFraction = style.bottomOffsetPercent / 30f,
+                valueLabel = "${style.bottomOffsetPercent}%",
                 highlighted = row == 6
             )
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1425,11 +1465,12 @@ private fun SubtitleChipsPanelRow(
     }
 }
 
-/** One percent slider row of the subtitle panel (scrubbed with Left/Right). */
+/** One slider row of the subtitle panel (scrubbed with Left/Right). */
 @Composable
 private fun SubtitleSliderPanelRow(
     label: String,
-    valuePercent: Int,
+    fillFraction: Float,
+    valueLabel: String,
     highlighted: Boolean
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1448,14 +1489,14 @@ private fun SubtitleSliderPanelRow(
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(valuePercent / 100f)
+                    .fillMaxWidth(fillFraction.coerceIn(0f, 1f))
                     .height(6.dp)
                     .clip(RoundedCornerShape(3.dp))
                     .background(if (highlighted) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.6f))
             )
         }
         Text(
-            text = "$valuePercent%",
+            text = valueLabel,
             style = MaterialTheme.typography.labelSmall,
             color = Color.White,
             textAlign = TextAlign.End,

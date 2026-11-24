@@ -126,6 +126,31 @@ class SubtitleStyleTest {
     }
 
     @Test
+    fun `zero bottom offset pins the subtitle to the bottom`() {
+        val style = SubtitleStyle.Default.copy(bottomOffsetPercent = 0)
+        assertEquals(0f, style.bottomPaddingDp(), 0.001f)
+    }
+
+    @Test
+    fun `bottom offset maps to the preview's 0 to 75 dp range`() {
+        assertEquals(75f, SubtitleStyle.Default.copy(bottomOffsetPercent = 30).bottomPaddingDp(), 0.001f)
+        assertEquals(75f, SubtitleStyle.Default.copy(bottomOffsetPercent = 99).bottomPaddingDp(), 0.001f)
+    }
+
+    @Test
+    fun `loading keeps an in-range continuous subtitle size`() {
+        // The customize panel now scrubs size continuously, so the stored
+        // value is no longer limited to the old four presets.
+        assertEquals(21f, SubtitleStyle.load("size=21;bold=0").textSizeSp)
+    }
+
+    @Test
+    fun `loading rejects an out-of-range subtitle size`() {
+        val loaded = SubtitleStyle.load("size=80;bold=0")
+        assertEquals(SubtitleStyle.Default.textSizeSp, loaded.textSizeSp)
+    }
+
+    @Test
     fun `unknown keys and missing fields keep defaults`() {
         val loaded = SubtitleStyle.load("size=28;future=1")
         assertEquals(28f, loaded.textSizeSp)

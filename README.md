@@ -89,8 +89,8 @@ On Windows the SmartScreen prompt works the same way: *More info → Run anyway*
 
 ### Desktop parity notes
 
-- Full parity: home, search, listings, detail, person, logs, and in-app playback (video in-window with seek/speed/audio/subtitle-track menus).
-- Cut for desktop v1: the subtitle **styling** panel (libvlc renders the chosen subtitle track itself); Android-specific crash log viewer.
+- Full parity: home, search, listings, detail, person, logs, and in-app playback (video in-window with seek/speed/audio/subtitle-track menus), including the subtitle **styling** panel with a live preview of the draft look before Save.
+- Cut for desktop v1: Android-specific crash log viewer.
 - State lives under `~/Library/Application Support/F2MBox` (macOS), `%APPDATA%\F2MBox` (Windows), `~/.local/share/F2MBox` (Linux).
 
 ---

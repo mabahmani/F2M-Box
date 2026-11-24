@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -35,6 +36,11 @@ fun DesktopSubtitleView(
 ) {
     if (cue == null || cue.text.isBlank()) return
 
+    // Keep the app's subtitle font (the theme's Vazirmatn) while overriding
+    // the size/weight/color the user picks; an explicit TextStyle would
+    // otherwise fall back to the platform font.
+    val fontFamily = LocalTextStyle.current.fontFamily
+
     val alpha = (style.backgroundOpacityPercent / 100f).coerceIn(0f, 1f)
     val bgColor = if (alpha > 0f) Color.Black.copy(alpha = alpha) else Color.Transparent
     val textColor = Color(style.colorRgb or 0xFF000000.toInt())
@@ -54,7 +60,7 @@ fun DesktopSubtitleView(
         )
     }
 
-    val bottomPaddingDp = (style.bottomOffsetPercent * 2.5f).dp.coerceAtLeast(8.dp)
+    val bottomPaddingDp = style.bottomPaddingDp().dp
 
     Box(
         modifier = modifier
@@ -73,6 +79,7 @@ fun DesktopSubtitleView(
                     color = textColor,
                     fontSize = style.textSizeSp.sp,
                     fontWeight = fontWeight,
+                    fontFamily = fontFamily,
                     textAlign = TextAlign.Center,
                     shadow = shadow
                 )
