@@ -1,19 +1,19 @@
-package com.mab.f2mbox.ui.navigation
+package com.mab.f2mbox.navigation
 
-import android.app.Activity
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
 import com.mab.f2mbox.data.remote.ScrapeResult
-import com.mab.f2mbox.navigation.F2mAppSession
-import com.mab.f2mbox.navigation.Route
 import com.mab.f2mbox.ui.home.HomeScreen
 import com.mab.f2mbox.ui.list.ListScreen
 import com.mab.f2mbox.ui.logs.LogsScreen
-import com.mab.f2mbox.ui.player.PlayerScreen
 
 @Composable
-fun TvConnectedRoutes(session: F2mAppSession, route: Route) {
-    val context = LocalContext.current
+fun F2mConnectedRoutes(
+    session: F2mAppSession,
+    route: Route,
+    onExit: () -> Unit,
+    registerEsc: ((() -> Unit)?) -> Unit = {},
+) {
+    val player = LocalPlayerRouteContent.current
     when (val current = route) {
         Route.Home -> HomeScreen(
             scraper = session.scraper,
@@ -26,7 +26,7 @@ fun TvConnectedRoutes(session: F2mAppSession, route: Route) {
             onHomeLoaded = session.onHomeLoaded,
             onClearCache = session.clearCaches,
             onOpenLogs = { session.navigate(Route.Logs) },
-            onExit = { (context as? Activity)?.finish() },
+            onExit = onExit,
         )
         is Route.Scrape -> ListScreen(
             routeKey = current.url,
@@ -35,6 +35,7 @@ fun TvConnectedRoutes(session: F2mAppSession, route: Route) {
             onNavigateBack = session.goBack,
             onOpenUrl = { session.navigate(Route.Scrape(it)) },
             onPlay = { url, title -> session.navigate(Route.Player(url, title)) },
+            registerEsc = registerEsc,
         )
         is Route.Results -> ListScreen(
             routeKey = "search:${current.query}",
@@ -47,11 +48,14 @@ fun TvConnectedRoutes(session: F2mAppSession, route: Route) {
             onNavigateBack = session.goBack,
             onOpenUrl = { session.navigate(Route.Scrape(it)) },
             onPlay = { url, title -> session.navigate(Route.Player(url, title)) },
+            registerEsc = registerEsc,
         )
-        is Route.Player -> PlayerScreen(
-            url = current.url,
-            title = current.title,
-            onNavigateBack = session.goBack,
+        is Route.Player -> player.content(
+            current.url,
+            current.title,
+            current.subtitleUrl,
+            session.goBack,
+            registerEsc,
         )
         Route.Logs -> LogsScreen(onNavigateBack = session.goBack)
     }

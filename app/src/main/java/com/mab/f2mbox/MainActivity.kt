@@ -33,20 +33,22 @@ import com.mab.f2mbox.scraper.HtmlCache
 import com.mab.f2mbox.scraper.ScraperLog
 import com.mab.f2mbox.scraper.SharedPreferencesStore
 import com.mab.f2mbox.navigation.F2mAppHost
+import com.mab.f2mbox.navigation.F2mConnectedRoutes
+import com.mab.f2mbox.navigation.LocalPlayerRouteContent
 import com.mab.f2mbox.data.WatchedManager
 import com.mab.f2mbox.ui.common.LocalWatchedItems
 import com.mab.f2mbox.ui.common.WatchedItemsReader
 import com.mab.f2mbox.ui.connect.rememberConnectSplashStrings
 import com.mab.f2mbox.ui.home.LocalHomeStrings
-import com.mab.f2mbox.ui.home.rememberHomeStrings
+import com.mab.f2mbox.app.strings.rememberAppDetailStrings
+import com.mab.f2mbox.app.strings.rememberAppHomeStrings
 import com.mab.f2mbox.ui.common.LocalWatchedWriter
 import com.mab.f2mbox.ui.common.WatchedWriter
 import com.mab.f2mbox.ui.detail.LocalDetailStrings
-import com.mab.f2mbox.ui.detail.rememberDetailStrings
 import com.mab.f2mbox.ui.logs.LocalSessionCrashStore
 import com.mab.f2mbox.ui.logs.LogsScreen
 import com.mab.f2mbox.ui.logs.androidSessionCrashStore
-import com.mab.f2mbox.ui.navigation.TvConnectedRoutes
+import com.mab.f2mbox.ui.navigation.tvPlayerRouteContent
 import com.mab.f2mbox.ui.theme.F2MBoxTheme
 import androidx.compose.ui.platform.LocalContext
 
@@ -140,8 +142,8 @@ class MainActivity : ComponentActivity() {
 private fun ConnectGate(scraper: F2MScraper) {
     val context = LocalContext.current
     val splashStrings = rememberConnectSplashStrings()
-    val homeStrings = rememberHomeStrings()
-    val detailStrings = rememberDetailStrings()
+    val homeStrings = rememberAppHomeStrings()
+    val detailStrings = rememberAppDetailStrings()
     val watchedReader = remember(context) {
         WatchedItemsReader { WatchedManager.getWatchedItems(context) }
     }
@@ -155,6 +157,7 @@ private fun ConnectGate(scraper: F2MScraper) {
         LocalWatchedItems provides watchedReader,
         LocalWatchedWriter provides watchedWriter,
         LocalSessionCrashStore provides crashStore,
+        LocalPlayerRouteContent provides tvPlayerRouteContent(),
     ) {
     F2mAppHost(
         scraper = scraper,
@@ -167,7 +170,13 @@ private fun ConnectGate(scraper: F2MScraper) {
             Log.i(TAG, "connect attempt $attempt: home page healthy ✓")
         },
         errorLogs = { onBack -> LogsScreen(onNavigateBack = onBack) },
-        connected = { session, route -> TvConnectedRoutes(session, route) },
+        connected = { session, route ->
+            F2mConnectedRoutes(
+                session = session,
+                route = route,
+                onExit = { (context as? Activity)?.finish() },
+            )
+        },
     )
     }
 }

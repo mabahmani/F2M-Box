@@ -28,7 +28,9 @@ import com.mab.f2mbox.ui.common.WatchedItemsReader
 import com.mab.f2mbox.ui.home.LocalHomeStrings
 import com.mab.f2mbox.ui.common.LocalWatchedWriter
 import com.mab.f2mbox.ui.common.WatchedWriter
+import com.mab.f2mbox.navigation.LocalPlayerRouteContent
 import com.mab.f2mbox.ui.detail.LocalDetailStrings
+import com.mab.f2mbox.desktop.ui.navigation.desktopPlayerRouteContent
 import com.mab.f2mbox.desktop.ui.detail.desktopDetailStrings
 import com.mab.f2mbox.desktop.ui.theme.F2MBoxTheme
 import com.mab.f2mbox.scraper.BaseUrlResolver
@@ -104,6 +106,7 @@ fun main() {
                             LocalWatchedWriter provides WatchedWriter { item ->
                                 WatchedHistory.save(watchedStorage, item)
                             },
+                            LocalPlayerRouteContent provides desktopPlayerRouteContent(),
                         ) {
                         CompositionLocalProvider(LocalSubtitleStyleStore provides subtitleStyles) {
                             CompositionLocalProvider(LocalWindowFullscreen provides windowFullscreen) {

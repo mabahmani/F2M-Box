@@ -19,8 +19,8 @@ import com.mab.f2mbox.desktop.ui.common.arrowKeyFocusNavigation
 import com.mab.f2mbox.desktop.ui.common.backKeyHandler
 import com.mab.f2mbox.desktop.ui.connect.desktopConnectSplashStrings
 import com.mab.f2mbox.ui.logs.LogsScreen
-import com.mab.f2mbox.desktop.ui.navigation.DesktopConnectedRoutes
 import com.mab.f2mbox.navigation.F2mAppHost
+import com.mab.f2mbox.navigation.F2mConnectedRoutes
 import com.mab.f2mbox.navigation.Route
 import com.mab.f2mbox.scraper.F2MScraper
 
@@ -71,10 +71,10 @@ fun DesktopApp(scraper: F2MScraper) {
             },
             errorLogs = { onBack -> LogsScreen(onNavigateBack = onBack) },
             connected = { session, route ->
-                DesktopConnectedRoutes(
+                F2mConnectedRoutes(
                     session = session,
                     route = route,
-                    onQuit = { exitProcessZero() },
+                    onExit = { exitProcessZero() },
                     registerEsc = { escHandler = it },
                 )
             },

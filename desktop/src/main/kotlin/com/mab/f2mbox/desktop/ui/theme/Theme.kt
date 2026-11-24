@@ -13,38 +13,17 @@ import com.mab.f2mbox.ui.theme.TextBright
 import com.mab.f2mbox.ui.theme.TextMuted
 import androidx.compose.material3.MaterialTheme
 import com.mab.f2mbox.desktop.ui.common.NoIndication
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import com.mab.f2mbox.ui.theme.f2mMaterial3DarkColorScheme
 
 /**
  * F2M Box brand theme, ported from the TV theme: near-black backgrounds
- * with cinematic emerald/teal accents, always dark. TV-Material's
- * border/borderVariant map onto Material 3's outline/outlineVariant.
+ * with cinematic emerald/teal accents, always dark.
  */
 @Composable
 fun F2MBoxTheme(content: @Composable () -> Unit) {
-    val colorScheme = darkColorScheme(
-        primary = BrandPurple,
-        onPrimary = TextBright,
-        primaryContainer = BrandPurpleDeep,
-        onPrimaryContainer = TextBright,
-        secondary = BrandBlue,
-        onSecondary = TextBright,
-        secondaryContainer = BrandBlueDeep,
-        onSecondaryContainer = TextBright,
-        tertiary = BrandPurple,
-        onTertiary = TextBright,
-        background = BgNavy,
-        onBackground = TextBright,
-        surface = SurfaceNavy,
-        onSurface = TextBright,
-        surfaceVariant = SurfaceNavyVariant,
-        onSurfaceVariant = TextMuted,
-        outline = SurfaceNavyVariant,
-        outlineVariant = BorderNavy,
-        scrim = BgNavy
-    )
+    val colorScheme = f2mMaterial3DarkColorScheme()
     MaterialTheme(
         colorScheme = colorScheme,
         typography = f2mBoxTypography(),
