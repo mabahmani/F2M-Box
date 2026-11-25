@@ -79,11 +79,8 @@
     <string name="player_subtitle_edge">Edge</string>
     <string name="player_subtitle_strength">Edge strength</string>
     <string name="player_subtitle_offset">Bottom offset</string>
-    <string name="player_subtitle_opt_small">Small</string>
     <string name="player_subtitle_opt_normal">Normal</string>
     <string name="player_subtitle_opt_bold">Bold</string>
-    <string name="player_subtitle_opt_large">Large</string>
-    <string name="player_subtitle_opt_xl">Extra large</string>
     <string name="player_subtitle_opt_white">White</string>
     <string name="player_subtitle_opt_yellow">Yellow</string>
     <string name="player_subtitle_opt_cyan">Cyan</string>

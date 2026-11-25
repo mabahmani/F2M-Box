@@ -1196,18 +1196,43 @@ private class SubtitleChipsRow(
     val apply: (Int) -> Unit
 ) : SubtitlePanelRow
 
-/** A percent slider (0-100) scrubbed with Left/Right in [stepPercent] steps. */
+/** A slider row scrubbed with Left/Right in [SubtitleSliderValue.step] steps. */
 private class SubtitleSliderRow(
     val label: String,
-    val valuePercent: Int,
-    val stepPercent: Int,
+    val value: SubtitleSliderValue,
     val apply: (Int) -> Unit
 ) : SubtitlePanelRow
 
 /**
- * Subtitle customization panel: one row per setting (size and weight chips,
- * text color chips, a background-opacity slider, edge-type chips, an edge
- * strength slider and a bottom-offset slider) plus a Cancel/Save row,
+ * One panel slider's current value and range. [step] is the amount one
+ * Left/Right press (or one −/+ tap) moves; [unit] is appended to the readout.
+ */
+private data class SubtitleSliderValue(
+    val value: Int,
+    val step: Int,
+    val min: Int = 0,
+    val max: Int = 100,
+    val unit: String = "%"
+) {
+    /** This value moved by [steps] steps, clamped to [min]..[max]. */
+    fun stepped(steps: Int): Int = (value + steps * step).coerceIn(min, max)
+
+    /** The readout, e.g. `20sp` or `40%`. */
+    val label: String get() = "$value$unit"
+
+    /** Filled fraction of the track, 0..1. */
+    val fraction: Float
+        get() = if (max > min) {
+            ((value - min).toFloat() / (max - min)).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
+}
+
+/**
+ * Subtitle customization panel: one row per setting (a size slider, weight
+ * chips, text color chips, a background-opacity slider, edge-type chips, an
+ * edge strength slider and a bottom-offset slider) plus a Cancel/Save row,
  * rendered with TV-style roving highlight. The panel
  * is a single focus target: Up/Down
  * move between rows, Left/Right move the highlight within a row, Center
@@ -1224,16 +1249,17 @@ private fun SubtitleSettingsPanel(
     modifier: Modifier = Modifier
 ) {
     val rows = listOf<SubtitlePanelRow>(
-        SubtitleChipsRow(
+        SubtitleSliderRow(
             label = stringResource(R.string.player_subtitle_size),
-            options = listOf(
-                stringResource(R.string.player_subtitle_opt_small),
-                stringResource(R.string.player_subtitle_opt_normal),
-                stringResource(R.string.player_subtitle_opt_large),
-                stringResource(R.string.player_subtitle_opt_xl)
+            value = SubtitleSliderValue(
+                value = settings.textSizeSp.roundToInt()
+                    .coerceIn(SubtitleSizeMinSp, SubtitleSizeMaxSp),
+                step = SubtitleSizeStepSp,
+                min = SubtitleSizeMinSp,
+                max = SubtitleSizeMaxSp,
+                unit = "sp"
             ),
-            selectedIndex = SubtitleSizeOptions.indexOf(settings.textSizeSp).coerceAtLeast(0),
-            apply = { onChange(settings.copy(textSizeSp = SubtitleSizeOptions[it])) }
+            apply = { onChange(settings.copy(textSizeSp = it.toFloat())) }
         ),
         SubtitleChipsRow(
             label = stringResource(R.string.player_subtitle_weight),
@@ -1260,8 +1286,10 @@ private fun SubtitleSettingsPanel(
         ),
         SubtitleSliderRow(
             label = stringResource(R.string.player_subtitle_background),
-            valuePercent = android.graphics.Color.alpha(settings.backgroundArgb) * 100 / 255,
-            stepPercent = 5,
+            value = SubtitleSliderValue(
+                value = android.graphics.Color.alpha(settings.backgroundArgb) * 100 / 255,
+                step = 5
+            ),
             apply = { onChange(settings.copy(backgroundArgb = blackWithAlpha(it * 255 / 100))) }
         ),
         SubtitleChipsRow(
@@ -1276,14 +1304,15 @@ private fun SubtitleSettingsPanel(
         ),
         SubtitleSliderRow(
             label = stringResource(R.string.player_subtitle_strength),
-            valuePercent = settings.edgeStrengthPercent,
-            stepPercent = 5,
+            value = SubtitleSliderValue(value = settings.edgeStrengthPercent, step = 5),
             apply = { onChange(settings.copy(edgeStrengthPercent = it)) }
         ),
         SubtitleSliderRow(
             label = stringResource(R.string.player_subtitle_offset),
-            valuePercent = (settings.bottomPaddingFraction / SubtitleOffsetMax * 100).roundToInt(),
-            stepPercent = (SubtitleOffsetStep / SubtitleOffsetMax * 100).roundToInt(),
+            value = SubtitleSliderValue(
+                value = (settings.bottomPaddingFraction / SubtitleOffsetMax * 100).roundToInt(),
+                step = (SubtitleOffsetStep / SubtitleOffsetMax * 100).roundToInt()
+            ),
             apply = { onChange(settings.copy(bottomPaddingFraction = it / 100f * SubtitleOffsetMax)) }
         )
     )
@@ -1331,9 +1360,7 @@ private fun SubtitleSettingsPanel(
                     Key.DirectionLeft -> {
                         val panelRow = rows.getOrNull(row)
                         if (panelRow is SubtitleSliderRow) {
-                            panelRow.apply(
-                                (panelRow.valuePercent - panelRow.stepPercent).coerceAtLeast(0)
-                            )
+                            panelRow.apply(panelRow.value.stepped(-1))
                         } else {
                             col = (col - 1).coerceAtLeast(0)
                         }
@@ -1342,9 +1369,7 @@ private fun SubtitleSettingsPanel(
                     Key.DirectionRight -> {
                         val panelRow = rows.getOrNull(row)
                         if (panelRow is SubtitleSliderRow) {
-                            panelRow.apply(
-                                (panelRow.valuePercent + panelRow.stepPercent).coerceAtMost(100)
-                            )
+                            panelRow.apply(panelRow.value.stepped(1))
                         } else {
                             col = (col + 1).coerceAtMost(maxCol(row))
                         }
@@ -1430,25 +1455,17 @@ private fun SubtitleSettingsPanel(
                         }
                     }
                 }
-                is SubtitleSliderRow -> SubtitlePercentSlider(
+                is SubtitleSliderRow -> SubtitleSlider(
                     label = panelRow.label,
-                    valuePercent = panelRow.valuePercent,
+                    value = panelRow.value,
                     highlighted = rowIndex == row,
                     onDecrease = if (touch) {
-                        {
-                            panelRow.apply(
-                                (panelRow.valuePercent - panelRow.stepPercent).coerceAtLeast(0),
-                            )
-                        }
+                        { panelRow.apply(panelRow.value.stepped(-1)) }
                     } else {
                         null
                     },
                     onIncrease = if (touch) {
-                        {
-                            panelRow.apply(
-                                (panelRow.valuePercent + panelRow.stepPercent).coerceAtMost(100),
-                            )
-                        }
+                        { panelRow.apply(panelRow.value.stepped(1)) }
                     } else {
                         null
                     },
@@ -1504,14 +1521,14 @@ private fun SubtitlePanelButton(
 }
 
 /**
- * Percent slider row: a track with a filled portion proportional to the
- * value plus a percentage readout. Scrubbed with Left/Right from the
- * panel's key handler.
+ * Slider row: a track with a filled portion proportional to the value plus a
+ * readout (percent, or sp for the text size). Scrubbed with Left/Right from
+ * the panel's key handler; touch builds pass −/+ buttons.
  */
 @Composable
-private fun SubtitlePercentSlider(
+private fun SubtitleSlider(
     label: String,
-    valuePercent: Int,
+    value: SubtitleSliderValue,
     highlighted: Boolean,
     onDecrease: (() -> Unit)? = null,
     onIncrease: (() -> Unit)? = null,
@@ -1540,7 +1557,7 @@ private fun SubtitlePercentSlider(
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(valuePercent / 100f)
+                    .fillMaxWidth(value.fraction)
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(3.dp))
                     .background(
@@ -1550,7 +1567,7 @@ private fun SubtitlePercentSlider(
             )
         }
         Text(
-            text = "$valuePercent%",
+            text = value.label,
             style = MaterialTheme.typography.labelSmall,
             color = Color.White,
             textAlign = TextAlign.End,
@@ -1710,8 +1727,11 @@ private data class SubtitleSettings(
 
 private const val SUBTITLE_PREFS_FILE = "player_subtitle_settings"
 
-/** Subtitle size choices in sp, tuned for 10-foot TV viewing. */
-private val SubtitleSizeOptions = listOf(16f, 20f, 25f, 32f)
+// Subtitle-size slider range in sp, tuned for 10-foot TV viewing, stepping
+// [SubtitleSizeStepSp] per press.
+private const val SubtitleSizeMinSp = 14
+private const val SubtitleSizeMaxSp = 36
+private const val SubtitleSizeStepSp = 2
 
 /** Subtitle font-weight choices (OpenType weights). */
 private val SubtitleWeightOptions = listOf(400, 700)
