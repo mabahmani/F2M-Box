@@ -19,6 +19,15 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+/**
+ * Opt-in cross-target for local packaging: `-Pf2mDesktopTargetOs=windows`
+ * resolves the Windows Skiko runtime and the Windows libVLC archive instead
+ * of the host ones. Compose/jpackage still only package for the host OS; this
+ * flag exists so the images can be assembled by hand on another machine.
+ */
+val f2mDesktopTargetOs: String? =
+    providers.gradleProperty("f2mDesktopTargetOs").orNull?.lowercase()
+
 kotlin {
     jvmToolchain(17)
 }
@@ -30,7 +39,12 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.vlcj)
-    implementation(compose.desktop.currentOs)
+    implementation(
+        when (f2mDesktopTargetOs) {
+            "windows" -> compose.desktop.windows_x64
+            else -> compose.desktop.currentOs
+        },
+    )
     implementation(libs.cmp.foundation)
     implementation(libs.cmp.material3)
     implementation(libs.cmp.material.icons.extended)
@@ -130,7 +144,7 @@ val vlcVersion = "3.0.23"
 class VlcArchive(val fileName: String, val url: String, val sha256: String)
 
 fun hostVlcArchive(): VlcArchive? {
-    val os = System.getProperty("os.name").lowercase()
+    val os = f2mDesktopTargetOs ?: System.getProperty("os.name").lowercase()
     val arch = System.getProperty("os.arch").lowercase()
     val base = "https://download.videolan.org/pub/videolan/vlc/$vlcVersion"
     return when {
@@ -244,8 +258,8 @@ fun deleteVlcPluginsCache(vlcDir: File) {
 
 val vlcStagingDir = layout.buildDirectory.dir(
     "appResources/" + when {
-        System.getProperty("os.name").lowercase().contains("mac") -> "macos"
-        System.getProperty("os.name").lowercase().contains("win") -> "windows"
+        (f2mDesktopTargetOs ?: System.getProperty("os.name").lowercase()).contains("mac") -> "macos"
+        (f2mDesktopTargetOs ?: System.getProperty("os.name").lowercase()).contains("win") -> "windows"
         else -> "linux"
     } + "/vlc",
 )
