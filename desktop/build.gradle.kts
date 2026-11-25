@@ -65,9 +65,12 @@ compose.desktop {
             System.getenv("JAVA_HOME"),
             "/usr/lib/jvm/java-21-openjdk-amd64",
         )
+        fun File.hasJpackage(): Boolean =
+            File(this, "bin/jpackage").isFile || File(this, "bin/jpackage.exe").isFile
+
         packagingJdkCandidates
             .map(::File)
-            .firstOrNull { File(it, "bin/jpackage").isFile && File(it, "jmods").isDirectory }
+            .firstOrNull { it.hasJpackage() && File(it, "jmods").isDirectory }
             ?.let { javaHome = it.absolutePath }
 
         // Self-contained installers per OS. Unsigned: users on macOS must
