@@ -242,58 +242,6 @@ fun deleteVlcPluginsCache(vlcDir: File) {
     }
 }
 
-fun stageFfmpeg(stageDir: File) {
-    val candidates = listOf(
-        File("/opt/homebrew/bin/ffmpeg"),
-        File("/usr/local/bin/ffmpeg"),
-        File("/usr/bin/ffmpeg"),
-    )
-    val sourceFfmpeg = candidates.firstOrNull { it.exists() && it.canExecute() }
-    val ffmpegDir = File(stageDir.parentFile, "ffmpeg").apply { mkdirs() }
-    val targetName = if (System.getProperty("os.name").lowercase().contains("win")) "ffmpeg.exe" else "ffmpeg"
-    val targetFfmpeg = File(ffmpegDir, targetName)
-
-    if (sourceFfmpeg != null) {
-        sourceFfmpeg.copyTo(targetFfmpeg, overwrite = true)
-        targetFfmpeg.setExecutable(true)
-        project.logger.lifecycle("Embedded host ffmpeg from ${sourceFfmpeg.absolutePath} to ${targetFfmpeg.absolutePath}")
-    } else if (!targetFfmpeg.exists()) {
-        try {
-            val os = System.getProperty("os.name").lowercase()
-            val urlStr = when {
-                os.contains("mac") -> "https://evermeet.cx/ffmpeg/getrelease/zip"
-                os.contains("win") -> "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
-                else -> null
-            }
-            if (urlStr != null) {
-                project.logger.lifecycle("Host ffmpeg not found. Downloading static ffmpeg from $urlStr ...")
-                val cacheDir = File(stageDir.parentFile, "ffmpeg-cache").apply { mkdirs() }
-                val zipFile = File(cacheDir, "ffmpeg.zip")
-                URI(urlStr).toURL().openStream().use { input ->
-                    zipFile.outputStream().use { input.copyTo(it) }
-                }
-                ZipFile(zipFile).use { zf ->
-                    val entries = zf.entries()
-                    while (entries.hasMoreElements()) {
-                        val entry = entries.nextElement()
-                        val name = entry.name
-                        if (!entry.isDirectory && (name.endsWith("ffmpeg") || name.endsWith("ffmpeg.exe"))) {
-                            zf.getInputStream(entry).use { input ->
-                                targetFfmpeg.outputStream().use { output -> input.copyTo(output) }
-                            }
-                            targetFfmpeg.setExecutable(true)
-                            project.logger.lifecycle("Downloaded and staged static ffmpeg at ${targetFfmpeg.absolutePath}")
-                            break
-                        }
-                    }
-                }
-            }
-        } catch (e: Throwable) {
-            project.logger.lifecycle("Warning: Failed to download static ffmpeg: ${e.message}")
-        }
-    }
-}
-
 val vlcStagingDir = layout.buildDirectory.dir(
     "appResources/" + when {
         System.getProperty("os.name").lowercase().contains("mac") -> "macos"
@@ -327,7 +275,6 @@ val prepareVlc = tasks.register("prepareVlc") {
         val stage = vlcStagingDir.get().asFile.apply { deleteRecursively(); mkdirs() }
         if (arc.fileName.endsWith(".dmg")) stageFromDmg(downloaded, stage) else stageFromZip(downloaded, stage)
         copyVlcLicenses(stage)
-        stageFfmpeg(stage)
         deleteVlcPluginsCache(stage)
         logger.lifecycle("libVLC staged at ${stage.absolutePath}")
     }
