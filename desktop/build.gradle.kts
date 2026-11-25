@@ -51,17 +51,24 @@ compose.desktop {
             }
         }
 
-        // jpackage (bundled with full JDKs, absent from Android Studio's
-        // JBR) is only needed for packaging, not for run/test. Probe the
-        // usual Homebrew locations and fall back to the Gradle JVM.
-        val packagingJdks = listOf(
+        // jpackage + jlink ship with full JDKs and are absent from Android
+        // Studio's JBR, so packaging must not fall back to the daemon JVM.
+        // Compose otherwise defaults `javaHome` to the Gradle daemon's JVM,
+        // which gradle/gradle-daemon-jvm.properties pins to JDK 25. Adoptium
+        // ships jmods as a separate archive for 25, so `jlink` from that JDK
+        // fails with "This JDK does not contain packaged modules". Prefer a
+        // JDK 21 that has both jpackage and jmods: Homebrew's openjdk@21
+        // locally, setup-java's JDK in CI (exported as JAVA_HOME).
+        val packagingJdkCandidates = listOfNotNull(
             "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home",
-            "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home",
             "/usr/local/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home",
+            System.getenv("JAVA_HOME"),
+            "/usr/lib/jvm/java-21-openjdk-amd64",
         )
-        packagingJdks
-            .firstOrNull { File(it, "bin/jpackage").exists() }
-            ?.let { javaHome = it }
+        packagingJdkCandidates
+            .map(::File)
+            .firstOrNull { File(it, "bin/jpackage").isFile && File(it, "jmods").isDirectory }
+            ?.let { javaHome = it.absolutePath }
 
         // Self-contained installers per OS. Unsigned: users on macOS must
         // clear the quarantine flag once (see README's desktop section).
