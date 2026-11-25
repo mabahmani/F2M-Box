@@ -3,7 +3,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Android%20TV%20%7C%20Tablet%20%7C%20Desktop-green.svg)](https://developer.android.com/tv)
 [![Language](https://img.shields.io/badge/Language-Kotlin-blue.svg)](https://kotlinlang.org/)
 [![UI Toolkit](https://img.shields.io/badge/UI-Jetpack%20Compose%20%2F%20CMP-brightgreen.svg)](https://developer.android.com/jetpack/compose)
-[![Version](https://img.shields.io/badge/Release-v1.4-orange.svg)](https://github.com/mabahmani/F2MBox/releases)
+[![Version](https://img.shields.io/badge/Release-v1.5-orange.svg)](https://github.com/mabahmani/F2M-Box/releases)
 
 **F2M Box** streams movies, series, trailers, and cast information through a **Kotlin Multiplatform** client: one shared scraper and UI core (`:shared`) powers the **Android TV / tablet** app (`:app`) and the **desktop** app (`:desktop`). The interface is **RTL** with **Vazirmatn** typography. **TV** builds use D-pad focus and Leanback-friendly controls; **touchscreen tablets** get tap, scroll, and swipe; **desktop** adds mouse, keyboard, and native scrollbars while keeping the same catalog flows.
 
