@@ -142,14 +142,7 @@ gh release create v1.4 ./app/build/outputs/apk/release/F2MBox-TV-release.apk \
   --title "F2M Box v1.4" --notes "Release notes"
 ```
 
-Attach desktop packages from `desktop/build/compose/binaries/main/` when publishing a desktop build.
-
-### CI desktop installers
-
-The [Desktop Release](.github/workflows/desktop-release.yml) workflow builds **DMG** (arm64 + Intel macOS), **MSI + EXE** (Windows), and **DEB** (Linux), then attaches them to the GitHub Release for the tag.
-
-- **Publish:** push an annotated tag, e.g. `git push origin v1.4` (the workflow runs on `v*` tags).
-- **Smoke-build only:** Actions → **Desktop Release** → **Run workflow** (artifacts only, no Release).
+Attach desktop packages from `desktop/build/compose/binaries/main-release/` when publishing a desktop build.
 
 ---
 
