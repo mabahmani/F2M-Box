@@ -33,7 +33,12 @@ fun ScraperLogFeed(modifier: Modifier = Modifier) {
         }
     }
 
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+    CompositionLocalProvider(
+        LocalLayoutDirection provides LayoutDirection.Ltr,
+        // The feed pins itself to the newest line while loading, so a desktop
+        // scrollbar is only noise here (the full Logs screen still shows one).
+        LocalShowDesktopScrollbars provides false,
+    ) {
         F2mVerticalScroll(
             state = scrollState,
             modifier = modifier
